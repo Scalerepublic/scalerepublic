@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button/index.js";
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+
+	if (browser) goto('/dashboard', { replaceState: true });
 </script>
- 
-<Button>Click me</Button>
