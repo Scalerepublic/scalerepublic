@@ -13,6 +13,7 @@
 				ghost: "hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground",
 				destructive: "bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30",
 				link: "text-primary underline-offset-4 hover:underline",
+				noble: "bg-gradient-to-b from-[oklch(0.76_0.12_80)] to-[oklch(0.62_0.10_80)] text-[oklch(0.14_0.025_250)] border border-[oklch(0.58_0.09_80)] shadow-[0_3px_0_0_oklch(0.48_0.08_80),0_4px_8px_0_oklch(0.48_0.08_80/0.35)] hover:from-[oklch(0.79_0.12_80)] hover:to-[oklch(0.65_0.10_80)] active:shadow-[0_1px_0_0_oklch(0.48_0.08_80)] font-semibold tracking-wide",
 			},
 			size: {
 				default: "h-9 gap-1.5 px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
