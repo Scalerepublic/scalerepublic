@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "shadcn-sveltekit-design": {
+      "source": "Michael-Obele/shadcn-svelte-mcp",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn-sveltekit-design/SKILL.md",
+      "computedHash": "e28ffc64c1d3c93ca59d6c121082ffb47c9714954146cb2ea2bb3aedc4c8645c"
+    }
+  }
+}
