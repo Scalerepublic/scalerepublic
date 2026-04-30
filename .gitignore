@@ -1,0 +1,26 @@
+# dependencies
+node_modules
+
+# build output
+dist
+.build
+.svelte-kit
+coverage
+
+# env files
+.env
+.env.*
+
+# logs
+*.log
+
+# OS
+.DS_Store
+
+# IDE
+.vscode
+.idea
+
+# turborepo / pnpm
+.pnpm-store
+.turbo
