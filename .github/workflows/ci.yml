@@ -10,7 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
+  backend-eslint:
+    name: Run ESLint on Backend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,7 +25,8 @@ jobs:
       - run: bun run build
       - run: bun run lint
 
-  frontend:
+  frontend-eslint:
+    name: Run ESLint on Frontend
     runs-on: ubuntu-latest
     defaults:
       run:
