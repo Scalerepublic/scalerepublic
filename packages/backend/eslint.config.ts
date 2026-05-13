@@ -7,7 +7,7 @@ export default [
     eslint.configs.recommended,
     ...tseslint.configs.recommended,
     {
-        files: ['src/**/*.ts'],
+        files: ['src/**/*.ts', 'tests/**/*.ts'],
         languageOptions: {
             parserOptions: {
                 project: './tsconfig.json',
@@ -73,7 +73,7 @@ export default [
         },
     },
     {
-        files: ['src/**/*.test.ts'],
+        files: ['tests/**/*.ts'],
         rules: {
             'import/no-unresolved': 'off',
         },

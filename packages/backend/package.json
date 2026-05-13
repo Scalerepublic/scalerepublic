@@ -8,7 +8,7 @@
     "start": "bun src/index.ts",
     "start:prod": "bun dist/index.js",
     "build": "bun build src/index.ts --outdir dist --target bun",
-    "lint": "eslint src",
+    "lint": "eslint src tests",
     "test": "bun test",
     "check": "bunx tsc --noEmit",
     "db:generate": "bunx drizzle-kit generate",

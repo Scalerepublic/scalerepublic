@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { getExampleParamsSchema } from './example.schema.ts'
+import { getExampleParamsSchema } from '../src/modules/example/example.schema.ts'
 
 describe('getExampleParamsSchema', () => {
     test('accepts a valid UUID', () => {
