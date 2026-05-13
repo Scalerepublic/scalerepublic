@@ -8,7 +8,7 @@ export const mockUser: UserProfile = {
 	accountStatus: 'active',
 	joinedAt: '2026-04-01T00:00:00Z',
 	avatarUrl: null,
-	rank: 4,
+	rank: 4
 };
 
 export const mockSettings: AppSettings = {
@@ -16,6 +16,6 @@ export const mockSettings: AppSettings = {
 	notifications: {
 		priceAlerts: true,
 		tradeConfirmations: true,
-		weeklyReport: false,
-	},
+		weeklyReport: false
+	}
 };

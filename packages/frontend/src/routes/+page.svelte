@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 
-	if (browser) goto('/dashboard', { replaceState: true });
+	if (browser) goto(resolve('/dashboard'), { replaceState: true });
 </script>

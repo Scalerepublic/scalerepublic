@@ -8,13 +8,13 @@
 	const themes: { value: 'light' | 'dark' | 'system'; label: string; icon: typeof Sun }[] = [
 		{ value: 'light', label: 'Light', icon: Sun },
 		{ value: 'dark', label: 'Dark', icon: Moon },
-		{ value: 'system', label: 'System', icon: Monitor },
+		{ value: 'system', label: 'System', icon: Monitor }
 	];
 
 	const joinDate = new Date(userStore.profile.joinedAt).toLocaleDateString('en-GB', {
 		day: 'numeric',
 		month: 'long',
-		year: 'numeric',
+		year: 'numeric'
 	});
 
 	let activeTab = $state<'profile' | 'account' | 'appearance' | 'notifications'>('profile');
@@ -23,15 +23,17 @@
 		{ id: 'profile' as const, label: 'Profile' },
 		{ id: 'account' as const, label: 'Account' },
 		{ id: 'appearance' as const, label: 'Appearance' },
-		{ id: 'notifications' as const, label: 'Notifications' },
+		{ id: 'notifications' as const, label: 'Notifications' }
 	];
 </script>
 
 <div class="mx-auto max-w-2xl px-4 py-8 md:px-8">
 	<PageHeader title="Settings" />
 
-	<div class="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-border bg-card p-1.5 md:grid-cols-4">
-		{#each tabs as tab}
+	<div
+		class="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-border bg-card p-1.5 md:grid-cols-4"
+	>
+		{#each tabs as tab (tab.id)}
 			<button
 				type="button"
 				onclick={() => (activeTab = tab.id)}
@@ -48,7 +50,9 @@
 		<section class="space-y-0 rounded-xl border border-border bg-card">
 			<div class="p-6">
 				<div class="flex items-center gap-4">
-					<div class="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
+					<div
+						class="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground"
+					>
 						{getInitials(userStore.profile.name)}
 					</div>
 					<div>
@@ -116,7 +120,8 @@
 					</dt>
 					<dd>
 						<span
-							class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold {userStore.profile.accountStatus === 'active'
+							class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold {userStore
+								.profile.accountStatus === 'active'
 								? 'border-positive/25 bg-positive/10 text-positive'
 								: 'border-negative/25 bg-negative/10 text-negative'}"
 						>
@@ -131,14 +136,15 @@
 	{#if activeTab === 'appearance'}
 		<section class="rounded-xl border border-border bg-card p-6">
 			<p class="font-serif text-base font-semibold text-foreground">Colour Scheme</p>
-			<p class="mb-5 mt-1 text-sm text-muted-foreground">Choose your preferred visual theme.</p>
+			<p class="mt-1 mb-5 text-sm text-muted-foreground">Choose your preferred visual theme.</p>
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-				{#each themes as theme}
+				{#each themes as theme (theme.value)}
 					{@const Icon = theme.icon}
 					<button
 						type="button"
 						onclick={() => userStore.updateSettings({ theme: theme.value })}
-						class="flex flex-col items-center gap-2.5 rounded-xl border-2 p-5 text-sm font-semibold transition-all {userStore.settings.theme === theme.value
+						class="flex flex-col items-center gap-2.5 rounded-xl border-2 p-5 text-sm font-semibold transition-all {userStore
+							.settings.theme === theme.value
 							? 'border-accent bg-accent/10 text-primary'
 							: 'border-border text-muted-foreground hover:border-accent/40 hover:bg-muted'}"
 					>
@@ -153,11 +159,7 @@
 	{#if activeTab === 'notifications'}
 		<section class="rounded-xl border border-border bg-card">
 			<div class="divide-y divide-border/60">
-				{#each [
-					{ key: 'priceAlerts' as const, label: 'Price Alerts', description: 'Notify when a stock hits your threshold' },
-					{ key: 'tradeConfirmations' as const, label: 'Trade Confirmations', description: 'Confirm every buy and sell order' },
-					{ key: 'weeklyReport' as const, label: 'Weekly Report', description: 'Portfolio summary every Monday' },
-				] as item}
+				{#each [{ key: 'priceAlerts' as const, label: 'Price Alerts', description: 'Notify when a stock hits your threshold' }, { key: 'tradeConfirmations' as const, label: 'Trade Confirmations', description: 'Confirm every buy and sell order' }, { key: 'weeklyReport' as const, label: 'Weekly Report', description: 'Portfolio summary every Monday' }] as item (item.key)}
 					<div class="flex items-center justify-between gap-4 px-6 py-4">
 						<div>
 							<p class="text-sm font-semibold text-foreground">{item.label}</p>
@@ -170,14 +172,16 @@
 							aria-checked={userStore.settings.notifications[item.key]}
 							onclick={() =>
 								userStore.updateNotifications({
-									[item.key]: !userStore.settings.notifications[item.key],
+									[item.key]: !userStore.settings.notifications[item.key]
 								})}
-							class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {userStore.settings.notifications[item.key]
+							class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {userStore
+								.settings.notifications[item.key]
 								? 'bg-primary'
 								: 'bg-muted'}"
 						>
 							<span
-								class="pointer-events-none inline-block size-5 rounded-full bg-white ring-0 transition-transform {userStore.settings.notifications[item.key]
+								class="pointer-events-none inline-block size-5 rounded-full bg-white ring-0 transition-transform {userStore
+									.settings.notifications[item.key]
 									? 'translate-x-5'
 									: 'translate-x-0'}"
 							></span>
