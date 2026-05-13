@@ -20,7 +20,7 @@ db-migrate-all:
     just db-migrate-test
 
 test:
-    DATABASE_URL={{test_db_url}} bun test
+    bun run test
 
 logs:
     docker compose -f {{compose_file}} logs -f {{service}}
