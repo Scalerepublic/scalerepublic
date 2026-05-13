@@ -73,6 +73,12 @@ export default [
         },
     },
     {
+        files: ['src/**/*.test.ts'],
+        rules: {
+            'import/no-unresolved': 'off',
+        },
+    },
+    {
         ignores: ['node_modules/**', 'dist/**', 'build/**'],
     },
 ]
