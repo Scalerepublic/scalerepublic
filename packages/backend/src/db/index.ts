@@ -1,16 +1,39 @@
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 
-import { exampleItems } from './schema/example-items.ts'
+import * as schema from "./schema";
 
-const connectionString = process.env.DATABASE_URL!
+/**
+ * DATABASE CONNECTION LAYER
+ *
+ * This module is responsible for:
+ * - Creating PostgreSQL connection
+ * - Initializing Drizzle ORM
+ * - Exposing typed database client
+ */
 
-export const client = postgres(connectionString, { prepare: false })
+const connectionString = process.env.DATABASE_URL;
+
+// avoid silent crash
+if (!connectionString) {
+  throw new Error(
+    "❌ DATABASE_URL is not defined in environment variables"
+  );
+}
+
+export const client = postgres(connectionString, {
+  prepare: false,  // improves compatibility with Drizzle
+});
+
 export const db = drizzle(client, {
-    schema: { exampleItems },
-    casing: 'snake_case',
-})
+  schema,
+  casing: "snake_case",
+});
 
-export type DbConnection = typeof db
+// a type helper for services layer
+export type DbConnection = typeof db;
 
-export * from './schema/example-items.ts'
+// optional, a shutdown helper for deployment
+export const closeDb = async () => {
+  await client.end();
+};
