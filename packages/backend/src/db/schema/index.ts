@@ -1,9 +1,11 @@
 /**
- * Central schema registry for Drizzle ORM.
- * All database tables are exported here for type-safe usage.
+ * Central database schema exports.
+ *
+ * This file defines the public schema surface
+ * for the entire application.
  */
-export * from './user'
+
+export * from './auth'
 export * from './portfolio'
 export * from './stock'
-export * from './market'
 export * from './trade'
