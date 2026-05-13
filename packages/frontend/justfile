@@ -1,0 +1,11 @@
+default:
+    @just --list
+
+lint:
+    bun run lint
+
+dev:
+    bun run dev
+
+build:
+    bun run build

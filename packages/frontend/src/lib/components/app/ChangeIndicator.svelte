@@ -6,7 +6,7 @@
 		amount,
 		percent,
 		showAmount = true,
-		size = 'md',
+		size = 'md'
 	}: {
 		amount: number;
 		percent: number;

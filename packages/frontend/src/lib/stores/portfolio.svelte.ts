@@ -15,7 +15,7 @@ class PortfolioStore {
 				currentValue,
 				totalCost,
 				pnl,
-				pnlPercent: (pnl / totalCost) * 100,
+				pnlPercent: (pnl / totalCost) * 100
 			};
 		})
 	);
@@ -25,10 +25,7 @@ class PortfolioStore {
 			const holdingsValue = this.holdings.reduce((sum, h) => sum + h.currentValue, 0);
 			const totalValue = holdingsValue + mockCashBalance;
 			const totalPnl = totalValue - STARTING_CAPITAL;
-			const dayChange = this.holdings.reduce(
-				(sum, h) => sum + h.stock.dayChange * h.shares,
-				0
-			);
+			const dayChange = this.holdings.reduce((sum, h) => sum + h.stock.dayChange * h.shares, 0);
 			const prevHoldingsValue = this.holdings.reduce(
 				(sum, h) => sum + h.stock.previousClose * h.shares,
 				0
@@ -41,7 +38,7 @@ class PortfolioStore {
 				totalPnl,
 				totalPnlPercent: (totalPnl / STARTING_CAPITAL) * 100,
 				dayChange,
-				dayChangePercent: prevTotal > 0 ? (dayChange / prevTotal) * 100 : 0,
+				dayChangePercent: prevTotal > 0 ? (dayChange / prevTotal) * 100 : 0
 			};
 		})()
 	);
