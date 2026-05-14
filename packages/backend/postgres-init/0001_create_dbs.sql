@@ -1,1 +1,1 @@
-CREATE DATABASE freifahren_test;
+CREATE DATABASE scalerepublic_test;

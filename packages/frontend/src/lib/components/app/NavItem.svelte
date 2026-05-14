@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import { cn } from '$lib/utils';
 	import type { Component } from 'svelte';
 
@@ -7,7 +8,7 @@
 		href,
 		label,
 		icon: Icon,
-		mobile = false,
+		mobile = false
 	}: {
 		href: string;
 		label: string;
@@ -20,23 +21,20 @@
 
 {#if mobile}
 	<a
-		{href}
+		href={resolve(href)}
 		class={cn(
-			'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors',
+			'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-semibold tracking-widest uppercase transition-colors',
 			isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
 		)}
 	>
 		<Icon
-			class={cn(
-				'size-5 transition-colors',
-				isActive ? 'text-accent' : 'text-muted-foreground'
-			)}
+			class={cn('size-5 transition-colors', isActive ? 'text-accent' : 'text-muted-foreground')}
 		/>
 		{label}
 	</a>
 {:else}
 	<a
-		{href}
+		href={resolve(href)}
 		class={cn(
 			'group flex items-center gap-3 rounded-[10px] border px-3 py-2.5 text-sm font-medium transition-all duration-150',
 			isActive

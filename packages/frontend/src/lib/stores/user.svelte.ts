@@ -12,7 +12,7 @@ class UserStore {
 	updateNotifications(partial: Partial<AppSettings['notifications']>) {
 		this.settings = {
 			...this.settings,
-			notifications: { ...this.settings.notifications, ...partial },
+			notifications: { ...this.settings.notifications, ...partial }
 		};
 	}
 }

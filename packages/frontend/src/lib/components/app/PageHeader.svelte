@@ -1,7 +1,7 @@
 <script lang="ts">
 	let {
 		title,
-		subtitle,
+		subtitle
 	}: {
 		title: string;
 		subtitle?: string;
