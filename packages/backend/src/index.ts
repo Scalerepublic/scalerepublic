@@ -2,6 +2,7 @@ import { Hono } from "hono";
 
 import { auth } from "./lib/auth.ts";
 import { registerExampleRoutes } from "./modules/example/example.routes.ts";
+import { registerStocksRoutes } from "./modules/stocks/stocks.routes.ts";
 
 export const createApp = () => {
   const app = new Hono();
@@ -11,6 +12,7 @@ export const createApp = () => {
   app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
   registerExampleRoutes(app);
+  registerStocksRoutes(app);
 
   return app;
 };
