@@ -1,3 +1,4 @@
+import { relations } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -8,10 +9,9 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { relations } from "drizzle-orm";
-
-import { portfolio } from "./portfolio-schema";
 import { stock } from "../stock/stock";
+
+import { portfolio } from "./portfolio";
 
 /**
  * HOLDING MODULE

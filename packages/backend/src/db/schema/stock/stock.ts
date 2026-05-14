@@ -6,8 +6,6 @@ import {
     index,
 } from "drizzle-orm/pg-core";
 
-import { relations } from "drizzle-orm";
-
 /**
  * STOCK MODULE
  * Static metadata for tradable stocks.
@@ -19,12 +17,12 @@ export const stock = pgTable(
         // FK -> stock.id
         id: text("id").primaryKey(),
 
-        // public ticker symbol, e.g. AAPL, TSLA
+        // Public ticker symbol, e.g. AAPL, TSLA
         ticker: text("ticker")
             .notNull()
             .unique(),
 
-        // full company name 
+        // Full company name 
         companyName: text("company_name")
             .notNull(),
 

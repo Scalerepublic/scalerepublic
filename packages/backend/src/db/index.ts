@@ -14,15 +14,15 @@ import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL;
 
-// avoid silent crash
-if (!connectionString) {
+// Avoid silent crash
+if (connectionString === null || connectionString === undefined || connectionString === "") {
   throw new Error(
     "❌ DATABASE_URL is not defined in environment variables"
   );
 }
 
 export const client = postgres(connectionString, {
-  prepare: false,  // improves compatibility with Drizzle
+  prepare: false,  // Improves compatibility with Drizzle
 });
 
 export const db = drizzle(client, {
@@ -30,10 +30,10 @@ export const db = drizzle(client, {
   casing: "snake_case",
 });
 
-// a type helper for services layer
+// A type helper for services layer
 export type DbConnection = typeof db;
 
-// optional, a shutdown helper for deployment
+// Optional, a shutdown helper for deployment
 export const closeDb = async () => {
   await client.end();
 };

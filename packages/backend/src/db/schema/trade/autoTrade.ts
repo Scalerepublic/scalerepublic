@@ -1,3 +1,4 @@
+import { relations } from "drizzle-orm";
 import {
     pgTable,
     text,
@@ -7,8 +8,6 @@ import {
     index,
     pgEnum,
 } from "drizzle-orm/pg-core";
-
-import { relations } from "drizzle-orm";
 
 import { portfolio } from "../portfolio/portfolio";
 import { stock } from "../stock/stock";
