@@ -1,13 +1,11 @@
-import type { UserProfile, AppSettings } from '$lib/types';
+import type { AppSettings } from '$lib/types';
 
-export const mockUser: UserProfile = {
-	id: 'usr_001',
-	name: 'David Brandes',
-	email: 'dbrandesx@gmail.com',
+// Trading-app defaults every authenticated user until the
+// backend exposes per-user account data.
+// Identity fields come from BetterAuth via $lib/stores/auth.svelte.
+export const mockTradingProfile = {
 	startingCapital: 10_000,
-	accountStatus: 'active',
-	joinedAt: '2026-04-01T00:00:00Z',
-	avatarUrl: null,
+	accountStatus: 'active' as const,
 	rank: 4
 };
 
