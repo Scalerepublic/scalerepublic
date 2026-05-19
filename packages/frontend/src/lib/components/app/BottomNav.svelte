@@ -6,7 +6,7 @@
 		{ href: '/dashboard', label: 'Portfolio', icon: LayoutDashboard },
 		{ href: '/search', label: 'Market', icon: Search },
 		{ href: '/settings', label: 'Settings', icon: Settings }
-	];
+	] as const;
 </script>
 
 <nav
