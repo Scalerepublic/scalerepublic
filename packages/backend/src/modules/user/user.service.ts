@@ -1,20 +1,20 @@
-import { eq } from 'drizzle-orm' //importert equals, für die spätere DB ABfrage (Quasi Where ... = ...)
+//Import { eq } from 'drizzle-orm' //importert equals, für die spätere DB ABfrage (Quasi Where ... = ...)
 
-import { db, userProfile } from '../../db/index.ts' //db ist die DB Verbindung //danach kommt die gewünschte Tabelle
-//imports werden erst dann gebraucht, wenn wir keine Mock-Daten mehr verwenden
+//Import { db, userProfile } from '../../db/index.ts' //db ist die DB Verbindung //danach kommt die gewünschte Tabelle
+//Imports werden erst dann gebraucht, wenn wir keine Mock-Daten mehr verwenden
 
-export type UserProfile = { //so muss ein UserProfile aussehen
+export type UserProfile = { //So muss ein UserProfile aussehen
   userId: string;
-  name: string; //eigentlich ein Joint von user-profile und better-auth, UserProfile besteht also aus beiden Tabellen zusammen
+  name: string; //Eigentlich ein Joint von user-profile und better-auth, UserProfile besteht also aus beiden Tabellen zusammen
   cashBalance: number;
   isDefaulted: boolean;
   penaltyCounter: number;
 };
 
 export class UserService {
-  //folgende Methode bekommt einen Parameter (ID als String) und gibt das zugehörige Profil zurück
-  async getUserProfile(userId: string): Promise<UserProfile> {
-    return {  //erstmal noch Mock-DAten
+  //Folgende Methode bekommt einen Parameter (ID als String) und gibt das zugehörige Profil zurück
+  async getUserProfile(userId: string): Promise<UserProfile | null> {
+    return {  //Erstmal noch Mock-DAten
       userId,
       name: "Test User",
       cashBalance: 100_000,
@@ -25,6 +25,7 @@ export class UserService {
 
   //Networth muss bestimmt werden:
   async getUserNetworth(userId: string): Promise<number> {
+    userId = "100";
     return 100; //Mock
   }
 }
