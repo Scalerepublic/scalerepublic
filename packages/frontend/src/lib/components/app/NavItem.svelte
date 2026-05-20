@@ -10,7 +10,7 @@
 		icon: Icon,
 		mobile = false
 	}: {
-		href: string;
+		href: Parameters<typeof resolve>[0];
 		label: string;
 		icon: Component<{ class?: string; style?: string }>;
 		mobile?: boolean;

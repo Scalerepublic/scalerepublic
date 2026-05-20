@@ -8,7 +8,7 @@
 		children,
 		...rest
 	}: {
-		href?: string;
+		href?: Parameters<typeof resolve>[0];
 		type?: 'button' | 'submit' | 'reset';
 		class?: string;
 		children?: import('svelte').Snippet;

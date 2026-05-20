@@ -1,14 +1,26 @@
 <script lang="ts">
-	import { LayoutDashboard, Search, Settings, Landmark } from '@lucide/svelte';
+	import { LayoutDashboard, Search, Settings, Landmark, LogOut } from '@lucide/svelte';
 	import NavItem from './NavItem.svelte';
 	import { userStore } from '$lib/stores/user.svelte';
+	import { signOut } from '$lib/auth-client';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { getInitials } from '$lib/utils';
 
 	const navItems = [
 		{ href: '/dashboard', label: 'Portfolio', icon: LayoutDashboard },
 		{ href: '/search', label: 'Market', icon: Search },
 		{ href: '/settings', label: 'Settings', icon: Settings }
-	];
+	] as const;
+
+	let isSigningOut = $state(false);
+
+	async function handleSignOut() {
+		if (isSigningOut) return;
+		isSigningOut = true;
+		await signOut();
+		await goto(resolve('/login'), { replaceState: true, invalidateAll: true });
+	}
 </script>
 
 <aside
@@ -52,7 +64,7 @@
 				>
 					{getInitials(userStore.profile.name)}
 				</div>
-				<div class="min-w-0">
+				<div class="min-w-0 flex-1">
 					<p class="truncate text-xs font-semibold text-sidebar-foreground">
 						{userStore.profile.name}
 					</p>
@@ -60,6 +72,16 @@
 						{userStore.profile.email}
 					</p>
 				</div>
+				<button
+					type="button"
+					onclick={handleSignOut}
+					disabled={isSigningOut}
+					aria-label="Sign out"
+					title="Sign out"
+					class="flex size-7 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground disabled:pointer-events-none disabled:opacity-50"
+				>
+					<LogOut class="size-3.5" />
+				</button>
 			</div>
 		</div>
 	</div>
