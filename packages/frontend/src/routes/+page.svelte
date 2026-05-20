@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { browser } from '$app/environment';
+	import { authStore } from '$lib/stores/auth.svelte';
 
-	if (browser) goto(resolve('/dashboard'), { replaceState: true });
+	$effect(() => {
+		if (authStore.isPending) return;
+		if (authStore.isAuthenticated) {
+			goto(resolve('/dashboard'), { replaceState: true });
+		}
+	});
 </script>

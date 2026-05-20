@@ -22,6 +22,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: scalerepublic-backend
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/scalerepublic
       PORT: "3000"
