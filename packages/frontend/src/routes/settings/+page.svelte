@@ -1,9 +1,31 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { userStore } from '$lib/stores/user.svelte';
 	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
+	import { signOut } from '$lib/auth-client';
 	import { formatCurrency, getInitials } from '$lib/utils';
-	import { Bell, Sun, Moon, Monitor, User, Wallet, Shield, TrendingUp } from '@lucide/svelte';
+	import {
+		Bell,
+		Sun,
+		Moon,
+		Monitor,
+		User,
+		Wallet,
+		Shield,
+		TrendingUp,
+		LogOut
+	} from '@lucide/svelte';
+
+	let isSigningOut = $state(false);
+
+	async function handleSignOut() {
+		if (isSigningOut) return;
+		isSigningOut = true;
+		await signOut();
+		await goto(resolve('/login'), { replaceState: true, invalidateAll: true });
+	}
 
 	const themes: { value: 'light' | 'dark' | 'system'; label: string; icon: typeof Sun }[] = [
 		{ value: 'light', label: 'Light', icon: Sun },
@@ -84,6 +106,18 @@
 					<dd class="text-sm font-medium text-foreground">{joinDate}</dd>
 				</div>
 			</dl>
+		</section>
+
+		<section class="mt-6 md:hidden">
+			<button
+				type="button"
+				onclick={handleSignOut}
+				disabled={isSigningOut}
+				class="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/25 bg-card px-4 py-3.5 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/5 disabled:pointer-events-none disabled:opacity-50"
+			>
+				<LogOut class="size-4" />
+				{isSigningOut ? 'Signing out…' : 'Sign out'}
+			</button>
 		</section>
 	{/if}
 
