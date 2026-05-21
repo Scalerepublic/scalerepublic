@@ -72,7 +72,7 @@ export class AlphaVantageClient {
             interval,
             ...(options?.adjusted !== undefined && { adjusted: String(options.adjusted) }),
             ...(options?.extendedHours !== undefined && { extended_hours: String(options.extendedHours) }),
-            ...(options?.month && { month: options.month }),
+            ...(options?.month !== undefined && options.month !== '' && { month: options.month }),
             ...(options?.outputSize && { outputsize: options.outputSize }),
         })
         return IntradaySchema.parse(raw)
@@ -135,9 +135,9 @@ export class AlphaVantageClient {
     }
 }
 
-export function createAlphaVantageClient(apiKey?: string): AlphaVantageClient {
+export const createAlphaVantageClient = (apiKey?: string): AlphaVantageClient => {
     const key = apiKey ?? process.env['ALPHAVANTAGE_API_KEY']
-    if (!key) {
+    if (key === undefined || key === '') {
         throw new Error('Alpha Vantage API key is required. Set ALPHAVANTAGE_API_KEY env var or pass it explicitly.')
     }
     return new AlphaVantageClient(key)

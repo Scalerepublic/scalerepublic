@@ -97,7 +97,7 @@ type RawOhlcvAdjusted = z.infer<typeof RawOhlcvAdjustedSchema>
 type RawOhlcvWeeklyAdjusted = z.infer<typeof RawOhlcvWeeklyAdjustedSchema>
 type RawOhlcIndex = z.infer<typeof RawOhlcIndexSchema>
 
-function toOhlcvArray(record: Record<string, RawOhlcv>, parseDt = false): OhlcvBar[] {
+const toOhlcvArray = (record: Record<string, RawOhlcv>, parseDt = false): OhlcvBar[] => {
     return Object.entries(record)
         .map(([d, bar]) => ({
             date: parseDt ? new Date(d.replace(' ', 'T')) : new Date(`${d}T00:00:00`),
@@ -110,7 +110,7 @@ function toOhlcvArray(record: Record<string, RawOhlcv>, parseDt = false): OhlcvB
         .sort((a, b) => b.date.getTime() - a.date.getTime())
 }
 
-function toOhlcvAdjustedArray(record: Record<string, RawOhlcvAdjusted>): OhlcvAdjustedBar[] {
+const toOhlcvAdjustedArray = (record: Record<string, RawOhlcvAdjusted>): OhlcvAdjustedBar[] => {
     return Object.entries(record)
         .map(([d, bar]) => ({
             date: new Date(`${d}T00:00:00`),
@@ -126,7 +126,7 @@ function toOhlcvAdjustedArray(record: Record<string, RawOhlcvAdjusted>): OhlcvAd
         .sort((a, b) => b.date.getTime() - a.date.getTime())
 }
 
-function toOhlcvWeeklyAdjustedArray(record: Record<string, RawOhlcvWeeklyAdjusted>): OhlcvWeeklyAdjustedBar[] {
+const toOhlcvWeeklyAdjustedArray = (record: Record<string, RawOhlcvWeeklyAdjusted>): OhlcvWeeklyAdjustedBar[] => {
     return Object.entries(record)
         .map(([d, bar]) => ({
             date: new Date(`${d}T00:00:00`),
@@ -141,7 +141,7 @@ function toOhlcvWeeklyAdjustedArray(record: Record<string, RawOhlcvWeeklyAdjuste
         .sort((a, b) => b.date.getTime() - a.date.getTime())
 }
 
-function toOhlcIndexArray(record: Record<string, RawOhlcIndex>): OhlcIndexBar[] {
+const toOhlcIndexArray = (record: Record<string, RawOhlcIndex>): OhlcIndexBar[] => {
     return Object.entries(record)
         .map(([d, bar]) => ({
             date: new Date(`${d}T00:00:00`),

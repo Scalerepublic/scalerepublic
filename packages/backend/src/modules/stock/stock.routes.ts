@@ -1,8 +1,7 @@
 import { zValidator } from '@hono/zod-validator'
-import { calculateStockBodySchema } from './stock.schema.ts'
-
 import { Hono } from 'hono'
 
+import { calculateStockBodySchema } from './stock.schema.ts'
 import { StockService } from './stock.service.ts'
 
 
