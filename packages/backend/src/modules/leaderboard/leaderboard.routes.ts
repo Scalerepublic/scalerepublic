@@ -1,13 +1,12 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 
-import { LeaderboardService } from "./leaderboard.service.ts";
 import { leaderboardQuerySchema } from "./leaderboard.schema.ts";
+import { LeaderboardService } from "./leaderboard.service.ts";
 
 const leaderboardService = new LeaderboardService();
 
 export const registerLeaderboardRoutes = (app: Hono) => {
-    //gibt das Leaderboard aus
   app.get(
     "/api/v1/leaderboard",
     zValidator("query", leaderboardQuerySchema),

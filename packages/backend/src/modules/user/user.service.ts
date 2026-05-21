@@ -25,7 +25,9 @@ export class UserService {
 
   //Networth muss bestimmt werden:
   async getUserNetworth(userId: string): Promise<number> {
-    userId = "100";
-    return 100; //Mock
+    if (!userId) {
+      return 0;
+    }
+    return 100;
   }
 }

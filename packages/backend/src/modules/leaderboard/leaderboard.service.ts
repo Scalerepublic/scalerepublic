@@ -10,7 +10,6 @@ export type LeaderboardEntry = {
 
 export class LeaderboardService {
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
-    //fake-User
     const users = [
       {
         userId: "user-1",

@@ -1,9 +1,8 @@
+import { zValidator } from "@hono/zod-validator";
 import type { Hono } from "hono";
-//Der folgende Import verbindet Hono und Zod, also es wird über Zod validiert
-import { zValidator } from '@hono/zod-validator'
 
-import { UserService } from "./user.service.ts";
 import { userIdParamSchema } from "./user.schema.ts";
+import { UserService } from "./user.service.ts";
 
 const userService = new UserService()
 
