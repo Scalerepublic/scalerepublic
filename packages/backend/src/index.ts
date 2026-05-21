@@ -2,7 +2,9 @@ import { Hono } from "hono";
 
 import { auth } from "./lib/auth.ts";
 import { registerExampleRoutes } from "./modules/example/example.routes.ts";
+import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.routes.ts";
 import { registerStockRoutes } from "./modules/stock/stock.routes.ts";
+import { registerUserRoutes } from "./modules/user/user.routes.ts";
 
 export const createApp = () => {
   const app = new Hono();
@@ -13,6 +15,8 @@ export const createApp = () => {
 
   registerExampleRoutes(app);
   registerStockRoutes(app);
+  registerUserRoutes(app);
+  registerLeaderboardRoutes(app);
 
   return app;
 };
