@@ -25,9 +25,9 @@ import {
     type SymbolSearch,
     type WeeklyAdjusted,
     type Weekly,
-} from './stockapi.schema.ts'
+} from './vantage.schema.ts'
 
-const BASE_URL = 'https://www.alphavantage.co/query'
+const BASE_URL = process.env['ALPHAVANTAGE_BASE_URL'] ?? 'https://www.alphavantage.co/query'
 
 export class AlphaVantageClient {
     private readonly apiKey: string
@@ -48,7 +48,13 @@ export class AlphaVantageClient {
             throw new Error(`Alpha Vantage request failed: ${res.status} ${res.statusText}`)
         }
 
-        return res.json() as Promise<T>
+        // AlphaVantage returns HTTP 200 for all error/rate-limit responses
+        const json = await res.json() as Record<string, unknown>
+        if (typeof json['Error Message'] === 'string') throw new Error(`Alpha Vantage error: ${json['Error Message']}`)
+        if (typeof json['Note'] === 'string') throw new Error(`Alpha Vantage rate limit: ${json['Note']}`)
+        if (typeof json['Information'] === 'string') throw new Error(`Alpha Vantage API limit: ${json['Information']}`)
+
+        return json as T
     }
 
     async getGlobalQuote(symbol: string): Promise<GlobalQuote> {

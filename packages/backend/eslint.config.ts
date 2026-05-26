@@ -42,7 +42,7 @@ export default [
             'no-duplicate-imports': 'warn',
             'no-use-before-define': 'warn',
             'no-useless-assignment': 'warn',
-            'capitalized-comments': 'warn',
+            'capitalized-comments': ['warn', 'always', { ignoreConsecutiveComments: true }],
             'no-bitwise': 'warn',
             eqeqeq: 'error',
             'no-empty-function': 'error',

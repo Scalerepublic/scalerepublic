@@ -1,3 +1,5 @@
+import type { AppVars } from "../../context.ts";
+
 //Import { eq } from 'drizzle-orm' //importert equals, für die spätere DB ABfrage (Quasi Where ... = ...)
 
 //Import { db, userProfile } from '../../db/index.ts' //db ist die DB Verbindung //danach kommt die gewünschte Tabelle
@@ -12,6 +14,8 @@ export type UserProfile = { //So muss ein UserProfile aussehen
 };
 
 export class UserService {
+  constructor(private readonly ctx: AppVars) {}
+
   //Folgende Methode bekommt einen Parameter (ID als String) und gibt das zugehörige Profil zurück
   async getUserProfile(userId: string): Promise<UserProfile | null> {
     return {  //Erstmal noch Mock-DAten
