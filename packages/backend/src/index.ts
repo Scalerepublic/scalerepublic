@@ -4,6 +4,7 @@ import { auth } from "./lib/auth.ts";
 import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.routes.ts";
 import { registerStockRoutes } from "./modules/stock/stock.routes.ts";
 import { registerUserRoutes } from "./modules/user/user.routes.ts";
+import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
 
 export const createApp = () => {
   const app = new Hono();
@@ -15,6 +16,7 @@ export const createApp = () => {
   registerStockRoutes(app);
   registerUserRoutes(app);
   registerLeaderboardRoutes(app);
+  registerPortfolioRoutes(app);
 
   return app;
 };
