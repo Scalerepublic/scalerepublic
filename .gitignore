@@ -24,3 +24,4 @@ coverage
 # turborepo / pnpm
 .pnpm-store
 .turbo
+*.zip
