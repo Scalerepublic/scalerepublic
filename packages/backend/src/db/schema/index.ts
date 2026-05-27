@@ -11,4 +11,5 @@
 export * from './auth-schema'
 export * from './portfolio'
 export * from './stock'
+export * from './sync'
 export * from './trade'
