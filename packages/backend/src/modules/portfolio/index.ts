@@ -1,0 +1,1 @@
+export { registerPortfolioRoutes } from "./portfolio.routes.ts";
