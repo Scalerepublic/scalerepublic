@@ -1,8 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 
-import { PortfolioService } from "./portfolio.services.ts";
 import { tradeBodySchema, userIdParamSchema } from "./portfolio.schema.ts";
+import { PortfolioService } from "./portfolio.services.ts";
 
 const portfolioService = new PortfolioService();
 export const registerPortfolioRoutes = (app: Hono) => {
