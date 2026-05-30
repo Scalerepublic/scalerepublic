@@ -1,4 +1,3 @@
-import { useId } from "hono/jsx";
 import { z } from "zod";
 
 export const userIdParamSchema = z.object({

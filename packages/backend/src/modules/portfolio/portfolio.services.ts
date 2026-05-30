@@ -40,6 +40,7 @@ export class PortfolioService {
     }
 
     //Die Aktienpositionen eines Users
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async getHoldingsByUserId(userId: string): Promise<PortfolioPosition[]> {
         return[
             {
