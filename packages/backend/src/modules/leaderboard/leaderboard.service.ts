@@ -1,3 +1,5 @@
+import type { AppVars } from "../../context.ts";
+
 export type LeaderboardEntry = {
   rank: number;
   userId: string;
@@ -9,6 +11,8 @@ export type LeaderboardEntry = {
 };
 
 export class LeaderboardService {
+  constructor(private readonly ctx: AppVars) {}
+
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
     const users = [
       {

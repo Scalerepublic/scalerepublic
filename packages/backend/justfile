@@ -12,6 +12,15 @@ db-generate:
 db-migrate:
     docker compose -f {{compose_file}} exec {{service}} bun run db:migrate
 
+db-clear:
+    printf "SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' RESTART IDENTITY CASCADE' FROM pg_tables WHERE schemaname = 'public'\n\\gexec\n" | docker compose -f {{compose_file}} exec -T postgres psql -U postgres -d scalerepublic
+
+db-push:
+    docker compose -f {{compose_file}} exec {{service}} bun run db:push
+
+db-studio:
+    docker compose -f {{compose_file}} exec {{service}} bun run db:studio
+
 db-migrate-test:
     docker compose -f {{compose_file}} exec -e DATABASE_URL=postgres://postgres:postgres@postgres:5432/scalerepublic_test {{service}} bun run db:migrate
 

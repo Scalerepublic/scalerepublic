@@ -29,6 +29,7 @@ services:
       PORT: "3000"
     ports:
       - "3000:3000"
+      - "4983:4983" # for Drizzle Studio
     depends_on:
       postgres:
         condition: service_healthy

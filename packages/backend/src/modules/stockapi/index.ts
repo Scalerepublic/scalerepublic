@@ -1,4 +1,8 @@
-export { AlphaVantageClient, createAlphaVantageClient } from './stockapi.client.ts'
+export { AlphaVantageClient, createAlphaVantageClient } from './vantage.client.ts'
+export { AlphaVantageStockClient } from './vantage-stock-client.ts'
+export { UniStockClient } from './uni-stock-client.ts'
+export { createStockDataClient } from './stock-data-client.ts'
+export type { StockDataClient, StockMeta, StockQuote } from './stock-data-client.ts'
 export type {
     Daily,
     DailyAdjusted,
@@ -12,12 +16,12 @@ export type {
     MarketStatusEntry,
     Monthly,
     MonthlyAdjusted,
-    Ohlcv,
-    OhlcvAdjusted,
-    OhlcIndex,
+    OhlcvBar,
+    OhlcvAdjustedBar,
+    OhlcIndexBar,
     OutputSize,
     SymbolMatch,
     SymbolSearch,
     Weekly,
     WeeklyAdjusted,
-} from './stockapi.schema.ts'
+} from './vantage.schema.ts'

@@ -1,23 +1,18 @@
 import { zValidator } from '@hono/zod-validator'
-import { Hono } from 'hono'
+
+import { useCtx, type App } from '../../context.ts'
 
 import { calculateStockBodySchema } from './stock.schema.ts'
-import { StockService } from './stock.service.ts'
 
-
-const stockService = new StockService()
-
-export const registerStockRoutes = (app: Hono) => {
+export const registerStockRoutes = (app: App) => {
     app.get('/api/v1/stocks', (c) => {
-        const stocks = stockService.getAll()
-
-        return c.json({ data: stocks })
+        const { stockService } = useCtx(c)
+        return c.json({ data: stockService.getAll() })
     })
-    app.post('/api/v1/stocks/calculate', zValidator('json', calculateStockBodySchema), async (c) => {
-    const { symbol, quantity, price } = c.req.valid('json')
 
-    const result = stockService.calculateTotal(symbol, quantity, price)
-
-    return c.json({ data: result })
-})
+    app.post('/api/v1/stocks/calculate', zValidator('json', calculateStockBodySchema), (c) => {
+        const { symbol, quantity, price } = c.req.valid('json')
+        const { stockService } = useCtx(c)
+        return c.json({ data: stockService.calculateTotal(symbol, quantity, price) })
+    })
 }
