@@ -1,7 +1,6 @@
-export { AlphaVantageClient, createAlphaVantageClient } from './vantage.client.ts'
-export { AlphaVantageStockClient } from './vantage-stock-client.ts'
+export { AlphaVantageClient, createAlphaVantageClient } from './vantage/vantage.client.ts'
+export { AlphaVantageStockClient } from './vantage/vantage-stock-client.ts'
 export { UniStockClient } from './uni-stock-client.ts'
-export { createStockDataClient } from './stock-data-client.ts'
 export type { StockDataClient, StockMeta, StockQuote } from './stock-data-client.ts'
 export type {
     Daily,
@@ -24,4 +23,4 @@ export type {
     SymbolSearch,
     Weekly,
     WeeklyAdjusted,
-} from './vantage.schema.ts'
+} from './vantage/vantage.schema.ts'
