@@ -1,13 +1,12 @@
 compose_file := "./compose.yaml"
 service := "backend"
 db_url := "postgres://postgres:postgres@localhost:5432/scalerepublic"
-test_db_url := "postgres://postgres:postgres@localhost:5432/scalerepublic_test"
 
 default:
     @just --list
 
 db-generate:
-    docker compose -f {{compose_file}} exec {{service}} bun run db:generate
+    bun run db:generate
 
 db-migrate:
     docker compose -f {{compose_file}} exec {{service}} bun run db:migrate
@@ -21,15 +20,22 @@ db-push:
 db-studio:
     docker compose -f {{compose_file}} exec {{service}} bun run db:studio
 
+db-drop db_name:
+    docker compose -f {{compose_file}} exec postgres sh -c "dropdb -U postgres --if-exists {{db_name}} && createdb -U postgres {{db_name}}"
+
 db-migrate-test:
-    docker compose -f {{compose_file}} exec -e DATABASE_URL=postgres://postgres:postgres@postgres:5432/scalerepublic_test {{service}} bun run db:migrate
+    docker compose -f {{compose_file}} -f compose.test.yaml run --rm {{service}} bun run db:migrate
 
 db-migrate-all:
     just db-migrate
     just db-migrate-test
 
 test:
-    bun run test
+    #!/bin/sh
+    docker compose -p scalerepublic-test -f compose.test.yaml up --build --exit-code-from backend --attach backend
+    STATUS=$?
+    docker compose -p scalerepublic-test -f compose.test.yaml down -v
+    exit $STATUS
 
 logs:
     docker compose -f {{compose_file}} logs -f {{service}}

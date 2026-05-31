@@ -1,113 +1,123 @@
-//Einzelne Aktie im Portfolio eines Users
-export type PortfolioPosition = {
-    stockId: string;
-    ticker: string;
-    quantity: number;
-    currentPrice: number;
-    marketValue: number;
-};
+import { eq } from 'drizzle-orm';
 
-//Ergebnis von einem Kauf/Verkauf
-export type TradeResult = {
-    userId: string;
-    stockId: string;
-    tradeType: "BUY" | "SELL";
-    quantity: number;
-    executedPrice: number;
-    totalValue: number;
-};
+import type { AppVars } from '../../context.ts';
+import { portfolio } from '../../db/schema/portfolio/portfolio.ts';
+import type { Holding, TradeRecord } from '../trades/trades.service.ts';
 
-//Portfolio-Eckdaten eines Users
-export type PortfolioSummary = {
-  id: string;
-  userId: string;
-  cashBalance: number;
-  startingCapital: number;
-  status: "ACTIVE" | "DEFAULTED";
-};
+import {
+    InsufficientFundsError,
+    InsufficientHoldingsError,
+    PortfolioDefaultedError,
+    PortfolioNotFoundError,
+    PriceMismatchError,
+    StockPriceUnavailableError,
+} from './errors.ts';
 
-//Alle Mock-Daten nach den Mustern der bereits gg. DB, um den spaeteren Anschluss zu erleichtern
+export type Portfolio = typeof portfolio.$inferSelect;
+
 export class PortfolioService {
-    //Portfolio eines Users kriegen
-    async getPortfolioByUserId(userId: string): Promise<PortfolioSummary> {
-        return {
-            id: "portfolio-1",
-            userId,
-            cashBalance: 100_000,
-            startingCapital: 100_000,
-            status: "ACTIVE",
-        };
+    constructor(private readonly ctx: AppVars) {}
+
+    async getById(portfolioId: string): Promise<Portfolio> {
+        const [row] = await this.ctx.db
+            .select()
+            .from(portfolio)
+            .where(eq(portfolio.id, portfolioId));
+
+        if (!row) throw new PortfolioNotFoundError(portfolioId);
+        return row;
     }
 
-    //Die Aktienpositionen eines Users
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async getHoldingsByUserId(userId: string): Promise<PortfolioPosition[]> {
-        return[
-            {
-                stockId: "stock-aapl",
-                ticker: "AAPL",
-                quantity: 5,
-                currentPrice: 210,
-                marketValue: 5*210,
-            },
-            {
-                stockId: "stock-tsla",
-                ticker: "TSLA",
-                quantity: 2,
-                currentPrice: 330,
-                marketValue: 2 * 330,
-            },
-        ];
+    async getByUserId(userId: string): Promise<Portfolio[]> {
+        return this.ctx.db
+            .select()
+            .from(portfolio)
+            .where(eq(portfolio.userId, userId));
     }
 
-    //Aktienkauf
-    async buyStock(userId: string, stockId: string, quantity: number): Promise<TradeResult> {
-        const executedPrice = await this.getLatestPrice(stockId);
-        const totalValue = executedPrice * quantity;
-
-        return {
-        userId,
-        stockId,
-        tradeType: "BUY",
-        quantity,
-        executedPrice,
-        totalValue,
-        };
+    async getHoldings(portfolioId: string): Promise<Holding[]> {
+        return this.ctx.tradesService.getHoldingsByPortfolioId(portfolioId);
     }
 
-    //Bei den Trade-Services: spaeter muessen sich hier wirklich Bestaende reduzieren etc.
-
-    //Aktienverkauf
-    async sellStock(userId: string, stockId: string, quantity: number): Promise<TradeResult> {
-        const executedPrice = await this.getLatestPrice(stockId);
-        const totalValue = executedPrice * quantity;
-
-        return {
-        userId,
-        stockId,
-        tradeType: "SELL",
-        quantity,
-        executedPrice,
-        totalValue,
-        };
+    async getPortfolioValue(portfolioId: string): Promise<number> {
+        const holdings = await this.getHoldings(portfolioId);
+        let total = 0;
+        for (const h of holdings) {
+            const price = await this.ctx.stockService.getLatestPriceByStockId(h.stockId);
+            if (price !== null) total += h.quantity * price;
+        }
+        return total;
     }
 
-    //Fuer das Leaderboard spaeter den exakten aktuellen Wert des Portfolios eines Users, ohne die einzelnen Daten
-    //Besprechen, ob wir das nur mit diesem einen Wert hier im Leaderboard sortieren wollen
-    async getPortfolioValue(userId: string): Promise<number> {
-        const holdings = await this.getHoldingsByUserId(userId);
-
-        return holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
+    private async verifyExpectedPrice(stockId: string, expectedPrice: number): Promise<number> {
+        const currentPrice = await this.ctx.stockService.getLatestPriceByStockId(stockId);
+        if (currentPrice === null) throw new StockPriceUnavailableError(stockId);
+        if (parseFloat(currentPrice.toFixed(2)) !== parseFloat(expectedPrice.toFixed(2))) {
+            throw new PriceMismatchError(expectedPrice, currentPrice);
+        }
+        return currentPrice;
     }
 
-    private async getLatestPrice(stockId: string): Promise<number> {
-        const mockPrices: Record<string, number> = {
-        "stock-aapl": 210,
-        "stock-tsla": 330,
-        "stock-msft": 420,
-        };
+    async buy(
+        portfolioId: string,
+        stockId: string,
+        quantity: number,
+        expectedPrice: number,
+    ): Promise<TradeRecord> {
+        const [p, price] = await Promise.all([
+            this.getById(portfolioId),
+            this.verifyExpectedPrice(stockId, expectedPrice),
+        ]);
 
-        return mockPrices[stockId] ?? 100;
+        if (p.status === 'DEFAULTED') throw new PortfolioDefaultedError(portfolioId);
+
+        const cashBalance = parseFloat(p.cashBalance);
+        const cost = quantity * price;
+
+        if (cashBalance < cost) throw new InsufficientFundsError(cashBalance, cost);
+
+        return this.ctx.db.transaction(async (tx) => {
+            const tradeRow = await this.ctx.tradesService.executeBuy(portfolioId, stockId, quantity, price, tx);
+
+            await tx
+                .update(portfolio)
+                .set({ cashBalance: (cashBalance - cost).toFixed(2) })
+                .where(eq(portfolio.id, portfolioId));
+
+            return tradeRow;
+        });
     }
 
+    async sell(
+        portfolioId: string,
+        stockId: string,
+        quantity: number,
+        expectedPrice: number,
+    ): Promise<TradeRecord> {
+        const [p, price] = await Promise.all([
+            this.getById(portfolioId),
+            this.verifyExpectedPrice(stockId, expectedPrice),
+        ]);
+
+        if (p.status === 'DEFAULTED') throw new PortfolioDefaultedError(portfolioId);
+
+        const holdings = await this.ctx.tradesService.getHoldingsByPortfolioId(portfolioId);
+        const holding = holdings.find((h) => h.stockId === stockId);
+        const available = holding?.quantity ?? 0;
+
+        if (available < quantity) throw new InsufficientHoldingsError(stockId, available, quantity);
+
+        const proceeds = quantity * price;
+
+        return this.ctx.db.transaction(async (tx) => {
+            const tradeRow = await this.ctx.tradesService.executeSell(portfolioId, stockId, quantity, price, tx);
+
+            await tx
+                .update(portfolio)
+                .set({ cashBalance: (parseFloat(p.cashBalance) + proceeds).toFixed(2) })
+                .where(eq(portfolio.id, portfolioId));
+
+            return tradeRow;
+        });
+    }
 }
