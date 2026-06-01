@@ -1,9 +1,10 @@
-import seedrandom from 'seedrandom';
 import { inArray } from 'drizzle-orm';
+import seedrandom from 'seedrandom';
 
 import { client, db } from '../index.ts';
-import { stock } from '../schema/stock/stock.ts';
 import { stockPrice } from '../schema/stock/market.ts';
+import { stock } from '../schema/stock/stock.ts';
+
 import { generateGBM } from './gbm.ts';
 import { ARCHETYPES, SEED_STOCKS } from './stocks.ts';
 
@@ -42,7 +43,7 @@ const tickerToId = Object.fromEntries(stockRows.map(r => [r.ticker, r.id]));
 for (let i = 0; i < SEED_STOCKS.length; i++) {
   const def = SEED_STOCKS[i]!;
   const stockId = tickerToId[def.ticker];
-  if (!stockId) throw new Error(`Stock ${def.ticker} missing after insert`);
+  if (stockId === undefined) throw new Error(`Stock ${def.ticker} missing after insert`);
 
   const { drift, volatility } = ARCHETYPES[def.archetype];
   const rng = seedrandom(`${GLOBAL_SEED}:${i}`);
