@@ -17,6 +17,9 @@ db-clear:
 db-push:
     docker compose -f {{compose_file}} exec {{service}} bun run db:push
 
+db-seed:
+    docker compose -f {{compose_file}} exec {{service}} bun run db:seed
+
 db-studio:
     docker compose -f {{compose_file}} exec {{service}} bun run db:studio
 

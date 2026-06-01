@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockPrice } from '../../db/schema/stock/index.ts'
@@ -42,6 +42,32 @@ export class StockService {
             ...r,
             latestPrice: r.latestPrice !== null ? parseFloat(r.latestPrice) : null,
         }))
+    }
+
+    async getPriceHistory(
+        ticker: string,
+        from: Date,
+        to: Date,
+    ): Promise<Array<{ recordedAt: Date; price: number }> | null> {
+        const [stockRow] = await this.ctx.db
+            .select({ id: stock.id })
+            .from(stock)
+            .where(eq(stock.ticker, ticker))
+            .limit(1)
+
+        if (!stockRow) return null
+
+        const rows = await this.ctx.db
+            .select({ recordedAt: stockPrice.recordedAt, price: stockPrice.price })
+            .from(stockPrice)
+            .where(and(
+                eq(stockPrice.stockId, stockRow.id),
+                gte(stockPrice.recordedAt, from),
+                lte(stockPrice.recordedAt, to),
+            ))
+            .orderBy(asc(stockPrice.recordedAt))
+
+        return rows.map(r => ({ recordedAt: r.recordedAt, price: parseFloat(r.price) }))
     }
 
     calculateTotal(symbol: string, quantity: number, price: number) {

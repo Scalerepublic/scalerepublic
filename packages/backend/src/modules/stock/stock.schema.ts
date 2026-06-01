@@ -5,3 +5,8 @@ export const calculateStockBodySchema = z.object({
     quantity: z.number().positive(),
     price: z.number().positive(),
 })
+
+export const priceHistoryQuerySchema = z.object({
+    from: z.coerce.date(),
+    to: z.coerce.date(),
+})
