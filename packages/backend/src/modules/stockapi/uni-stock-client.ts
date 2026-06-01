@@ -2,8 +2,6 @@ import { z } from 'zod'
 
 import type { StockDataClient, StockMeta, StockQuote } from './stock-data-client.ts'
 
-const BASE_URL = process.env['UNI_API_BASE_URL']
-if (BASE_URL === undefined || BASE_URL === '') throw new Error('UNI_API_BASE_URL env var is required — set it to the university stock API base URL')
 
 // Endpoint currently unused because of the rate limit
 // const PriceResponseSchema = z.object({
@@ -25,16 +23,21 @@ const DailyResponseSchema = z.object({
 export class UniStockClient implements StockDataClient {
     readonly source = 'uni_api'
     private readonly token: string
+    private readonly baseUrl: string
 
-    constructor(token?: string) {
+    constructor(token?: string, baseUrl?: string) {
         const t = token ?? process.env['UNI_API_TOKEN']
         if (t === undefined || t === '') throw new Error('UNI_API_TOKEN env var is required for the uni stock client')
         this.token = t
+
+        const u = baseUrl ?? process.env['UNI_API_BASE_URL']
+        if (u === undefined || u === '') throw new Error('UNI_API_BASE_URL env var is required')
+        this.baseUrl = u
     }
 
     private async get(path: string): Promise<unknown> {
-        console.log(`[uniapi] GET ${BASE_URL}${path}?token=${this.token}`)
-        const url = new URL(`${BASE_URL}${path}`)
+        console.log(`[uniapi] GET ${this.baseUrl}${path}?token=${this.token}`)
+        const url = new URL(`${this.baseUrl}${path}`)
         url.searchParams.set('token', this.token)
         const res = await fetch(url.toString())
         if (!res.ok) throw new Error(`Uni API error: ${res.status} ${res.statusText}`)

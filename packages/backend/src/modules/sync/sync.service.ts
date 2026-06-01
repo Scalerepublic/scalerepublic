@@ -5,7 +5,6 @@ import { z } from 'zod'
 
 import type { AppVars } from '../../context.ts'
 import { syncJob } from '../../db/schema/sync.ts'
-import { createStockDataClient } from '../stockapi/stock-data-client.ts'
 
 const JOB_ID = 'stock-price-sync'
 const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
@@ -46,7 +45,6 @@ const chunk = <T>(arr: T[], size: number): T[][] => {
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
 export class SyncService {
-    private readonly client = createStockDataClient()
     private readonly lockId = `${os.hostname()}:${process.pid}`
 
     constructor(private readonly ctx: AppVars) {}
@@ -55,7 +53,7 @@ export class SyncService {
         const existing = await this.ctx.stockService.getStockId(ticker)
         if (existing !== null) return existing
 
-        const meta = await this.client.getStockMeta(ticker)
+        const meta = await this.ctx.stockDataClient.getStockMeta(ticker)
         if (!meta) {
             console.warn(`[sync] No metadata found for "${ticker}" — skipping`)
             return null
@@ -68,8 +66,8 @@ export class SyncService {
         const stockId = await this.ensureStock(ticker)
         if (stockId === null) return
 
-        const quote = await this.client.getQuote(ticker)
-        await this.ctx.stockService.insertPrice(stockId, quote.price, this.client.source, new Date())
+        const quote = await this.ctx.stockDataClient.getQuote(ticker)
+        await this.ctx.stockService.insertPrice(stockId, quote.price, this.ctx.stockDataClient.source, new Date())
 
         console.log(`[sync] ${ticker}: ${quote.price} (${quote.tradingDay.toISOString().slice(0, 10)})`)
     }
@@ -118,6 +116,10 @@ export class SyncService {
             ),
         )).returning({ id: syncJob.id })
         return claimed.length > 0
+    }
+
+    async syncOnce(tickers: string[]): Promise<void> {
+        await this.runSync(tickers)
     }
 
     async startScheduler(): Promise<void> {

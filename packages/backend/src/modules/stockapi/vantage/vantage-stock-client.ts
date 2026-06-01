@@ -1,4 +1,5 @@
-import type { StockDataClient, StockMeta, StockQuote } from './stock-data-client.ts'
+import type { StockDataClient, StockMeta, StockQuote } from '../stock-data-client.ts'
+
 import { createAlphaVantageClient } from './vantage.client.ts'
 
 export class AlphaVantageStockClient implements StockDataClient {
