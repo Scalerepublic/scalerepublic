@@ -8,12 +8,14 @@
 		href,
 		label,
 		icon: Icon,
-		mobile = false
+		mobile = false,
+		collapsed = false
 	}: {
 		href: Parameters<typeof resolve>[0];
 		label: string;
 		icon: Component<{ class?: string; style?: string }>;
 		mobile?: boolean;
+		collapsed?: boolean;
 	} = $props();
 
 	const isActive = $derived(page.url.pathname.startsWith(href));
@@ -28,29 +30,30 @@
 		)}
 	>
 		<Icon
-			class={cn('size-5 transition-colors', isActive ? 'text-accent' : 'text-muted-foreground')}
+			class={cn('size-5 transition-colors', isActive ? 'text-foreground' : 'text-muted-foreground')}
 		/>
 		{label}
 	</a>
 {:else}
 	<a
 		href={resolve(href)}
+		title={collapsed ? label : undefined}
 		class={cn(
-			'group flex items-center gap-3 rounded-[10px] border px-3 py-2.5 text-sm font-medium transition-all duration-150',
+			'group flex items-center py-2 text-sm transition-colors duration-100',
+			collapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
 			isActive
-				? 'text-[oklch(0.30_0.02_68)]'
-				: 'text-[oklch(0.43_0.018_68)] hover:text-[oklch(0.30_0.02_68)]'
+				? 'bg-muted font-semibold text-primary border-l-[3px] border-primary'
+				: 'border-l-[3px] border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground'
 		)}
-		style={isActive
-			? 'border-color: oklch(0.64 0.045 78); background: linear-gradient(135deg, oklch(0.93 0.03 84) 0%, oklch(0.89 0.03 81) 52%, oklch(0.85 0.03 78) 100%); box-shadow: 1px 2px 0 oklch(0.55 0.03 76 / 0.12), 2px 4px 8px oklch(0.55 0.03 76 / 0.10);'
-			: 'border-color: oklch(0.78 0.025 78 / 0.85); background: linear-gradient(135deg, oklch(0.95 0.02 84) 0%, oklch(0.92 0.02 80) 100%);'}
 	>
 		<Icon
 			class={cn(
 				'size-4 shrink-0 transition-colors',
-				isActive ? 'text-[oklch(0.50_0.08_82)]' : 'text-[oklch(0.50_0.03_70)]'
+				isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
 			)}
 		/>
-		<span>{label}</span>
+		{#if !collapsed}
+			<span>{label}</span>
+		{/if}
 	</a>
 {/if}

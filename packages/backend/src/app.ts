@@ -25,7 +25,6 @@ export const createApp = (ctx: AppVars): App => {
     registerPortfolioRoutes(app);
 
     if (process.env.NODE_ENV !== "test") {
-        // Tests use seeded mock data and don't run a periodic sync (for now)
         ctx.syncService.startScheduler().catch((err) => {
             console.error("[sync] Failed to start scheduler:", err);
         });
@@ -33,3 +32,5 @@ export const createApp = (ctx: AppVars): App => {
 
     return app;
 };
+
+export type { ApiRoutesType } from "./api/index.ts";

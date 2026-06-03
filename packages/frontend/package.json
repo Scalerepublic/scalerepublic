@@ -46,6 +46,7 @@
 	},
 	"dependencies": {
 		"@fontsource/merriweather": "^5.2.11",
+		"backend": "file:../backend",
 		"better-auth": "^1.6.11"
 	}
 }

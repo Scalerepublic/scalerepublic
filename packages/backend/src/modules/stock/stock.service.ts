@@ -79,6 +79,15 @@ export class StockService {
         return row[0]?.id ?? null
     }
 
+    async getTicker(stockId: string): Promise<string | null> {
+        const [row] = await this.ctx.db
+            .select({ ticker: stock.ticker })
+            .from(stock)
+            .where(eq(stock.id, stockId))
+            .limit(1)
+        return row?.ticker ?? null
+    }
+
     async createStock(ticker: string, companyName: string, exchange: string, currency: string): Promise<string> {
         const id = crypto.randomUUID()
         await this.ctx.db.insert(stock).values({ id, ticker, companyName, exchange, currency, isActive: true }).onConflictDoNothing()
