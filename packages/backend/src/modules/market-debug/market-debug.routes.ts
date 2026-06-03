@@ -1,36 +1,47 @@
 import { Hono } from 'hono';
 
+import { requireMarketDebugOperator } from '../../lib/market-debug-auth.ts';
 import { isMarketDebugEnabled } from '../../lib/market-debug.ts';
 import { useCtx, type App, type AppEnv } from '../../context.ts';
 
 export const marketDebugRoutes = new Hono<AppEnv>()
-    .get('/api/v1/debug/market', (c) => {
+    .get('/api/v1/market/clock', (c) => {
         if (!isMarketDebugEnabled()) {
-            return c.json({ error: 'Market debug disabled' }, 404);
+            const today = new Date().toISOString().slice(0, 10);
+            return c.json({ data: { marketDate: today, dayOffset: 0, simulated: false } });
         }
+        const { marketDebugService } = useCtx(c);
+        const status = marketDebugService.status();
+        return c.json({
+            data: {
+                ...status,
+                simulated: true,
+            },
+        });
+    })
+    .get('/api/v1/debug/market', async (c) => {
+        const denied = await requireMarketDebugOperator(c);
+        if (denied) return denied;
         const { marketDebugService } = useCtx(c);
         return c.json({ data: marketDebugService.status() });
     })
     .post('/api/v1/debug/market/advance', async (c) => {
-        if (!isMarketDebugEnabled()) {
-            return c.json({ error: 'Market debug disabled' }, 404);
-        }
+        const denied = await requireMarketDebugOperator(c);
+        if (denied) return denied;
         const { marketDebugService } = useCtx(c);
         const status = marketDebugService.advanceDay();
         const tick = await marketDebugService.applyGbmTick();
         return c.json({ data: { ...status, ...tick } });
     })
-    .post('/api/v1/debug/market/retreat', (c) => {
-        if (!isMarketDebugEnabled()) {
-            return c.json({ error: 'Market debug disabled' }, 404);
-        }
+    .post('/api/v1/debug/market/retreat', async (c) => {
+        const denied = await requireMarketDebugOperator(c);
+        if (denied) return denied;
         const { marketDebugService } = useCtx(c);
         return c.json({ data: marketDebugService.retreatDay() });
     })
     .post('/api/v1/debug/market/tick', async (c) => {
-        if (!isMarketDebugEnabled()) {
-            return c.json({ error: 'Market debug disabled' }, 404);
-        }
+        const denied = await requireMarketDebugOperator(c);
+        if (denied) return denied;
         const { marketDebugService } = useCtx(c);
         const tick = await marketDebugService.applyGbmTick();
         return c.json({ data: tick });

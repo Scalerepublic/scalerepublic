@@ -27,6 +27,8 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/scalerepublic
       PORT: "3000"
+      STOCK_DEBUG: "true"
+      MARKET_DEBUG_OPERATOR_EMAIL: "test@test.com"
     ports:
       - "3000:3000"
       - "4983:4983" # for Drizzle Studio
