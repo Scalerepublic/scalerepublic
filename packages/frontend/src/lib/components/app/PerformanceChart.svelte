@@ -22,7 +22,7 @@
 	const width = 800;
 	const pad = { t: 16, r: 20, b: 12, l: 20 };
 	const innerW = width - pad.l - pad.r;
-	const innerH = height - pad.t - pad.b;
+	const innerH = $derived(height - pad.t - pad.b);
 
 	const minY = $derived.by(() => {
 		if (points.length === 0) return 0;
