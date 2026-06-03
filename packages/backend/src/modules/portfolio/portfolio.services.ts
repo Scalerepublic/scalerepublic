@@ -15,6 +15,8 @@ import {
 
 export type Portfolio = typeof portfolio.$inferSelect;
 
+const DEFAULT_STARTING_CAPITAL = '1000.00';
+
 export class PortfolioService {
     constructor(private readonly ctx: AppVars) {}
 
@@ -33,6 +35,22 @@ export class PortfolioService {
             .select()
             .from(portfolio)
             .where(eq(portfolio.userId, userId));
+    }
+
+    async ensureForUser(userId: string): Promise<Portfolio> {
+        const existing = await this.getByUserId(userId);
+        if (existing[0]) return existing[0];
+
+        const id = crypto.randomUUID();
+        await this.ctx.db.insert(portfolio).values({
+            id,
+            userId,
+            cashBalance: DEFAULT_STARTING_CAPITAL,
+            startingCapital: DEFAULT_STARTING_CAPITAL,
+            status: 'ACTIVE',
+        });
+
+        return this.getById(id);
     }
 
     async getHoldings(portfolioId: string): Promise<Holding[]> {

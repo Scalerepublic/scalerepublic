@@ -33,12 +33,7 @@ export const portfolioRoutes = new Hono<AppEnv>()
             const { portfolioService, stockService } = useCtx(c);
 
             try {
-                const portfolios = await portfolioService.getByUserId(userId);
-                const portfolioRow = portfolios[0];
-                if (!portfolioRow) {
-                    return c.json({ error: "Portfolio not found" }, 404);
-                }
-
+                const portfolioRow = await portfolioService.ensureForUser(userId);
                 const portfolioId = portfolioRow.id;
                 const holdings = await portfolioService.getHoldings(portfolioId);
                 const portfolioValue = await portfolioService.getPortfolioValue(portfolioId);
