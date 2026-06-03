@@ -6,6 +6,10 @@ COPY packages/frontend/package.json packages/frontend/bun.lock ./packages/fronte
 COPY packages/backend ./packages/backend
 COPY packages/frontend ./packages/frontend
 
+# Install backend dependencies so symlinked backend files can resolve their imports (like hono)
+WORKDIR /workspace/packages/backend
+RUN bun install --frozen-lockfile
+
 WORKDIR /workspace/packages/frontend
 ARG VITE_API_URL=http://backend:3000
 ENV VITE_API_URL=${VITE_API_URL}
