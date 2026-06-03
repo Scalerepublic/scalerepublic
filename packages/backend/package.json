@@ -18,6 +18,7 @@
     "check": "bunx tsc --noEmit",
     "db:generate": "bunx drizzle-kit generate",
     "db:migrate": "bunx drizzle-kit migrate",
+    "db:baseline": "bun scripts/baseline-migrations.ts",
     "db:push": "bunx drizzle-kit push",
     "db:studio": "bunx drizzle-kit studio --host 0.0.0.0",
     "db:seed": "bun src/db/seed/index.ts"

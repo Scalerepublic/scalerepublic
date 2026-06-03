@@ -8,8 +8,18 @@ default:
 db-generate:
     bun run db:generate
 
+db-baseline:
+    DATABASE_URL={{db_url}} bun run db:baseline
+
 db-migrate:
     docker compose -f {{compose_file}} exec {{service}} bun run db:migrate
+
+db-reset:
+    docker compose -f {{compose_file}} stop {{service}} 2>/dev/null || true
+    just db-drop scalerepublic
+    just db-drop scalerepublic_test
+    docker compose -f {{compose_file}} start postgres {{service}} 2>/dev/null || docker compose -f {{compose_file}} up -d postgres {{service}}
+    just db-migrate-all
 
 db-clear:
     printf "SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' RESTART IDENTITY CASCADE' FROM pg_tables WHERE schemaname = 'public'\n\\gexec\n" | docker compose -f {{compose_file}} exec -T postgres psql -U postgres -d scalerepublic
@@ -24,6 +34,7 @@ db-studio:
     docker compose -f {{compose_file}} exec {{service}} bun run db:studio
 
 db-drop db_name:
+    docker compose -f {{compose_file}} exec -T postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{{db_name}}' AND pid <> pg_backend_pid();"
     docker compose -f {{compose_file}} exec postgres sh -c "dropdb -U postgres --if-exists {{db_name}} && createdb -U postgres {{db_name}}"
 
 db-migrate-test:
