@@ -12,9 +12,11 @@
 
 	let { href, type = 'button', class: className = '', children, ...rest }: Props = $props();
 
-	const classes = cn(
-		'btn-primary inline-flex h-9 items-center justify-center px-4 text-sm font-semibold tracking-wide transition-colors',
-		className
+	let classes = $derived(
+		cn(
+			'btn-primary inline-flex h-9 items-center justify-center px-4 text-sm font-semibold tracking-wide transition-colors',
+			className
+		)
 	);
 </script>
 
