@@ -8,6 +8,12 @@
 	let { stock }: { stock: Stock } = $props();
 
 	let tradeOpen = $state(false);
+
+	const badgeLabel = $derived.by(() => {
+		const label = (stock.exchange || stock.sector || '').trim();
+		if (!label || label.toUpperCase() === 'UNKNOWN') return null;
+		return label;
+	});
 </script>
 
 <article class="group flex flex-col overflow-hidden border border-border bg-card transition-[border-color] hover:border-foreground/40">
@@ -17,9 +23,13 @@
 				<p class="font-mono text-lg font-bold text-primary">{stock.ticker}</p>
 				<p class="mt-0.5 truncate text-xs text-muted-foreground">{stock.name}</p>
 			</div>
-			<span class="shrink-0 border border-border px-2 py-0.5 text-[9px] font-semibold tracking-widest text-muted-foreground uppercase">
-				{stock.sector}
-			</span>
+			{#if badgeLabel}
+				<span
+					class="shrink-0 border border-border px-2 py-0.5 text-[9px] font-semibold tracking-widest text-muted-foreground uppercase"
+				>
+					{badgeLabel}
+				</span>
+			{/if}
 		</div>
 
 		<div class="mt-auto flex items-end justify-between gap-2 pt-3">

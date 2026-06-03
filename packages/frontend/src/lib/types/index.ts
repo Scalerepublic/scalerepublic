@@ -3,6 +3,7 @@ export interface Stock {
 	ticker: string;
 	name: string;
 	sector: string;
+	exchange?: string;
 	currentPrice: number;
 	previousClose: number;
 	dayChange: number;

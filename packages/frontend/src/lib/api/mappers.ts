@@ -6,6 +6,12 @@ import type {
 } from '$lib/api/backend-types';
 import type { ApiLeaderboardEntry, ApiPortfolio, Stock, UserProfile } from '$lib/types';
 
+function normalizeExchange(exchange: string): string | undefined {
+	const trimmed = exchange.trim();
+	if (!trimmed || trimmed.toUpperCase() === 'UNKNOWN') return undefined;
+	return trimmed;
+}
+
 export function mapStockSummary(row: BackendStockSummary): Stock {
 	const price = row.latestPrice ?? 0;
 
@@ -14,6 +20,7 @@ export function mapStockSummary(row: BackendStockSummary): Stock {
 		ticker: row.ticker,
 		name: row.companyName,
 		sector: '',
+		exchange: normalizeExchange(row.exchange),
 		currentPrice: price,
 		previousClose: price,
 		dayChange: 0,
