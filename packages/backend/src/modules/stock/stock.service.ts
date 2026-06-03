@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, gte, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
+import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 import { stock, stockPrice } from '../../db/schema/stock/index.ts'
 
 export type StockSummary = {
@@ -15,13 +16,21 @@ export type StockSummary = {
 export class StockService {
     constructor(private readonly ctx: AppVars) {}
 
+    private priceAsOfFilter(): SQL | undefined {
+        if (!isMarketDebugEnabled()) return undefined;
+        const asOf = this.ctx.marketDebugService?.getAsOf();
+        return asOf ? lte(stockPrice.recordedAt, asOf) : undefined;
+    }
+
     async getAll(): Promise<StockSummary[]> {
+        const asOfClause = this.priceAsOfFilter();
         const latestPricePerStock = this.ctx.db
             .selectDistinctOn([stockPrice.stockId], {
                 stockId: stockPrice.stockId,
                 price: stockPrice.price,
             })
             .from(stockPrice)
+            .where(asOfClause)
             .orderBy(stockPrice.stockId, desc(stockPrice.recordedAt))
             .as('latest_price')
 
@@ -96,11 +105,18 @@ export class StockService {
         return row[0]!.id
     }
 
-    async getLatestPriceByStockId(stockId: string): Promise<number | null> {
+    async getLatestPriceByStockId(stockId: string, asOf?: Date): Promise<number | null> {
+        const effectiveAsOf =
+            asOf ?? (isMarketDebugEnabled() ? this.ctx.marketDebugService?.getAsOf() : undefined);
+        const conditions = [eq(stockPrice.stockId, stockId)];
+        if (effectiveAsOf) {
+            conditions.push(lte(stockPrice.recordedAt, effectiveAsOf));
+        }
+
         const [row] = await this.ctx.db
             .select({ price: stockPrice.price })
             .from(stockPrice)
-            .where(eq(stockPrice.stockId, stockId))
+            .where(and(...conditions))
             .orderBy(desc(stockPrice.recordedAt))
             .limit(1);
 
