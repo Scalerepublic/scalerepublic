@@ -25,8 +25,8 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:50025/scalerepublic
-      PORT: "50030"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/scalerepublic
+      PORT: "3000"
       STOCK_DEBUG: "true"
       MARKET_DEBUG_OPERATOR_EMAIL: "test@test.com"
     ports:
