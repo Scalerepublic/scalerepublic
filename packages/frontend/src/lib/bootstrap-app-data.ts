@@ -1,4 +1,5 @@
 import { authStore } from '$lib/stores/auth.svelte';
+import { syncMarketClock } from '$lib/sync-market-clock';
 import { marketStore } from '$lib/stores/market.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
 import { userStore } from '$lib/stores/user.svelte';
@@ -25,7 +26,7 @@ export function bootstrapAppData() {
 	loadedForUserId = userId;
 	const generation = ++loadGeneration;
 
-	void Promise.all([portfolioStore.load(), marketStore.load(), userStore.load()]).then(() => {
+	void Promise.all([syncMarketClock(), portfolioStore.load(), marketStore.load(), userStore.load()]).then(() => {
 		if (generation !== loadGeneration || authStore.user?.id !== userId) {
 			return;
 		}

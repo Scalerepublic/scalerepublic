@@ -78,7 +78,7 @@
 				</button>
 
 				<p class="text-[10px] leading-relaxed text-muted-foreground">
-					+1 Tag: nächster Handelstag + Brownian. GBM-Tick: nur Preise am gleichen Tag.
+					Gilt für alle Nutzer live (DB + Polling). +1 Tag: Handelstag + GBM. GBM-Tick: nur Preise.
 				</p>
 
 				{#if demoMarketStore.error}
