@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "50025:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
@@ -25,7 +25,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/scalerepublic
+      DATABASE_URL: postgres://postgres:postgres@postgres:50025/scalerepublic
       PORT: "3000"
       STOCK_DEBUG: "true"
       MARKET_DEBUG_OPERATOR_EMAIL: "test@test.com"
