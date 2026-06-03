@@ -20,11 +20,11 @@ FROM oven/bun:1 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
-ENV PORT=3000
+ENV PORT=50029
 
 COPY --from=build /workspace/packages/frontend/build ./build
 COPY --from=build /workspace/packages/frontend/package.json ./
 COPY --from=build /workspace/packages/frontend/node_modules ./node_modules
 
-EXPOSE 3000
+EXPOSE 50029
 CMD ["bun", "build/index.js"]
