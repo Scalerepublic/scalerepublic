@@ -3,16 +3,17 @@ export interface PerformancePoint {
 	value: number;
 }
 
-export function buildPerformanceHistory(
+export function initialPerformanceHistory(
+	startingCapital: number,
 	currentValue: number,
-	startingCapital: number
+	date = new Date().toISOString().slice(0, 10)
 ): PerformancePoint[] {
-	const end = new Date();
-	const start = new Date(end);
-	start.setUTCDate(start.getUTCDate() - 1);
+	if (currentValue === startingCapital) {
+		return [{ date, value: currentValue }];
+	}
 
 	return [
-		{ date: start.toISOString().slice(0, 10), value: startingCapital },
-		{ date: end.toISOString().slice(0, 10), value: currentValue }
+		{ date, value: startingCapital },
+		{ date, value: currentValue }
 	];
 }

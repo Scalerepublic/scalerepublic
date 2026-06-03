@@ -2,10 +2,7 @@ import { ApiError } from '$lib/api';
 import { api, parseApiData } from '$lib/api/client';
 import type { BackendPortfolioPayload } from '$lib/api/backend-types';
 import { mapPortfolioPayload } from '$lib/api/mappers';
-import {
-	buildPerformanceHistory,
-	type PerformancePoint
-} from '$lib/performance-history';
+import { initialPerformanceHistory, type PerformancePoint } from '$lib/performance-history';
 import { authStore } from '$lib/stores/auth.svelte';
 import { marketStore } from '$lib/stores/market.svelte';
 import type { ApiPortfolio, HoldingWithMarket, PortfolioSummary } from '$lib/types';
@@ -15,12 +12,14 @@ class PortfolioStore {
 	performanceHistory = $state<PerformancePoint[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);
+	private trackedPortfolioId: string | null = null;
 
 	async load() {
 		const userId = authStore.user?.id;
 		if (!userId) {
 			this._data = null;
 			this.performanceHistory = [];
+			this.trackedPortfolioId = null;
 			return;
 		}
 
@@ -31,12 +30,20 @@ class PortfolioStore {
 				param: { id: userId }
 			});
 			const payload = await parseApiData<BackendPortfolioPayload>(res);
-			this._data = mapPortfolioPayload(payload);
+			const mapped = mapPortfolioPayload(payload);
+			if (mapped.portfolioId !== this.trackedPortfolioId) {
+				this.performanceHistory = [];
+				this.trackedPortfolioId = mapped.portfolioId;
+			}
+			this._data = mapped;
 			this.syncPerformanceHistory();
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Failed to load portfolio';
+			this._data = null;
+			this.performanceHistory = [];
+			this.trackedPortfolioId = null;
 			if (e instanceof ApiError && e.status === 401) {
-				this._data = null;
+				return;
 			}
 		} finally {
 			this.loading = false;
@@ -47,25 +54,39 @@ class PortfolioStore {
 		if (!this._data) return;
 
 		const marketDate = new Date().toISOString().slice(0, 10);
-		const value = this.summary.totalValue;
+		const totalValue = this.summary.totalValue;
 		const startingCapital = this._data.startingCapital;
 
 		if (this.performanceHistory.length === 0) {
-			this.performanceHistory = [{ date: marketDate, value: startingCapital }];
+			this.performanceHistory = initialPerformanceHistory(startingCapital, totalValue, marketDate);
+			return;
 		}
 
-		const history = [...this.performanceHistory];
-		history[history.length - 1] = { date: marketDate, value };
-		this.performanceHistory = history;
+		const last = this.performanceHistory[this.performanceHistory.length - 1];
+		if (last?.date === marketDate) {
+			const history = [...this.performanceHistory];
+			history[history.length - 1] = { date: marketDate, value: totalValue };
+			this.performanceHistory = history;
+			return;
+		}
+
+		this.performanceHistory = [
+			...this.performanceHistory,
+			{ date: marketDate, value: totalValue }
+		];
 	}
 
 	get chartHistory(): PerformancePoint[] {
-		if (this.performanceHistory.length >= 2) {
+		if (!this._data) return [];
+
+		if (this.performanceHistory.length > 0) {
 			return this.performanceHistory;
 		}
 
-		const { totalValue, totalPnl } = this.summary;
-		return buildPerformanceHistory(totalValue, totalValue - totalPnl);
+		return initialPerformanceHistory(
+			this._data.startingCapital,
+			this.summary.totalValue
+		);
 	}
 
 	private resolvePrice(stockId: string, fallback: number | null): number {
@@ -77,8 +98,11 @@ class PortfolioStore {
 	}
 
 	async buy(stockId: string, quantity: number) {
+		if (!this._data?.portfolioId) {
+			await this.load();
+		}
 		const portfolioId = this._data?.portfolioId;
-		if (!portfolioId) throw new Error('Portfolio not loaded');
+		if (!portfolioId) throw new Error(this.error ?? 'Portfolio not loaded');
 
 		const stock =
 			marketStore.stocks.find((s) => s.id === stockId) ??
@@ -94,8 +118,11 @@ class PortfolioStore {
 	}
 
 	async sell(stockId: string, quantity: number) {
+		if (!this._data?.portfolioId) {
+			await this.load();
+		}
 		const portfolioId = this._data?.portfolioId;
-		if (!portfolioId) throw new Error('Portfolio not loaded');
+		if (!portfolioId) throw new Error(this.error ?? 'Portfolio not loaded');
 
 		const holding = this._data?.holdings.find(
 			(h) => h.stockId === stockId || h.ticker === stockId
@@ -145,7 +172,7 @@ class PortfolioStore {
 	get summary(): PortfolioSummary {
 		const holdings = this.holdings;
 		const cashBalance = this._data?.cashBalance ?? 0;
-		const startingCapital = this._data?.startingCapital ?? 10_000;
+		const startingCapital = this._data?.startingCapital ?? 0;
 		const holdingsValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
 		const totalValue = holdingsValue + cashBalance;
 		const totalPnl = totalValue - startingCapital;
