@@ -4,6 +4,7 @@ import type { BackendPortfolioPayload } from '$lib/api/backend-types';
 import { mapPortfolioPayload } from '$lib/api/mappers';
 import { initialPerformanceHistory, type PerformancePoint } from '$lib/performance-history';
 import { authStore } from '$lib/stores/auth.svelte';
+import { getEffectiveMarketDate } from '$lib/demo-market-date';
 import { marketStore } from '$lib/stores/market.svelte';
 import type { ApiPortfolio, HoldingWithMarket, PortfolioSummary } from '$lib/types';
 
@@ -50,10 +51,14 @@ class PortfolioStore {
 		}
 	}
 
+	trimPerformanceHistoryTo(marketDate: string) {
+		this.performanceHistory = this.performanceHistory.filter((p) => p.date <= marketDate);
+	}
+
 	syncPerformanceHistory() {
 		if (!this._data) return;
 
-		const marketDate = new Date().toISOString().slice(0, 10);
+		const marketDate = getEffectiveMarketDate();
 		const totalValue = this.summary.totalValue;
 		const startingCapital = this._data.startingCapital;
 

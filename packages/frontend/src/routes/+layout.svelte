@@ -7,6 +7,7 @@
 	import AppShell from '$lib/components/app/AppShell.svelte';
 	import { signOut } from '$lib/auth-client';
 	import { bootstrapAppData, resetAppDataBootstrap } from '$lib/bootstrap-app-data';
+	import DemoDebugPanel from '$lib/components/app/DemoDebugPanel.svelte';
 	import { startLiveQuotesPolling } from '$lib/live-quotes-polling';
 	import { authStore } from '$lib/stores/auth.svelte';
 
@@ -79,6 +80,9 @@
 	</div>
 {:else if authStore.isAuthenticated}
 	<AppShell>{@render children()}</AppShell>
+	{#if import.meta.env.DEV}
+		<DemoDebugPanel />
+	{/if}
 {:else}
 	<div class="flex min-h-svh items-center justify-center bg-background">
 		<div
