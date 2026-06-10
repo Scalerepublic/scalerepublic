@@ -7,6 +7,8 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @keyframes fade-up {
 	from {
 		opacity: 0;
@@ -73,6 +75,51 @@
 	--chart-line-end: #2a5090;
 	--chart-grid: #e5e4de;
 	--chart-crosshair: rgba(0, 0, 0, 0.22);
+}
+
+.dark {
+	--background: #0f0f0d;
+	--foreground: #f2f1ec;
+	--card: #1a1a17;
+	--card-foreground: #f2f1ec;
+	--popover: #1a1a17;
+	--popover-foreground: #f2f1ec;
+
+	--primary: #f2f1ec;
+	--primary-foreground: #0f0f0d;
+
+	--secondary: #232320;
+	--secondary-foreground: #d4d3cc;
+
+	--muted: #232320;
+	--muted-foreground: #9a9a96;
+
+	--accent: #4a78c0;
+	--accent-foreground: #0f0d0d;
+
+	--destructive: #e5484d;
+	--border: #2c2c28;
+	--input: #2c2c28;
+	--ring: #4a78c0;
+
+	--positive: #5aa979;
+	--negative: #e5484d;
+
+	--sidebar: #1a1a17;
+	--sidebar-foreground: #f2f1ec;
+	--sidebar-primary: #232320;
+	--sidebar-primary-foreground: #f2f1ec;
+	--sidebar-accent: #232320;
+	--sidebar-accent-foreground: #f2f1ec;
+	--sidebar-border: #2c2c28;
+	--sidebar-ring: #4a78c0;
+
+	--chart-fill-top: rgba(74, 120, 192, 0.18);
+	--chart-fill-bottom: rgba(74, 120, 192, 0.02);
+	--chart-line-start: #4a78c0;
+	--chart-line-end: #6f9adb;
+	--chart-grid: #2c2c28;
+	--chart-crosshair: rgba(255, 255, 255, 0.22);
 }
 
 @theme inline {
@@ -187,11 +234,22 @@
 		border: 1px solid var(--accent);
 	}
 	.btn-primary:hover {
-		background: #152e52;
-		border-color: #152e52;
+		background: color-mix(in srgb, var(--accent) 88%, black);
+		border-color: color-mix(in srgb, var(--accent) 88%, black);
 	}
 	.btn-primary:active {
-		background: #111f38;
+		background: color-mix(in srgb, var(--accent) 78%, black);
+	}
+	.btn-secondary {
+		background: transparent;
+		color: var(--foreground);
+		border: 1px solid var(--border);
+	}
+	.btn-secondary:hover {
+		background: var(--muted);
+	}
+	.btn-secondary:active {
+		background: var(--secondary);
 	}
 	.animate-fade-up {
 		opacity: 0;

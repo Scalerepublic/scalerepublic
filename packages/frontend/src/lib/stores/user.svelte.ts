@@ -11,7 +11,6 @@ function toIsoString(value: string | Date | undefined | null): string | undefine
 }
 
 const defaultSettings: AppSettings = {
-	theme: 'light',
 	notifications: {
 		priceAlerts: true,
 		tradeConfirmations: true,
