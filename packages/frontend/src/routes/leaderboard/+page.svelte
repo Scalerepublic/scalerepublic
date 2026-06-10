@@ -1,6 +1,5 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
-	import LivePill from '$lib/components/app/LivePill.svelte';
 	import { cn, formatCurrency, formatPercent, getInitials } from '$lib/utils';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { Trophy } from '@lucide/svelte';
@@ -30,7 +29,6 @@
 			title="Leaderboard"
 			subtitle="Ranked by current net worth · toy exchange rules apply"
 		/>
-		<LivePill />
 	</div>
 
 	<div class="overflow-x-auto border border-border">

@@ -2,7 +2,6 @@
 	import { marketStore } from '$lib/stores/market.svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import StockCard from '$lib/components/app/StockCard.svelte';
-	import LivePill from '$lib/components/app/LivePill.svelte';
 	import { Search, Flame } from '@lucide/svelte';
 
 	let query = $state('');
@@ -28,14 +27,11 @@
 	</div>
 
 	{#if showTrending}
-		<div class="mb-5 flex items-center gap-3">
-			<div class="flex items-center gap-2.5">
-				<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-					Trending Today
-				</h2>
-				<LivePill />
-			</div>
-			<p class="text-xs text-muted-foreground">Top movers by daily change</p>
+		<div class="mb-5">
+			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+				Trending Today
+			</h2>
+			<p class="mt-0.5 text-xs text-muted-foreground">Top movers by daily change</p>
 		</div>
 
 		<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
