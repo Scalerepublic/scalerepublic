@@ -2,6 +2,7 @@ import type { Context, Hono } from 'hono'
 
 import { db, type DbConnection } from './db/index.ts'
 import { LeaderboardService } from './modules/leaderboard/leaderboard.service.ts'
+import { MarketDebugService } from './modules/market-debug/market-debug.service.ts'
 import { PortfolioService } from './modules/portfolio/portfolio.services.ts'
 import { StockService } from './modules/stock/stock.service.ts'
 import { MockStockDataClient } from './modules/stockapi/mock-stock-client.ts'
@@ -16,6 +17,7 @@ export type AppVars = {
     db: DbConnection
     stockDataClient: StockDataClient
     stockService: StockService
+    marketDebugService: MarketDebugService
     userService: UserService
     leaderboardService: LeaderboardService
     syncService: SyncService
@@ -45,6 +47,7 @@ export const createAppContext = (): AppVars => {
     } else {
         ctx.stockDataClient = new AlphaVantageStockClient()
     }
+    ctx.marketDebugService = new MarketDebugService(ctx)
     ctx.stockService = new StockService(ctx)
     ctx.userService = new UserService(ctx)
     ctx.leaderboardService = new LeaderboardService(ctx)

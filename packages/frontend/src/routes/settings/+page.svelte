@@ -5,7 +5,7 @@
 	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import { signOut } from '$lib/auth-client';
-	import { formatCurrency, getInitials } from '$lib/utils';
+	import { cn, formatCurrency, getInitials } from '$lib/utils';
 	import {
 		Bell,
 		Sun,
@@ -49,19 +49,22 @@
 	];
 </script>
 
-<div class="mx-auto max-w-2xl px-4 py-8 md:px-8">
-	<PageHeader title="Settings" />
+<div class="page-shell-narrow">
+	<div class="page-header-block">
+		<PageHeader title="Settings" />
+	</div>
 
-	<div
-		class="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-border bg-card p-1.5 md:grid-cols-4"
-	>
+	<div class="mb-6 flex border-b border-border">
 		{#each tabs as tab (tab.id)}
 			<button
 				type="button"
 				onclick={() => (activeTab = tab.id)}
-				class="rounded-lg px-3 py-2 text-sm font-semibold transition-all {activeTab === tab.id
-					? 'bg-primary text-primary-foreground'
-					: 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
+				class={cn(
+					'px-4 py-2.5 text-sm font-medium transition-colors',
+					activeTab === tab.id
+						? '-mb-px border-b-2 border-primary text-primary'
+						: 'text-muted-foreground hover:text-foreground'
+				)}
 			>
 				{tab.label}
 			</button>
@@ -69,16 +72,16 @@
 	</div>
 
 	{#if activeTab === 'profile'}
-		<section class="space-y-0 rounded-xl border border-border bg-card">
-			<div class="p-6">
+		<section class="border border-border bg-card">
+			<div class="p-5">
 				<div class="flex items-center gap-4">
 					<div
-						class="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground"
+						class="flex size-14 shrink-0 items-center justify-center border border-border bg-muted text-lg font-bold text-foreground"
 					>
 						{getInitials(userStore.profile.name)}
 					</div>
 					<div>
-						<p class="font-serif text-xl font-bold text-primary">{userStore.profile.name}</p>
+						<p class="font-serif text-lg font-bold text-primary">{userStore.profile.name}</p>
 						<p class="text-sm text-muted-foreground">{userStore.profile.email}</p>
 					</div>
 				</div>
@@ -87,19 +90,19 @@
 			<div class="h-px bg-border"></div>
 
 			<dl class="divide-y divide-border/60">
-				<div class="flex items-center justify-between px-6 py-4">
+				<div class="flex items-center justify-between px-5 py-3.5">
 					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
 						<User class="size-4 shrink-0" /> Display Name
 					</dt>
 					<dd class="text-sm font-medium text-foreground">{userStore.profile.name}</dd>
 				</div>
-				<div class="flex items-center justify-between px-6 py-4">
+				<div class="flex items-center justify-between px-5 py-3.5">
 					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
 						<Bell class="size-4 shrink-0" /> Email
 					</dt>
 					<dd class="text-sm font-medium text-foreground">{userStore.profile.email}</dd>
 				</div>
-				<div class="flex items-center justify-between px-6 py-4">
+				<div class="flex items-center justify-between px-5 py-3.5">
 					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
 						<Shield class="size-4 shrink-0" /> Member since
 					</dt>
@@ -108,12 +111,12 @@
 			</dl>
 		</section>
 
-		<section class="mt-6 md:hidden">
+		<section class="mt-5 md:hidden">
 			<button
 				type="button"
 				onclick={handleSignOut}
 				disabled={isSigningOut}
-				class="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/25 bg-card px-4 py-3.5 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/5 disabled:pointer-events-none disabled:opacity-50"
+				class="flex w-full items-center justify-center gap-2 border border-destructive/30 bg-card px-4 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/5 disabled:pointer-events-none disabled:opacity-50"
 			>
 				<LogOut class="size-4" />
 				{isSigningOut ? 'Signing out…' : 'Sign out'}
@@ -122,17 +125,19 @@
 	{/if}
 
 	{#if activeTab === 'account'}
-		<section class="rounded-xl border border-border bg-card">
+		<section class="border border-border bg-card">
 			<dl class="divide-y divide-border/60">
-				<div class="flex items-center justify-between px-6 py-4">
-					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
-						<Wallet class="size-4 shrink-0" /> Starting Capital
-					</dt>
-					<dd class="font-mono font-semibold text-foreground">
-						{formatCurrency(userStore.profile.startingCapital)}
-					</dd>
-				</div>
-				<div class="flex items-center justify-between px-6 py-4">
+				{#if userStore.profile.startingCapital !== undefined}
+					<div class="flex items-center justify-between px-5 py-3.5">
+						<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
+							<Wallet class="size-4 shrink-0" /> Starting Capital
+						</dt>
+						<dd class="font-mono font-semibold text-foreground">
+							{formatCurrency(userStore.profile.startingCapital)}
+						</dd>
+					</div>
+				{/if}
+				<div class="flex items-center justify-between px-5 py-3.5">
 					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
 						<TrendingUp class="size-4 shrink-0" /> Current Portfolio Value
 					</dt>
@@ -140,7 +145,7 @@
 						{formatCurrency(portfolioStore.summary.totalValue)}
 					</dd>
 				</div>
-				<div class="flex items-center justify-between px-6 py-4">
+				<div class="flex items-center justify-between px-5 py-3.5">
 					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
 						<Wallet class="size-4 shrink-0" /> Cash Balance
 					</dt>
@@ -148,39 +153,41 @@
 						{formatCurrency(portfolioStore.summary.cashBalance)}
 					</dd>
 				</div>
-				<div class="flex items-center justify-between px-6 py-4">
-					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
-						<Shield class="size-4 shrink-0" /> Account Status
-					</dt>
-					<dd>
-						<span
-							class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold {userStore
-								.profile.accountStatus === 'active'
-								? 'border-positive/25 bg-positive/10 text-positive'
-								: 'border-negative/25 bg-negative/10 text-negative'}"
-						>
-							{userStore.profile.accountStatus === 'active' ? 'Active' : 'Suspended'}
-						</span>
-					</dd>
-				</div>
+				{#if userStore.profile.accountStatus !== undefined}
+					<div class="flex items-center justify-between px-5 py-3.5">
+						<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
+							<Shield class="size-4 shrink-0" /> Account Status
+						</dt>
+						<dd>
+							<span
+								class="border px-2 py-0.5 text-xs font-semibold {userStore.profile.accountStatus ===
+								'active'
+									? 'border-positive/30 bg-positive/8 text-positive'
+									: 'border-negative/30 bg-negative/8 text-negative'}"
+							>
+								{userStore.profile.accountStatus === 'active' ? 'Active' : 'Suspended'}
+							</span>
+						</dd>
+					</div>
+				{/if}
 			</dl>
 		</section>
 	{/if}
 
 	{#if activeTab === 'appearance'}
-		<section class="rounded-xl border border-border bg-card p-6">
-			<p class="font-serif text-base font-semibold text-foreground">Colour Scheme</p>
+		<section class="border border-border bg-card p-5">
+			<p class="text-sm font-semibold text-foreground">Colour Scheme</p>
 			<p class="mt-1 mb-5 text-sm text-muted-foreground">Choose your preferred visual theme.</p>
-			<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+			<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
 				{#each themes as theme (theme.value)}
 					{@const Icon = theme.icon}
 					<button
 						type="button"
 						onclick={() => userStore.updateSettings({ theme: theme.value })}
-						class="flex flex-col items-center gap-2.5 rounded-xl border-2 p-5 text-sm font-semibold transition-all {userStore
+						class="flex flex-col items-center gap-2 border-2 p-4 text-sm font-semibold transition-all {userStore
 							.settings.theme === theme.value
-							? 'border-accent bg-accent/10 text-primary'
-							: 'border-border text-muted-foreground hover:border-accent/40 hover:bg-muted'}"
+							? 'border-primary bg-muted text-primary'
+							: 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'}"
 					>
 						<Icon class="size-5" />
 						{theme.label}
@@ -191,10 +198,10 @@
 	{/if}
 
 	{#if activeTab === 'notifications'}
-		<section class="rounded-xl border border-border bg-card">
+		<section class="border border-border bg-card">
 			<div class="divide-y divide-border/60">
 				{#each [{ key: 'priceAlerts' as const, label: 'Price Alerts', description: 'Notify when a stock hits your threshold' }, { key: 'tradeConfirmations' as const, label: 'Trade Confirmations', description: 'Confirm every buy and sell order' }, { key: 'weeklyReport' as const, label: 'Weekly Report', description: 'Portfolio summary every Monday' }] as item (item.key)}
-					<div class="flex items-center justify-between gap-4 px-6 py-4">
+					<div class="flex items-center justify-between gap-4 px-5 py-4">
 						<div>
 							<p class="text-sm font-semibold text-foreground">{item.label}</p>
 							<p class="mt-0.5 text-xs text-muted-foreground">{item.description}</p>
@@ -208,15 +215,15 @@
 								userStore.updateNotifications({
 									[item.key]: !userStore.settings.notifications[item.key]
 								})}
-							class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {userStore
+							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {userStore
 								.settings.notifications[item.key]
 								? 'bg-primary'
-								: 'bg-muted'}"
+								: 'border border-border bg-muted'}"
 						>
 							<span
-								class="pointer-events-none inline-block size-5 rounded-full bg-white ring-0 transition-transform {userStore
+								class="pointer-events-none inline-block size-4 bg-white ring-0 transition-transform {userStore
 									.settings.notifications[item.key]
-									? 'translate-x-5'
+									? 'translate-x-4'
 									: 'translate-x-0'}"
 							></span>
 						</button>

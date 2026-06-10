@@ -1,6 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
 
-import { useCtx, type App, type AppContext } from "../../context.ts";
+import { useCtx, type App, type AppContext, type AppEnv } from "../../context.ts";
+import { userIdParamSchema } from "../user/user.schema.ts";
 
 import {
     InsufficientFundsError,
@@ -22,8 +24,51 @@ const handleError = (c: AppContext, err: unknown) => {
     throw err;
 }
 
-export const registerPortfolioRoutes = (app: App) => {
-    app.get(
+export const portfolioRoutes = new Hono<AppEnv>()
+    .get(
+        "/api/v1/users/:id/portfolio",
+        zValidator("param", userIdParamSchema),
+        async (c) => {
+            const { id: userId } = c.req.valid("param");
+            const { portfolioService, stockService } = useCtx(c);
+
+            try {
+                const portfolioRow = await portfolioService.ensureForUser(userId);
+                const portfolioId = portfolioRow.id;
+                const holdings = await portfolioService.getHoldings(portfolioId);
+                const portfolioValue = await portfolioService.getPortfolioValue(portfolioId);
+
+                const enrichedHoldings = await Promise.all(
+                    holdings.map(async (h) => {
+                        const [ticker, currentPrice] = await Promise.all([
+                            stockService.getTicker(h.stockId),
+                            stockService.getLatestPriceByStockId(h.stockId),
+                        ]);
+                        return {
+                            stockId: h.stockId,
+                            ticker: ticker ?? h.stockId,
+                            quantity: h.quantity,
+                            avgCost: h.avgCost,
+                            currentPrice,
+                            marketValue:
+                                currentPrice !== null ? h.quantity * currentPrice : null,
+                        };
+                    }),
+                );
+
+                return c.json({
+                    data: {
+                        portfolio: portfolioRow,
+                        holdings: enrichedHoldings,
+                        portfolioValue,
+                    },
+                });
+            } catch (err) {
+                return handleError(c, err);
+            }
+        },
+    )
+    .get(
         "/api/v1/portfolio/:portfolioId",
         zValidator("param", portfolioIdParamSchema),
         async (c) => {
@@ -40,9 +85,8 @@ export const registerPortfolioRoutes = (app: App) => {
                 return handleError(c, err);
             }
         },
-    );
-
-    app.post(
+    )
+    .post(
         "/api/v1/portfolio/buy",
         zValidator("json", tradeBodySchema),
         async (c) => {
@@ -56,9 +100,8 @@ export const registerPortfolioRoutes = (app: App) => {
                 return handleError(c, err);
             }
         },
-    );
-
-    app.post(
+    )
+    .post(
         "/api/v1/portfolio/sell",
         zValidator("json", tradeBodySchema),
         async (c) => {
@@ -72,9 +115,8 @@ export const registerPortfolioRoutes = (app: App) => {
                 return handleError(c, err);
             }
         },
-    );
-
-    app.get(
+    )
+    .get(
         "/api/v1/portfolio/:portfolioId/value",
         zValidator("param", portfolioIdParamSchema),
         async (c) => {
@@ -89,4 +131,7 @@ export const registerPortfolioRoutes = (app: App) => {
             }
         },
     );
-};
+
+export const registerPortfolioRoutes = (app: App) => {
+    app.route('/', portfolioRoutes)
+}
