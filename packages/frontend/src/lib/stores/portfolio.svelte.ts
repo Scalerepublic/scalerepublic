@@ -75,10 +75,7 @@ class PortfolioStore {
 			return;
 		}
 
-		this.performanceHistory = [
-			...this.performanceHistory,
-			{ date: marketDate, value: totalValue }
-		];
+		this.performanceHistory = [...this.performanceHistory, { date: marketDate, value: totalValue }];
 	}
 
 	get chartHistory(): PerformancePoint[] {
@@ -88,10 +85,7 @@ class PortfolioStore {
 			return this.performanceHistory;
 		}
 
-		return initialPerformanceHistory(
-			this._data.startingCapital,
-			this.summary.totalValue
-		);
+		return initialPerformanceHistory(this._data.startingCapital, this.summary.totalValue);
 	}
 
 	private resolvePrice(stockId: string, fallback: number | null): number {
@@ -129,13 +123,8 @@ class PortfolioStore {
 		const portfolioId = this._data?.portfolioId;
 		if (!portfolioId) throw new Error(this.error ?? 'Portfolio not loaded');
 
-		const holding = this._data?.holdings.find(
-			(h) => h.stockId === stockId || h.ticker === stockId
-		);
-		const price = this.resolvePrice(
-			holding?.stockId ?? stockId,
-			holding?.currentPrice ?? null
-		);
+		const holding = this._data?.holdings.find((h) => h.stockId === stockId || h.ticker === stockId);
+		const price = this.resolvePrice(holding?.stockId ?? stockId, holding?.currentPrice ?? null);
 		if (price <= 0) throw new Error('Price unavailable');
 
 		const res = await api.api.v1.portfolio.sell.$post({

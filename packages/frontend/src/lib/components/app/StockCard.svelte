@@ -16,7 +16,9 @@
 	});
 </script>
 
-<article class="group flex flex-col overflow-hidden border border-border bg-card transition-[border-color] hover:border-foreground/40">
+<article
+	class="group flex flex-col overflow-hidden border border-border bg-card transition-[border-color] hover:border-foreground/40"
+>
 	<div class="flex flex-1 flex-col p-4">
 		<div class="flex items-start justify-between gap-2 border-b border-border pb-3">
 			<div class="min-w-0">

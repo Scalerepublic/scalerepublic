@@ -61,14 +61,18 @@
 
 	<div class="section-heading">
 		<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Holdings</h2>
-		<span class="border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+		<span
+			class="border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+		>
 			{portfolioStore.holdings.length}
 			{portfolioStore.holdings.length === 1 ? 'position' : 'positions'}
 		</span>
 	</div>
 
 	{#if portfolioStore.holdings.length === 0}
-		<div class="flex flex-col items-center justify-center border border-dashed border-border py-16 text-center">
+		<div
+			class="flex flex-col items-center justify-center border border-dashed border-border py-16 text-center"
+		>
 			<p class="font-serif text-base font-semibold text-muted-foreground">No positions yet.</p>
 			<p class="mt-1 text-sm text-muted-foreground">
 				Head to the Market to place your first trade.
@@ -79,7 +83,7 @@
 		<HoldingsTable holdings={portfolioStore.holdings} />
 
 		<div class="mt-6 grid gap-0 border border-border sm:grid-cols-3">
-			<div class="border-b border-border px-5 py-4 sm:border-b-0 sm:border-r">
+			<div class="border-b border-border px-5 py-4 sm:border-r sm:border-b-0">
 				<p class="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
 					Portfolio Value
 				</p>
@@ -87,7 +91,7 @@
 					{formatCurrency(portfolioStore.summary.holdingsValue)}
 				</p>
 			</div>
-			<div class="border-b border-border px-5 py-4 sm:border-b-0 sm:border-r sm:text-right">
+			<div class="border-b border-border px-5 py-4 sm:border-r sm:border-b-0 sm:text-right">
 				<p class="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
 					Cash Available
 				</p>
@@ -96,7 +100,9 @@
 				</p>
 			</div>
 			<div class="px-5 py-4 sm:text-right">
-				<p class="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">Total</p>
+				<p class="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+					Total
+				</p>
 				<p class="mt-1.5 font-serif text-xl font-bold text-primary">
 					{formatCurrency(portfolioStore.summary.totalValue)}
 				</p>

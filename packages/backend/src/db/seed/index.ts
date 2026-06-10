@@ -1,4 +1,5 @@
 import { inArray } from 'drizzle-orm';
+// eslint-disable-next-line import/no-unresolved
 import seedrandom from 'seedrandom';
 
 import { client, db } from '../index.ts';

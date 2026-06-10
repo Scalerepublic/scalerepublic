@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 
+import { useCtx, type App, type AppEnv } from '../../context.ts';
 import { requireMarketDebugOperator } from '../../lib/market-debug-auth.ts';
 import { isMarketDebugEnabled } from '../../lib/market-debug.ts';
-import { useCtx, type App, type AppEnv } from '../../context.ts';
 
 export const marketDebugRoutes = new Hono<AppEnv>()
     .get('/api/v1/market/clock', (c) => {

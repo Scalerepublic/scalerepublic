@@ -11,7 +11,7 @@
 	const leaderboard = $derived(
 		data.leaderboard.map((e) => ({
 			...e,
-			isCurrentUser: e.userId === authStore.user?.id,
+			isCurrentUser: e.userId === authStore.user?.id
 		}))
 	);
 
@@ -26,7 +26,10 @@
 
 <div class="page-shell">
 	<div class="page-header-row">
-		<PageHeader title="Leaderboard" subtitle="Ranked by current net worth · toy exchange rules apply" />
+		<PageHeader
+			title="Leaderboard"
+			subtitle="Ranked by current net worth · toy exchange rules apply"
+		/>
 		<LivePill />
 	</div>
 
@@ -34,13 +37,34 @@
 		<table class="w-full border-collapse text-sm">
 			<thead>
 				<tr class="border-b border-border bg-muted">
-					<th class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">Rank</th>
-					<th class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">Trader</th>
-					<th class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">Net Worth</th>
-					<th class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase sm:table-cell">Holdings</th>
-					<th class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase md:table-cell">Cash</th>
-					<th class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">Defaults</th>
-					<th class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">Return</th>
+					<th
+						class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+						>Rank</th
+					>
+					<th
+						class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+						>Trader</th
+					>
+					<th
+						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+						>Net Worth</th
+					>
+					<th
+						class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase sm:table-cell"
+						>Holdings</th
+					>
+					<th
+						class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase md:table-cell"
+						>Cash</th
+					>
+					<th
+						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+						>Defaults</th
+					>
+					<th
+						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+						>Return</th
+					>
 				</tr>
 			</thead>
 			<tbody>
@@ -48,9 +72,7 @@
 					<tr
 						class={cn(
 							'border-t border-border/60 transition-colors',
-							entry.isCurrentUser
-								? 'bg-accent/5 hover:bg-accent/8'
-								: 'hover:bg-muted/40'
+							entry.isCurrentUser ? 'bg-accent/5 hover:bg-accent/8' : 'hover:bg-muted/40'
 						)}
 					>
 						<td class="px-4 py-3.5">
@@ -93,13 +115,17 @@
 									<span
 										class={cn(
 											'text-sm',
-											entry.isCurrentUser ? 'font-bold text-foreground' : 'font-medium text-foreground'
+											entry.isCurrentUser
+												? 'font-bold text-foreground'
+												: 'font-medium text-foreground'
 										)}
 									>
 										{entry.name}
 									</span>
 									{#if entry.isCurrentUser}
-										<span class="border border-border bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-foreground uppercase">
+										<span
+											class="border border-border bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-foreground uppercase"
+										>
 											You
 										</span>
 									{/if}
@@ -107,7 +133,12 @@
 							</div>
 						</td>
 						<td class="px-4 py-3.5 text-right">
-							<span class={cn('font-mono font-bold', entry.isCurrentUser ? 'text-foreground' : 'text-primary')}>
+							<span
+								class={cn(
+									'font-mono font-bold',
+									entry.isCurrentUser ? 'text-foreground' : 'text-primary'
+								)}
+							>
 								{formatCurrency(entry.netWorth)}
 							</span>
 						</td>
@@ -120,7 +151,9 @@
 						<td class="px-4 py-3.5 text-right">
 							{#if entry.penalties > 0}
 								<div class="inline-flex flex-col items-end gap-0.5">
-									<span class="border border-border bg-muted px-1.5 py-0.5 font-mono text-xs font-bold text-foreground">
+									<span
+										class="border border-border bg-muted px-1.5 py-0.5 font-mono text-xs font-bold text-foreground"
+									>
 										{entry.penalties}
 									</span>
 									<span class="text-[10px] text-muted-foreground">
@@ -140,7 +173,9 @@
 							<span
 								class={cn(
 									'border px-1.5 py-0.5 font-mono text-xs font-semibold',
-									entry.returnPercent >= 0 ? 'border-positive/30 bg-positive/8' : 'border-negative/30 bg-negative/8'
+									entry.returnPercent >= 0
+										? 'border-positive/30 bg-positive/8'
+										: 'border-negative/30 bg-negative/8'
 								)}
 							>
 								{entry.returnPercent >= 0 ? '+' : ''}{formatPercent(entry.returnPercent)}

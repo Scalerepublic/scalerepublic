@@ -1,8 +1,8 @@
 import { and, asc, desc, eq, gte, lte, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
-import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 import { stock, stockPrice } from '../../db/schema/stock/index.ts'
+import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
 export type StockSummary = {
     id: string
@@ -18,8 +18,8 @@ export class StockService {
 
     private priceAsOfFilter(): SQL | undefined {
         if (!isMarketDebugEnabled()) return undefined;
-        const asOf = this.ctx.marketDebugService?.getAsOf();
-        return asOf ? lte(stockPrice.recordedAt, asOf) : undefined;
+        const asOf = this.ctx.marketDebugService.getAsOf();
+        return lte(stockPrice.recordedAt, asOf);
     }
 
     async getAll(): Promise<StockSummary[]> {
@@ -107,7 +107,7 @@ export class StockService {
 
     async getLatestPriceByStockId(stockId: string, asOf?: Date): Promise<number | null> {
         const effectiveAsOf =
-            asOf ?? (isMarketDebugEnabled() ? this.ctx.marketDebugService?.getAsOf() : undefined);
+            asOf ?? (isMarketDebugEnabled() ? this.ctx.marketDebugService.getAsOf() : undefined);
         const conditions = [eq(stockPrice.stockId, stockId)];
         if (effectiveAsOf) {
             conditions.push(lte(stockPrice.recordedAt, effectiveAsOf));

@@ -11,10 +11,10 @@ export const requireMarketDebugOperator = async (
     }
 
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    const email = session?.user.email?.trim().toLowerCase();
+    const email = session?.user.email.trim().toLowerCase();
     const allowed = getMarketDebugOperatorEmail();
 
-    if (!email) {
+    if (email === undefined || email === "") {
         return c.json({ error: 'Unauthorized' }, 401);
     }
 

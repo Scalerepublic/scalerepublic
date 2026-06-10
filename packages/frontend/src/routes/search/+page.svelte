@@ -23,14 +23,16 @@
 			type="text"
 			bind:value={query}
 			placeholder="Search by ticker or company name…"
-			class="h-10 w-full border border-input bg-card pr-4 pl-10 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
+			class="h-10 w-full border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
 		/>
 	</div>
 
 	{#if showTrending}
 		<div class="mb-5 flex items-center gap-3">
 			<div class="flex items-center gap-2.5">
-				<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Trending Today</h2>
+				<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+					Trending Today
+				</h2>
 				<LivePill />
 			</div>
 			<p class="text-xs text-muted-foreground">Top movers by daily change</p>
@@ -43,7 +45,9 @@
 		</div>
 
 		<div class="section-heading mt-10">
-			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">All Stocks</h2>
+			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+				All Stocks
+			</h2>
 			<span class="text-xs text-muted-foreground">{marketStore.stocks.length} listed</span>
 		</div>
 
@@ -55,14 +59,18 @@
 	{:else}
 		<div class="mb-5 flex items-center justify-between">
 			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Results</h2>
-			<span class="border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+			<span
+				class="border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+			>
 				{results.length}
 				{results.length === 1 ? 'stock' : 'stocks'} found
 			</span>
 		</div>
 
 		{#if results.length === 0}
-			<div class="flex flex-col items-center justify-center border border-dashed border-border py-16 text-center">
+			<div
+				class="flex flex-col items-center justify-center border border-dashed border-border py-16 text-center"
+			>
 				<Flame class="mb-3 size-7 text-muted-foreground/40" />
 				<p class="font-serif text-base font-semibold text-muted-foreground">
 					No results for "{query}"

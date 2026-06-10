@@ -26,7 +26,12 @@ export function bootstrapAppData() {
 	loadedForUserId = userId;
 	const generation = ++loadGeneration;
 
-	void Promise.all([syncMarketClock(), portfolioStore.load(), marketStore.load(), userStore.load()]).then(() => {
+	void Promise.all([
+		syncMarketClock(),
+		portfolioStore.load(),
+		marketStore.load(),
+		userStore.load()
+	]).then(() => {
 		if (generation !== loadGeneration || authStore.user?.id !== userId) {
 			return;
 		}

@@ -62,7 +62,7 @@
 				class={cn(
 					'px-4 py-2.5 text-sm font-medium transition-colors',
 					activeTab === tab.id
-						? 'border-b-2 border-primary text-primary -mb-px'
+						? '-mb-px border-b-2 border-primary text-primary'
 						: 'text-muted-foreground hover:text-foreground'
 				)}
 			>
@@ -128,14 +128,14 @@
 		<section class="border border-border bg-card">
 			<dl class="divide-y divide-border/60">
 				{#if userStore.profile.startingCapital !== undefined}
-				<div class="flex items-center justify-between px-5 py-3.5">
-					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
-						<Wallet class="size-4 shrink-0" /> Starting Capital
-					</dt>
-					<dd class="font-mono font-semibold text-foreground">
-						{formatCurrency(userStore.profile.startingCapital)}
-					</dd>
-				</div>
+					<div class="flex items-center justify-between px-5 py-3.5">
+						<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
+							<Wallet class="size-4 shrink-0" /> Starting Capital
+						</dt>
+						<dd class="font-mono font-semibold text-foreground">
+							{formatCurrency(userStore.profile.startingCapital)}
+						</dd>
+					</div>
 				{/if}
 				<div class="flex items-center justify-between px-5 py-3.5">
 					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
@@ -154,20 +154,21 @@
 					</dd>
 				</div>
 				{#if userStore.profile.accountStatus !== undefined}
-				<div class="flex items-center justify-between px-5 py-3.5">
-					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
-						<Shield class="size-4 shrink-0" /> Account Status
-					</dt>
-					<dd>
-						<span
-							class="border px-2 py-0.5 text-xs font-semibold {userStore.profile.accountStatus === 'active'
-								? 'border-positive/30 bg-positive/8 text-positive'
-								: 'border-negative/30 bg-negative/8 text-negative'}"
-						>
-							{userStore.profile.accountStatus === 'active' ? 'Active' : 'Suspended'}
-						</span>
-					</dd>
-				</div>
+					<div class="flex items-center justify-between px-5 py-3.5">
+						<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
+							<Shield class="size-4 shrink-0" /> Account Status
+						</dt>
+						<dd>
+							<span
+								class="border px-2 py-0.5 text-xs font-semibold {userStore.profile.accountStatus ===
+								'active'
+									? 'border-positive/30 bg-positive/8 text-positive'
+									: 'border-negative/30 bg-negative/8 text-negative'}"
+							>
+								{userStore.profile.accountStatus === 'active' ? 'Active' : 'Suspended'}
+							</span>
+						</dd>
+					</div>
 				{/if}
 			</dl>
 		</section>
@@ -183,7 +184,8 @@
 					<button
 						type="button"
 						onclick={() => userStore.updateSettings({ theme: theme.value })}
-						class="flex flex-col items-center gap-2 border-2 p-4 text-sm font-semibold transition-all {userStore.settings.theme === theme.value
+						class="flex flex-col items-center gap-2 border-2 p-4 text-sm font-semibold transition-all {userStore
+							.settings.theme === theme.value
 							? 'border-primary bg-muted text-primary'
 							: 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'}"
 					>
@@ -198,11 +200,7 @@
 	{#if activeTab === 'notifications'}
 		<section class="border border-border bg-card">
 			<div class="divide-y divide-border/60">
-				{#each [
-					{ key: 'priceAlerts' as const, label: 'Price Alerts', description: 'Notify when a stock hits your threshold' },
-					{ key: 'tradeConfirmations' as const, label: 'Trade Confirmations', description: 'Confirm every buy and sell order' },
-					{ key: 'weeklyReport' as const, label: 'Weekly Report', description: 'Portfolio summary every Monday' }
-				] as item (item.key)}
+				{#each [{ key: 'priceAlerts' as const, label: 'Price Alerts', description: 'Notify when a stock hits your threshold' }, { key: 'tradeConfirmations' as const, label: 'Trade Confirmations', description: 'Confirm every buy and sell order' }, { key: 'weeklyReport' as const, label: 'Weekly Report', description: 'Portfolio summary every Monday' }] as item (item.key)}
 					<div class="flex items-center justify-between gap-4 px-5 py-4">
 						<div>
 							<p class="text-sm font-semibold text-foreground">{item.label}</p>
@@ -217,12 +215,14 @@
 								userStore.updateNotifications({
 									[item.key]: !userStore.settings.notifications[item.key]
 								})}
-							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {userStore.settings.notifications[item.key]
+							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {userStore
+								.settings.notifications[item.key]
 								? 'bg-primary'
-								: 'bg-muted border border-border'}"
+								: 'border border-border bg-muted'}"
 						>
 							<span
-								class="pointer-events-none inline-block size-4 bg-white ring-0 transition-transform {userStore.settings.notifications[item.key]
+								class="pointer-events-none inline-block size-4 bg-white ring-0 transition-transform {userStore
+									.settings.notifications[item.key]
 									? 'translate-x-4'
 									: 'translate-x-0'}"
 							></span>

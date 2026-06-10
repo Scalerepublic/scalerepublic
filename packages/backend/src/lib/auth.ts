@@ -14,8 +14,8 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  trustedOrigins: authUrl ? [authUrl] : [],
+  trustedOrigins: authUrl !== undefined && authUrl !== "" ? [authUrl] : [],
   advanced: {
-    useSecureCookies: authUrl?.startsWith("https://") ?? false,
+    useSecureCookies: authUrl !== undefined && authUrl !== "" ? authUrl.startsWith("https://") : false,
   },
 });

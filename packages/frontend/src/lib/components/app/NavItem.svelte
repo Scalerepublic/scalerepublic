@@ -42,7 +42,7 @@
 			'group flex items-center py-2 text-sm transition-colors duration-100',
 			collapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
 			isActive
-				? 'bg-muted font-semibold text-primary border-l-[3px] border-primary'
+				? 'border-l-[3px] border-primary bg-muted font-semibold text-primary'
 				: 'border-l-[3px] border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground'
 		)}
 	>

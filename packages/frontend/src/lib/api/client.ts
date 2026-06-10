@@ -31,8 +31,7 @@ export async function parseApiData<T>(res: Response): Promise<T> {
 	const json = (await res.json()) as { data?: T; error?: string };
 
 	if (!res.ok) {
-		const message =
-			typeof json.error === 'string' ? json.error : `${res.status} ${res.statusText}`;
+		const message = typeof json.error === 'string' ? json.error : `${res.status} ${res.statusText}`;
 		throw new ApiError(message, res.status);
 	}
 

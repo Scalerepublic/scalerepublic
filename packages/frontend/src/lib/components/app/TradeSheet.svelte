@@ -102,7 +102,9 @@
 				class="mb-1 h-10 w-full border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
 			/>
 			<p class="mb-4 text-xs text-muted-foreground">
-				{mode === 'sell' ? `You own up to ${maxQuantity} shares` : `Estimated total: ${formatCurrency(total)}`}
+				{mode === 'sell'
+					? `You own up to ${maxQuantity} shares`
+					: `Estimated total: ${formatCurrency(total)}`}
 			</p>
 
 			{#if error}
@@ -113,12 +115,7 @@
 				<NobleButton type="button" class="flex-1 bg-muted text-foreground" onclick={close}>
 					Cancel
 				</NobleButton>
-				<NobleButton
-					type="button"
-					class="flex-1"
-					disabled={submitting}
-					onclick={submit}
-				>
+				<NobleButton type="button" class="flex-1" disabled={submitting} onclick={submit}>
 					{submitting ? '…' : mode === 'buy' ? 'Confirm buy' : 'Confirm sell'}
 				</NobleButton>
 			</div>

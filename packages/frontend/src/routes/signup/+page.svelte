@@ -53,7 +53,9 @@
 			</p>
 			<div class="mt-2 flex items-center justify-center gap-3">
 				<div class="h-px flex-1 bg-border"></div>
-				<span class="text-[10px] font-semibold tracking-[0.22em] text-muted-foreground uppercase">Exchange</span>
+				<span class="text-[10px] font-semibold tracking-[0.22em] text-muted-foreground uppercase"
+					>Exchange</span
+				>
 				<div class="h-px flex-1 bg-border"></div>
 			</div>
 		</div>
@@ -65,7 +67,9 @@
 
 			<form class="space-y-4" onsubmit={handleSubmit} novalidate>
 				<div class="space-y-1.5">
-					<label for="name" class="text-xs font-semibold tracking-wide text-foreground uppercase">Full name</label>
+					<label for="name" class="text-xs font-semibold tracking-wide text-foreground uppercase"
+						>Full name</label
+					>
 					<input
 						id="name"
 						type="text"
@@ -74,12 +78,14 @@
 						bind:value={name}
 						disabled={isSubmitting}
 						placeholder="Jane Doe"
-						class="h-10 w-full border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
 					/>
 				</div>
 
 				<div class="space-y-1.5">
-					<label for="email" class="text-xs font-semibold tracking-wide text-foreground uppercase">Email</label>
+					<label for="email" class="text-xs font-semibold tracking-wide text-foreground uppercase"
+						>Email</label
+					>
 					<input
 						id="email"
 						type="email"
@@ -88,12 +94,15 @@
 						bind:value={email}
 						disabled={isSubmitting}
 						placeholder="you@example.com"
-						class="h-10 w-full border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
 					/>
 				</div>
 
 				<div class="space-y-1.5">
-					<label for="password" class="text-xs font-semibold tracking-wide text-foreground uppercase">Password</label>
+					<label
+						for="password"
+						class="text-xs font-semibold tracking-wide text-foreground uppercase">Password</label
+					>
 					<input
 						id="password"
 						type="password"
@@ -103,12 +112,16 @@
 						bind:value={password}
 						disabled={isSubmitting}
 						placeholder="At least 8 characters"
-						class="h-10 w-full border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
 					/>
 				</div>
 
 				<div class="space-y-1.5">
-					<label for="confirm-password" class="text-xs font-semibold tracking-wide text-foreground uppercase">Confirm password</label>
+					<label
+						for="confirm-password"
+						class="text-xs font-semibold tracking-wide text-foreground uppercase"
+						>Confirm password</label
+					>
 					<input
 						id="confirm-password"
 						type="password"
@@ -118,7 +131,7 @@
 						disabled={isSubmitting}
 						aria-invalid={!passwordsMatch}
 						placeholder="Repeat your password"
-						class="h-10 w-full border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
+						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
 					/>
 					{#if !passwordsMatch}
 						<p class="text-xs font-medium text-destructive">Passwords don&apos;t match.</p>

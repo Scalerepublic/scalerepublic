@@ -29,49 +29,49 @@
 }
 
 :root {
-	--background: #F8F7F3;
-	--foreground: #0F0F0D;
-	--card: #FFFFFF;
-	--card-foreground: #0F0F0D;
-	--popover: #FFFFFF;
-	--popover-foreground: #0F0F0D;
+	--background: #f8f7f3;
+	--foreground: #0f0f0d;
+	--card: #ffffff;
+	--card-foreground: #0f0f0d;
+	--popover: #ffffff;
+	--popover-foreground: #0f0f0d;
 
-	--primary: #0F0F0D;
-	--primary-foreground: #FFFFFF;
+	--primary: #0f0f0d;
+	--primary-foreground: #ffffff;
 
-	--secondary: #EEEEE9;
-	--secondary-foreground: #2A2A26;
+	--secondary: #eeeee9;
+	--secondary-foreground: #2a2a26;
 
-	--muted: #EEEEE9;
-	--muted-foreground: #68686A;
+	--muted: #eeeee9;
+	--muted-foreground: #68686a;
 
-	--accent: #1A3660;
-	--accent-foreground: #FFFFFF;
+	--accent: #1a3660;
+	--accent-foreground: #ffffff;
 
-	--destructive: #A41414;
-	--border: #D4D3CC;
-	--input: #D4D3CC;
-	--ring: #1A3660;
+	--destructive: #a41414;
+	--border: #d4d3cc;
+	--input: #d4d3cc;
+	--ring: #1a3660;
 
-	--positive: #1A6630;
-	--negative: #A41414;
+	--positive: #1a6630;
+	--negative: #a41414;
 
 	--radius: 0px;
 
-	--sidebar: #FFFFFF;
-	--sidebar-foreground: #0F0F0D;
-	--sidebar-primary: #EEEEE9;
-	--sidebar-primary-foreground: #0F0F0D;
-	--sidebar-accent: #EEEEE9;
-	--sidebar-accent-foreground: #0F0F0D;
-	--sidebar-border: #D4D3CC;
-	--sidebar-ring: #1A3660;
+	--sidebar: #ffffff;
+	--sidebar-foreground: #0f0f0d;
+	--sidebar-primary: #eeeee9;
+	--sidebar-primary-foreground: #0f0f0d;
+	--sidebar-accent: #eeeee9;
+	--sidebar-accent-foreground: #0f0f0d;
+	--sidebar-border: #d4d3cc;
+	--sidebar-ring: #1a3660;
 
-	--chart-fill-top: rgba(26, 54, 96, 0.10);
+	--chart-fill-top: rgba(26, 54, 96, 0.1);
 	--chart-fill-bottom: rgba(26, 54, 96, 0.01);
-	--chart-line-start: #1A3660;
-	--chart-line-end: #2A5090;
-	--chart-grid: #E5E4DE;
+	--chart-line-start: #1a3660;
+	--chart-line-end: #2a5090;
+	--chart-grid: #e5e4de;
 	--chart-crosshair: rgba(0, 0, 0, 0.22);
 }
 
@@ -125,7 +125,7 @@
 	}
 	body {
 		@apply bg-background text-foreground;
-		font-feature-settings: "tnum" 0;
+		font-feature-settings: 'tnum' 0;
 	}
 	html {
 		@apply font-sans;

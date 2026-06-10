@@ -49,7 +49,9 @@
 		})
 	);
 
-	const linePath = $derived(plotPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' '));
+	const linePath = $derived(
+		plotPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')
+	);
 
 	const areaPath = $derived(
 		plotPoints.length === 0
@@ -68,9 +70,7 @@
 
 	const startValue = $derived(points[0]?.value ?? 0);
 	const endValue = $derived(points[points.length - 1]?.value ?? 0);
-	const periodReturn = $derived(
-		startValue > 0 ? ((endValue - startValue) / startValue) * 100 : 0
-	);
+	const periodReturn = $derived(startValue > 0 ? ((endValue - startValue) / startValue) * 100 : 0);
 	const isPositive = $derived(periodReturn >= 0);
 
 	let activeIndex = $state<number | null>(null);
@@ -107,7 +107,9 @@
 <article class="overflow-hidden border border-border bg-card">
 	<div class="flex flex-wrap items-end justify-between gap-4 border-b border-border px-5 py-4">
 		<div>
-			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Performance</h2>
+			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+				Performance
+			</h2>
 			<p class="mt-0.5 text-xs text-muted-foreground">Portfolio value since account opening</p>
 		</div>
 		<div class="text-right">
@@ -137,75 +139,75 @@
 				No performance data yet
 			</div>
 		{:else}
-		<svg
-			viewBox={`0 0 ${width} ${height}`}
-			class="w-full touch-none select-none"
-			role="img"
-			aria-label="Portfolio performance chart"
-			onpointermove={handlePointerMove}
-			onpointerleave={handlePointerLeave}
-			onpointerdown={handlePointerMove}
-		>
-			<defs>
-				<linearGradient id="performance-fill" x1="0" y1="0" x2="0" y2="1">
-					<stop offset="0%" stop-color="var(--chart-fill-top)" />
-					<stop offset="100%" stop-color="var(--chart-fill-bottom)" />
-				</linearGradient>
-			</defs>
+			<svg
+				viewBox={`0 0 ${width} ${height}`}
+				class="w-full touch-none select-none"
+				role="img"
+				aria-label="Portfolio performance chart"
+				onpointermove={handlePointerMove}
+				onpointerleave={handlePointerLeave}
+				onpointerdown={handlePointerMove}
+			>
+				<defs>
+					<linearGradient id="performance-fill" x1="0" y1="0" x2="0" y2="1">
+						<stop offset="0%" stop-color="var(--chart-fill-top)" />
+						<stop offset="100%" stop-color="var(--chart-fill-bottom)" />
+					</linearGradient>
+				</defs>
 
-			{#each gridLines as ratio, i (i)}
-				{@const y = pad.t + innerH * (1 - ratio)}
-				<line
-					x1={pad.l}
-					y1={y}
-					x2={width - pad.r}
-					y2={y}
-					stroke="var(--chart-grid)"
-					stroke-width="1"
-					stroke-dasharray={i === 1 ? '4 4' : undefined}
-				/>
-			{/each}
+				{#each gridLines as ratio, i (i)}
+					{@const y = pad.t + innerH * (1 - ratio)}
+					<line
+						x1={pad.l}
+						y1={y}
+						x2={width - pad.r}
+						y2={y}
+						stroke="var(--chart-grid)"
+						stroke-width="1"
+						stroke-dasharray={i === 1 ? '4 4' : undefined}
+					/>
+				{/each}
 
-			<path d={areaPath} fill="url(#performance-fill)" />
-			<path
-				d={linePath}
-				fill="none"
-				stroke="var(--chart-line-start)"
-				stroke-width="1.5"
-				stroke-linecap="square"
-				stroke-linejoin="miter"
-			/>
-
-			{#if activePoint && activeIndex !== null}
-				<line
-					x1={activePoint.x}
-					y1={pad.t}
-					x2={activePoint.x}
-					y2={pad.t + innerH}
-					stroke="var(--chart-crosshair)"
-					stroke-width="1"
-					stroke-dasharray="3 3"
-				/>
-				<rect
-					x={activePoint.x - 3}
-					y={activePoint.y - 3}
-					width="6"
-					height="6"
-					fill="var(--card)"
-					stroke="var(--foreground)"
+				<path d={areaPath} fill="url(#performance-fill)" />
+				<path
+					d={linePath}
+					fill="none"
+					stroke="var(--chart-line-start)"
 					stroke-width="1.5"
+					stroke-linecap="square"
+					stroke-linejoin="miter"
 				/>
-			{/if}
-		</svg>
 
-		<div class="mt-2 flex justify-between text-xs font-medium text-muted-foreground">
-			{#each xLabelIndices as index (index)}
-				{@const label = plotPoints[index]}
-				{#if label}
-					<span>{formatAxisDate(label.date)}</span>
+				{#if activePoint && activeIndex !== null}
+					<line
+						x1={activePoint.x}
+						y1={pad.t}
+						x2={activePoint.x}
+						y2={pad.t + innerH}
+						stroke="var(--chart-crosshair)"
+						stroke-width="1"
+						stroke-dasharray="3 3"
+					/>
+					<rect
+						x={activePoint.x - 3}
+						y={activePoint.y - 3}
+						width="6"
+						height="6"
+						fill="var(--card)"
+						stroke="var(--foreground)"
+						stroke-width="1.5"
+					/>
 				{/if}
-			{/each}
-		</div>
+			</svg>
+
+			<div class="mt-2 flex justify-between text-xs font-medium text-muted-foreground">
+				{#each xLabelIndices as index (index)}
+					{@const label = plotPoints[index]}
+					{#if label}
+						<span>{formatAxisDate(label.date)}</span>
+					{/if}
+				{/each}
+			</div>
 		{/if}
 	</div>
 </article>

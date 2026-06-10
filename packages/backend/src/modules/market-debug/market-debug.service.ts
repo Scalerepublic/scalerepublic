@@ -1,7 +1,6 @@
+import type { AppVars } from '../../context.ts';
 import { stepGbm } from '../../db/seed/gbm.ts';
 import { ARCHETYPES, SEED_STOCKS, type Archetype } from '../../db/seed/stocks.ts';
-import type { AppVars } from '../../context.ts';
-
 const DEFAULT_ARCHETYPE: Archetype = 'steady_growth';
 const archetypeByTicker = Object.fromEntries(
     SEED_STOCKS.map((s) => [s.ticker, s.archetype]),

@@ -1,5 +1,13 @@
 <script lang="ts">
-	import { LayoutDashboard, Search, Settings, Trophy, PanelLeftClose, PanelLeft, LogOut } from '@lucide/svelte';
+	import {
+		LayoutDashboard,
+		Search,
+		Settings,
+		Trophy,
+		PanelLeftClose,
+		PanelLeft,
+		LogOut
+	} from '@lucide/svelte';
 	import NavItem from './NavItem.svelte';
 	import { userStore } from '$lib/stores/user.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
@@ -31,7 +39,12 @@
 		sidebarStore.collapsed ? 'w-16' : 'w-64'
 	)}
 >
-	<div class={cn('border-b border-sidebar-border', sidebarStore.collapsed ? 'px-2 py-4' : 'sidebar-section')}>
+	<div
+		class={cn(
+			'border-b border-sidebar-border',
+			sidebarStore.collapsed ? 'px-2 py-4' : 'sidebar-section'
+		)}
+	>
 		<div
 			class={cn(
 				'flex items-center',
