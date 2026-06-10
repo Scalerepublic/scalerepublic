@@ -124,7 +124,7 @@
 						isPositive ? 'text-positive' : 'text-negative'
 					)}
 				>
-					{isPositive ? '+' : ''}{formatPercent(periodReturn)} all time
+					{formatPercent(periodReturn)} all time
 				</p>
 			{/if}
 		</div>
