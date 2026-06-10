@@ -1,0 +1,62 @@
+name: scalerepublic
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-scalerepublic}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-scalerepublic}
+      PORT: '3000'
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${PUBLIC_URL:?set PUBLIC_URL}
+      STOCK_API_PROVIDER: ${STOCK_API_PROVIDER:-uni}
+      UNI_API_BASE_URL: ${UNI_API_BASE_URL:-}
+      UNI_API_TOKEN: ${UNI_API_TOKEN:-}
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
+      SYNC_INTERVAL_MS: ${SYNC_INTERVAL_MS:-3600000}
+      SYNC_CHECK_INTERVAL_MS: ${SYNC_CHECK_INTERVAL_MS:-60000}
+      STOCK_DEBUG: ${STOCK_DEBUG:-true}
+      MARKET_DEBUG_OPERATOR_EMAIL: ${MARKET_DEBUG_OPERATOR_EMAIL:-test@test.com}
+    command: ['sh', '-c', 'bun run db:migrate && bun dist/index.js']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - '3000'
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+      args:
+        VITE_API_URL: http://backend:3000
+    environment:
+      ORIGIN: ${PUBLIC_URL}
+      API_ORIGIN: http://backend:3000
+      HOST: 0.0.0.0
+      PORT: '50029'
+    ports:
+      - '${PUBLIC_PORT:-50029}:50029'
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

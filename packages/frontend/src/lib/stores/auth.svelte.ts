@@ -24,6 +24,10 @@ class AuthStore {
 		return this.value.isPending;
 	}
 
+	get error() {
+		return this.value.error;
+	}
+
 	get isAuthenticated() {
 		return !this.value.isPending && this.value.data?.user != null;
 	}

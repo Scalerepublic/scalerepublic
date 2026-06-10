@@ -2,7 +2,9 @@ import { Hono } from "hono";
 
 import { type App, type AppEnv, type AppVars } from "./context.ts";
 import { auth } from "./lib/auth.ts";
+import { isMarketDebugEnabled } from "./lib/market-debug.ts";
 import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.routes.ts";
+import { registerMarketDebugRoutes } from "./modules/market-debug/index.ts";
 import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
 import { registerStockRoutes } from "./modules/stock/stock.routes.ts";
 import { registerUserRoutes } from "./modules/user/user.routes.ts";
@@ -24,8 +26,11 @@ export const createApp = (ctx: AppVars): App => {
     registerLeaderboardRoutes(app);
     registerPortfolioRoutes(app);
 
+    if (isMarketDebugEnabled()) {
+        registerMarketDebugRoutes(app);
+    }
+
     if (process.env.NODE_ENV !== "test") {
-        // Tests use seeded mock data and don't run a periodic sync (for now)
         ctx.syncService.startScheduler().catch((err) => {
             console.error("[sync] Failed to start scheduler:", err);
         });
@@ -33,3 +38,5 @@ export const createApp = (ctx: AppVars): App => {
 
     return app;
 };
+
+export type { ApiRoutesType } from "./api/index.ts";

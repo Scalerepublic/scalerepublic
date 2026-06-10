@@ -36,9 +36,11 @@
 	{/if}
 	<span
 		class={cn(
-			'rounded px-1.5 py-0.5 font-semibold',
+			'border px-1.5 py-0.5 font-semibold',
 			size === 'sm' ? 'text-[10px]' : 'text-xs',
-			isPositive ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'
+			isPositive
+				? 'border-positive/30 bg-positive/8 text-positive'
+				: 'border-negative/30 bg-negative/8 text-negative'
 		)}
 	>
 		{formatPercent(percent)}

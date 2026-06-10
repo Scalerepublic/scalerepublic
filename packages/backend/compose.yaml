@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "50025:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
@@ -27,9 +27,11 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/scalerepublic
       PORT: "3000"
+      STOCK_DEBUG: "true"
+      MARKET_DEBUG_OPERATOR_EMAIL: "test@test.com"
     ports:
-      - "3000:3000"
-      - "4983:4983" # for Drizzle Studio
+      - "50030:3000"
+      - "50049:4983" # for Drizzle Studio
     depends_on:
       postgres:
         condition: service_healthy
