@@ -5,9 +5,10 @@
 	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import { signOut } from '$lib/auth-client';
+	import { setMode, userPrefersMode } from 'mode-watcher';
 	import { cn, formatCurrency, getInitials } from '$lib/utils';
 	import {
-		Bell,
+		Mail,
 		Sun,
 		Moon,
 		Monitor,
@@ -98,7 +99,7 @@
 				</div>
 				<div class="flex items-center justify-between px-5 py-3.5">
 					<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
-						<Bell class="size-4 shrink-0" /> Email
+						<Mail class="size-4 shrink-0" /> Email
 					</dt>
 					<dd class="text-sm font-medium text-foreground">{userStore.profile.email}</dd>
 				</div>
@@ -183,9 +184,9 @@
 					{@const Icon = theme.icon}
 					<button
 						type="button"
-						onclick={() => userStore.updateSettings({ theme: theme.value })}
-						class="flex flex-col items-center gap-2 border-2 p-4 text-sm font-semibold transition-all {userStore
-							.settings.theme === theme.value
+						onclick={() => setMode(theme.value)}
+						class="flex flex-col items-center gap-2 border-2 p-4 text-sm font-semibold transition-all {userPrefersMode.current ===
+						theme.value
 							? 'border-primary bg-muted text-primary'
 							: 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'}"
 					>
@@ -221,7 +222,7 @@
 								: 'border border-border bg-muted'}"
 						>
 							<span
-								class="pointer-events-none inline-block size-4 bg-white ring-0 transition-transform {userStore
+								class="pointer-events-none inline-block size-4 bg-background ring-0 transition-transform {userStore
 									.settings.notifications[item.key]
 									? 'translate-x-4'
 									: 'translate-x-0'}"

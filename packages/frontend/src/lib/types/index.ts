@@ -50,7 +50,6 @@ export interface UserProfile {
 }
 
 export interface AppSettings {
-	theme: 'light' | 'dark' | 'system';
 	notifications: {
 		priceAlerts: boolean;
 		tradeConfirmations: boolean;
