@@ -7,6 +7,7 @@
         "@fontsource/merriweather": "^5.2.11",
         "backend": "file:../backend",
         "better-auth": "^1.6.11",
+        "hono": "^4.9.6",
       },
       "devDependencies": {
         "@eslint/compat": "^2.0.4",
