@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { Loader2 } from '@lucide/svelte';
 	import { signIn } from '$lib/auth-client';
+	import { toast } from 'svelte-sonner';
 
 	let email = $state('');
 	let password = $state('');
@@ -24,6 +25,7 @@
 		if (error) {
 			errorMessage =
 				error.message ?? 'Could not sign you in. Check your credentials and try again.';
+			toast.error(errorMessage);
 			isSubmitting = false;
 			return;
 		}

@@ -3,6 +3,7 @@
 	import { formatCurrency } from '$lib/utils';
 	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import type { Stock } from '$lib/types';
+	import { toast } from 'svelte-sonner';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
@@ -90,8 +91,11 @@
 				await portfolioStore.sell(stock.id, quantity);
 			}
 			close();
+			const action = mode === 'buy' ? 'Bought' : 'Sold';
+			toast.success(`${action} ${quantity} × ${stock.ticker}`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Trade failed';
+			toast.error(error);
 		} finally {
 			submitting = false;
 		}

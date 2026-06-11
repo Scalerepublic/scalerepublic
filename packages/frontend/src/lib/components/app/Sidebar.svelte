@@ -15,6 +15,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { getInitials, cn } from '$lib/utils';
+	import { toast } from 'svelte-sonner';
 
 	const navItems = [
 		{ href: '/dashboard', label: 'Portfolio', icon: LayoutDashboard },
@@ -28,8 +29,13 @@
 	async function handleSignOut() {
 		if (isSigningOut) return;
 		isSigningOut = true;
-		await signOut();
-		await goto(resolve('/login'), { replaceState: true, invalidateAll: true });
+		try {
+			await signOut();
+			await goto(resolve('/login'), { replaceState: true, invalidateAll: true });
+		} catch {
+			toast.error('Sign out failed. Please try again.');
+			isSigningOut = false;
+		}
 	}
 </script>
 
