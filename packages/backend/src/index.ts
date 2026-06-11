@@ -1,22 +1,11 @@
-import { Hono } from 'hono'
+import { createApp } from "./app.ts";
+import { createAppContext } from "./context.ts";
 
-import { registerExampleRoutes } from './modules/example/example.routes.ts'
-
-export const createApp = () => {
-    const app = new Hono()
-
-    app.get('/health', (c) => c.json({ status: 'ok' }))
-    registerExampleRoutes(app)
-
-    return app
-}
-
-const app = createApp()
-
-export { app }
+const ctx = createAppContext();
+const app = createApp(ctx);
 
 export default {
     fetch: app.fetch,
     port: Number(process.env.PORT ?? 3000),
-    hostname: '0.0.0.0',
-}
+    hostname: "0.0.0.0",
+};

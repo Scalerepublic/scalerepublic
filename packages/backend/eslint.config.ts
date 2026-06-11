@@ -7,7 +7,7 @@ export default [
     eslint.configs.recommended,
     ...tseslint.configs.recommended,
     {
-        files: ['src/**/*.ts'],
+        files: ['src/**/*.ts', 'tests/**/*.ts'],
         languageOptions: {
             parserOptions: {
                 project: './tsconfig.json',
@@ -42,7 +42,7 @@ export default [
             'no-duplicate-imports': 'warn',
             'no-use-before-define': 'warn',
             'no-useless-assignment': 'warn',
-            'capitalized-comments': 'warn',
+            'capitalized-comments': ['warn', 'always', { ignoreConsecutiveComments: true }],
             'no-bitwise': 'warn',
             eqeqeq: 'error',
             'no-empty-function': 'error',
@@ -70,6 +70,12 @@ export default [
                 },
             ],
             complexity: ['error'],
+        },
+    },
+    {
+        files: ['tests/**/*.ts'],
+        rules: {
+            'import/no-unresolved': 'off',
         },
     },
     {

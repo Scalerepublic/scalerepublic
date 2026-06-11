@@ -1,3 +1,277 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/inter';
+@import '@fontsource/merriweather/400.css';
+@import '@fontsource/merriweather/700.css';
+
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@keyframes fade-up {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+:root {
+	--background: #f8f7f3;
+	--foreground: #0f0f0d;
+	--card: #ffffff;
+	--card-foreground: #0f0f0d;
+	--popover: #ffffff;
+	--popover-foreground: #0f0f0d;
+
+	--primary: #0f0f0d;
+	--primary-foreground: #ffffff;
+
+	--secondary: #eeeee9;
+	--secondary-foreground: #2a2a26;
+
+	--muted: #eeeee9;
+	--muted-foreground: #68686a;
+
+	--accent: #1a3660;
+	--accent-foreground: #ffffff;
+
+	--destructive: #a41414;
+	--border: #d4d3cc;
+	--input: #d4d3cc;
+	--ring: #1a3660;
+
+	--positive: #1a6630;
+	--negative: #a41414;
+
+	--radius: 0px;
+
+	--sidebar: #ffffff;
+	--sidebar-foreground: #0f0f0d;
+	--sidebar-primary: #eeeee9;
+	--sidebar-primary-foreground: #0f0f0d;
+	--sidebar-accent: #eeeee9;
+	--sidebar-accent-foreground: #0f0f0d;
+	--sidebar-border: #d4d3cc;
+	--sidebar-ring: #1a3660;
+
+	--chart-fill-top: rgba(26, 54, 96, 0.1);
+	--chart-fill-bottom: rgba(26, 54, 96, 0.01);
+	--chart-line-start: #1a3660;
+	--chart-line-end: #2a5090;
+	--chart-grid: #e5e4de;
+	--chart-crosshair: rgba(0, 0, 0, 0.22);
+}
+
+.dark {
+	--background: #0f0f0d;
+	--foreground: #f2f1ec;
+	--card: #1a1a17;
+	--card-foreground: #f2f1ec;
+	--popover: #1a1a17;
+	--popover-foreground: #f2f1ec;
+
+	--primary: #f2f1ec;
+	--primary-foreground: #0f0f0d;
+
+	--secondary: #232320;
+	--secondary-foreground: #d4d3cc;
+
+	--muted: #232320;
+	--muted-foreground: #9a9a96;
+
+	--accent: #4a78c0;
+	--accent-foreground: #0f0d0d;
+
+	--destructive: #e5484d;
+	--border: #2c2c28;
+	--input: #2c2c28;
+	--ring: #4a78c0;
+
+	--positive: #5aa979;
+	--negative: #e5484d;
+
+	--sidebar: #1a1a17;
+	--sidebar-foreground: #f2f1ec;
+	--sidebar-primary: #232320;
+	--sidebar-primary-foreground: #f2f1ec;
+	--sidebar-accent: #232320;
+	--sidebar-accent-foreground: #f2f1ec;
+	--sidebar-border: #2c2c28;
+	--sidebar-ring: #4a78c0;
+
+	--chart-fill-top: rgba(74, 120, 192, 0.18);
+	--chart-fill-bottom: rgba(74, 120, 192, 0.02);
+	--chart-line-start: #4a78c0;
+	--chart-line-end: #6f9adb;
+	--chart-grid: #2c2c28;
+	--chart-crosshair: rgba(255, 255, 255, 0.22);
+}
+
+@theme inline {
+	--font-sans: 'Inter Variable', sans-serif;
+	--font-serif: 'Merriweather', Georgia, serif;
+
+	--color-positive: var(--positive);
+	--color-negative: var(--negative);
+
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+
+	--radius-sm: 0px;
+	--radius-md: 0px;
+	--radius-lg: 0px;
+	--radius-xl: 0px;
+	--radius-2xl: 0px;
+	--radius-3xl: 0px;
+	--radius-4xl: 0px;
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground;
+		font-feature-settings: 'tnum' 0;
+	}
+	html {
+		@apply font-sans;
+	}
+}
+
+@layer utilities {
+	.page-shell {
+		@apply mx-auto max-w-5xl px-4 py-8 md:px-8 md:py-10;
+	}
+	.page-shell-narrow {
+		@apply mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-10;
+	}
+	.page-header-block {
+		@apply mb-6;
+	}
+	.page-header-row {
+		@apply mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between;
+	}
+	.status-pill {
+		@apply flex w-full items-center justify-between gap-2 border border-border bg-card px-4 py-2.5 sm:w-auto sm:justify-start;
+	}
+	.live-pill {
+		@apply flex items-center gap-1.5 border border-positive/25 bg-positive/8 px-2 py-1;
+	}
+	.live-pill-dot {
+		@apply relative flex size-1.5;
+	}
+	.live-pill-ping {
+		@apply absolute inline-flex h-full w-full animate-ping rounded-full bg-positive opacity-75;
+	}
+	.live-pill-core {
+		@apply relative inline-flex size-1.5 rounded-full bg-positive;
+	}
+	.live-pill-label {
+		@apply text-[10px] font-semibold tracking-widest text-positive uppercase;
+	}
+	.status-pill-live {
+		@apply border-positive/25 bg-positive/5;
+	}
+	.section-heading {
+		@apply mb-2 flex items-center justify-between border-b border-border pb-2;
+	}
+	.section-divider {
+		@apply mb-6 h-px w-full bg-border;
+	}
+	.sidebar-section {
+		@apply p-4;
+	}
+	.sidebar-nav {
+		@apply flex-1 space-y-px px-2 py-3;
+	}
+	.sidebar-brand {
+		@apply font-sans text-sm font-bold tracking-[0.14em] text-sidebar-foreground uppercase;
+	}
+	.btn-primary {
+		background: var(--accent);
+		color: var(--accent-foreground);
+		border: 1px solid var(--accent);
+	}
+	.btn-primary:hover {
+		background: color-mix(in srgb, var(--accent) 88%, black);
+		border-color: color-mix(in srgb, var(--accent) 88%, black);
+	}
+	.btn-primary:active {
+		background: color-mix(in srgb, var(--accent) 78%, black);
+	}
+	.btn-secondary {
+		background: transparent;
+		color: var(--foreground);
+		border: 1px solid var(--border);
+	}
+	.btn-secondary:hover {
+		background: var(--muted);
+	}
+	.btn-secondary:active {
+		background: var(--secondary);
+	}
+	.animate-fade-up {
+		opacity: 0;
+		animation: fade-up 0.4s ease-out forwards;
+	}
+	.animate-fade-in {
+		opacity: 0;
+		animation: fade-in 0.3s ease-out forwards;
+	}
+	.animation-delay-75 {
+		animation-delay: 75ms;
+	}
+	.animation-delay-150 {
+		animation-delay: 150ms;
+	}
+	.animation-delay-250 {
+		animation-delay: 250ms;
+	}
+	.animation-delay-350 {
+		animation-delay: 350ms;
+	}
+	.animation-delay-450 {
+		animation-delay: 450ms;
+	}
+}

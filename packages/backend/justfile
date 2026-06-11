@@ -1,38 +1,55 @@
-compose_file := "./compose-hono.test.yaml"
-service := "bun"
-db_url := "postgres://postgres:postgres@localhost:5432/freifahren"
-test_db_url := "postgres://postgres:postgres@localhost:5432/freifahren_test"
+compose_file := "./compose.yaml"
+service := "backend"
+db_url := "postgres://postgres:postgres@localhost:5432/scalerepublic"
 
 default:
     @just --list
 
 db-generate:
-    docker compose -f {{compose_file}} exec {{service}} bun run db:generate
+    bun run db:generate
+
+db-baseline:
+    DATABASE_URL={{db_url}} bun run db:baseline
 
 db-migrate:
     docker compose -f {{compose_file}} exec {{service}} bun run db:migrate
 
+db-reset:
+    docker compose -f {{compose_file}} stop {{service}} 2>/dev/null || true
+    just db-drop scalerepublic
+    just db-drop scalerepublic_test
+    docker compose -f {{compose_file}} start postgres {{service}} 2>/dev/null || docker compose -f {{compose_file}} up -d postgres {{service}}
+    just db-migrate-all
+
+db-clear:
+    printf "SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' RESTART IDENTITY CASCADE' FROM pg_tables WHERE schemaname = 'public'\n\\gexec\n" | docker compose -f {{compose_file}} exec -T postgres psql -U postgres -d scalerepublic
+
+db-push:
+    docker compose -f {{compose_file}} exec {{service}} bun run db:push
+
+db-seed:
+    docker compose -f {{compose_file}} exec {{service}} bun run db:seed
+
+db-studio:
+    docker compose -f {{compose_file}} exec {{service}} bun run db:studio
+
+db-drop db_name:
+    docker compose -f {{compose_file}} exec -T postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{{db_name}}' AND pid <> pg_backend_pid();"
+    docker compose -f {{compose_file}} exec postgres sh -c "dropdb -U postgres --if-exists {{db_name}} && createdb -U postgres {{db_name}}"
+
 db-migrate-test:
-    docker compose -f {{compose_file}} exec -e DATABASE_URL=postgres://postgres:postgres@postgres:5432/freifahren_test {{service}} bun run db:migrate
+    docker compose -f {{compose_file}} -f compose.test.yaml run --rm {{service}} bun run db:migrate
 
 db-migrate-all:
     just db-migrate
     just db-migrate-test
 
-db-studio:
-    DATABASE_URL={{db_url}} bun run db:studio
-
-db-drop:
-    docker-compose -f {{compose_file}} exec {{service}} bun run db:drop
-
-db-seed:
-    docker compose -f {{compose_file}} exec {{service}} bun run db:seed
-
-db-push:
-    docker compose -f {{compose_file}} exec {{service}} bun run db:push
-
 test:
-    DATABASE_URL={{test_db_url}} bun test
+    #!/bin/sh
+    docker compose -p scalerepublic-test -f compose.test.yaml up --build --exit-code-from backend --attach backend
+    STATUS=$?
+    docker compose -p scalerepublic-test -f compose.test.yaml down -v
+    exit $STATUS
 
 logs:
     docker compose -f {{compose_file}} logs -f {{service}}
@@ -60,6 +77,3 @@ dev-local:
 
 lint:
     bun run lint
-
-lint-fix:
-    bun run lint:fix
