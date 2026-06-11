@@ -6,6 +6,7 @@
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import { signOut } from '$lib/auth-client';
 	import { setMode, userPrefersMode } from 'mode-watcher';
+	import { toast } from 'svelte-sonner';
 	import { cn, formatCurrency, getInitials } from '$lib/utils';
 	import {
 		Mail,
@@ -24,8 +25,13 @@
 	async function handleSignOut() {
 		if (isSigningOut) return;
 		isSigningOut = true;
-		await signOut();
-		await goto(resolve('/login'), { replaceState: true, invalidateAll: true });
+		try {
+			await signOut();
+			await goto(resolve('/login'), { replaceState: true, invalidateAll: true });
+		} catch {
+			toast.error('Sign out failed. Please try again.');
+			isSigningOut = false;
+		}
 	}
 
 	const themes: { value: 'light' | 'dark' | 'system'; label: string; icon: typeof Sun }[] = [

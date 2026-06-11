@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { Loader2 } from '@lucide/svelte';
 	import { signUp } from '$lib/auth-client';
+	import { toast } from 'svelte-sonner';
 
 	let name = $state('');
 	let email = $state('');
@@ -35,6 +36,7 @@
 
 		if (error) {
 			errorMessage = error.message ?? 'Could not create your account. Please try again.';
+			toast.error(errorMessage);
 			isSubmitting = false;
 			return;
 		}

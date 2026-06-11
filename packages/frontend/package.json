@@ -50,6 +50,7 @@
 		"backend": "file:../backend",
 		"better-auth": "^1.6.11",
 		"hono": "^4.9.6",
-		"mode-watcher": "^1.1.0"
+		"mode-watcher": "^1.1.0",
+		"svelte-sonner": "^1.1.1"
 	}
 }
