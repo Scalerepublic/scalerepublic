@@ -129,6 +129,32 @@ export class MarketDebugService {
         await this.persistState();
         return { marketDate: this.getMarketDateIso(), updated };
     }
+    async applyMarketCrash(percentage: number): Promise<{ marketDate: string; updated: number; percentage: number }> {
+    const stocks = await this.ctx.stockService.getAll();
+    const recordedAt = this.nextRecordedAt();
+    const crashFactor = 1 - percentage / 100;
+    let updated = 0;
+
+    for (const row of stocks) {
+        const current =
+            row.latestPrice ??
+            initialPriceByTicker[row.ticker] ??
+            100;
+
+        const crashedPrice = current * crashFactor;
+
+        await this.ctx.stockService.insertPrice(row.id, crashedPrice, 'debug_market_crash', recordedAt);
+        updated += 1;
+    }
+
+    this.ticksOnCurrentDay += 1;
+
+    return {
+        marketDate: this.getMarketDateIso(),
+        updated,
+        percentage,
+    };
+}
 
     private nextRecordedAt(): Date {
         const d = this.getMarketDate();
