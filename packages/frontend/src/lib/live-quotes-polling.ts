@@ -1,6 +1,8 @@
 import { syncMarketClock } from '$lib/sync-market-clock';
 import { marketStore } from '$lib/stores/market.svelte';
+import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
+import { authStore } from '$lib/stores/auth.svelte';
 
 const POLL_MS = Number(import.meta.env.VITE_LIVE_QUOTES_POLL_MS ?? 5_000);
 
@@ -8,9 +10,13 @@ function refreshQuotes() {
 	if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
 		return;
 	}
+	const userId = authStore.user?.id;
 	void syncMarketClock();
 	void marketStore.load({ silent: true });
 	void portfolioStore.load();
+	if (userId) {
+		void performanceStore.load(userId);
+	}
 }
 
 export function startLiveQuotesPolling(): () => void {

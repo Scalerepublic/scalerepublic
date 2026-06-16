@@ -145,7 +145,8 @@ describe('GET /api/v1/users/:id/performance', () => {
         })
 
         const { data } = schema.parse(await res.json())
-        expect(data.length).toBeGreaterThanOrEqual(2)
-        expect(data[0]!.value).toBe(1000)
+        expect(data.length).toBeGreaterThanOrEqual(1)
+        const last = data[data.length - 1]!
+        expect(last.value).toBeCloseTo(800, 0)
     })
 })

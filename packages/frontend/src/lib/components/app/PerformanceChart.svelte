@@ -1,14 +1,26 @@
 <script lang="ts">
 	import { cn, formatCurrency, formatPercent } from '$lib/utils';
+	import type { PerformanceGranularity } from '$lib/stores/performance.svelte';
 	import type { PerformancePoint } from '$lib/performance-history';
 
 	let {
 		data,
-		height = 220
+		granularity = $bindable<PerformanceGranularity>('daily'),
+		loading = false,
+		onGranularityChange
 	}: {
 		data: PerformancePoint[];
-		height?: number;
+		granularity?: PerformanceGranularity;
+		loading?: boolean;
+		onGranularityChange?: (granularity: PerformanceGranularity) => void;
 	} = $props();
+
+	const granularityOptions: { value: PerformanceGranularity; label: string }[] = [
+		{ value: 'daily', label: 'Daily' },
+		{ value: 'weekly', label: 'Weekly' },
+		{ value: 'monthly', label: 'Monthly' },
+		{ value: 'yearly', label: 'Yearly' }
+	];
 
 	const points = $derived(
 		Array.isArray(data)
@@ -20,9 +32,10 @@
 	);
 
 	const width = 800;
+	const height = 220;
 	const pad = { t: 16, r: 20, b: 12, l: 20 };
 	const innerW = width - pad.l - pad.r;
-	const innerH = $derived(height - pad.t - pad.b);
+	const innerH = height - pad.t - pad.b;
 
 	const minY = $derived.by(() => {
 		if (points.length === 0) return 0;
@@ -62,10 +75,30 @@
 	const gridLines = $derived([0, 0.5, 1]);
 
 	const xLabelIndices = $derived.by(() => {
-		if (points.length === 0) return [];
+		if (points.length === 0) return [] as number[];
 		if (points.length === 1) return [0];
-		if (points.length === 2) return [0, 1];
-		return [0, Math.floor((points.length - 1) / 2), points.length - 1];
+
+		const maxLabels = 5;
+		const indices: number[] = [];
+		let lastDate = '';
+
+		for (let i = 0; i < points.length; i++) {
+			const date = points[i]!.date;
+			const isEdge = i === 0 || i === points.length - 1;
+			const isNewDate = date !== lastDate;
+			if (isEdge || (isNewDate && indices.length < maxLabels)) {
+				if (indices.length === 0 || indices[indices.length - 1] !== i) {
+					indices.push(i);
+					lastDate = date;
+				}
+			}
+		}
+
+		if (indices[indices.length - 1] !== points.length - 1) {
+			indices.push(points.length - 1);
+		}
+
+		return indices;
 	});
 
 	const startValue = $derived(points[0]?.value ?? 0);
@@ -78,7 +111,10 @@
 	const activePoint = $derived(activeIndex !== null ? plotPoints[activeIndex] : null);
 
 	function formatAxisDate(iso: string): string {
-		return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+		return new Date(`${iso}T12:00:00.000Z`).toLocaleDateString('en-GB', {
+			day: 'numeric',
+			month: 'short'
+		});
 	}
 
 	function handlePointerMove(event: PointerEvent) {
@@ -102,6 +138,12 @@
 	function handlePointerLeave() {
 		activeIndex = null;
 	}
+
+	function selectGranularity(next: PerformanceGranularity) {
+		if (granularity === next) return;
+		granularity = next;
+		onGranularityChange?.(next);
+	}
 </script>
 
 <article class="overflow-hidden border border-border bg-card">
@@ -110,7 +152,7 @@
 			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
 				Performance
 			</h2>
-			<p class="mt-0.5 text-xs text-muted-foreground">Portfolio value since account opening</p>
+			<p class="mt-0.5 text-xs text-muted-foreground">Mark-to-market portfolio value</p>
 		</div>
 		<div class="text-right">
 			{#if activePoint}
@@ -130,8 +172,32 @@
 		</div>
 	</div>
 
+	<div class="flex flex-wrap gap-1 border-b border-border px-5 py-3">
+		{#each granularityOptions as option (option.value)}
+			<button
+				type="button"
+				onclick={() => selectGranularity(option.value)}
+				class={cn(
+					'px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase transition-colors',
+					granularity === option.value
+						? 'border border-border bg-muted text-foreground'
+						: 'text-muted-foreground hover:text-foreground'
+				)}
+			>
+				{option.label}
+			</button>
+		{/each}
+	</div>
+
 	<div class="px-4 py-4 md:px-5">
-		{#if points.length === 0}
+		{#if loading}
+			<div
+				class="flex items-center justify-center text-sm text-muted-foreground"
+				style="height: {height}px"
+			>
+				Loading performance…
+			</div>
+		{:else if points.length === 0}
 			<div
 				class="flex items-center justify-center text-sm text-muted-foreground"
 				style="height: {height}px"
@@ -200,11 +266,13 @@
 				{/if}
 			</svg>
 
-			<div class="mt-2 flex justify-between text-xs font-medium text-muted-foreground">
+			<div class="mt-2 flex justify-between gap-2 text-xs font-medium text-muted-foreground">
 				{#each xLabelIndices as index (index)}
 					{@const label = plotPoints[index]}
 					{#if label}
-						<span>{formatAxisDate(label.date)}</span>
+						<span class:ml-auto={index === xLabelIndices[xLabelIndices.length - 1]}
+							>{formatAxisDate(label.date)}</span
+						>
 					{/if}
 				{/each}
 			</div>

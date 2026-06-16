@@ -4,6 +4,7 @@ import { isMarketDebugOperator } from '$lib/market-debug-operator';
 import { syncMarketClock } from '$lib/sync-market-clock';
 import { authStore } from '$lib/stores/auth.svelte';
 import { marketStore } from '$lib/stores/market.svelte';
+import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
 
 type MarketDebugStatus = {
@@ -95,7 +96,6 @@ class DemoMarketStore {
 
 	async retreatDay() {
 		await this.post('/api/v1/debug/market/retreat');
-		portfolioStore.trimPerformanceHistoryTo(this.marketDateIso);
 	}
 
 	async applyGbmTick() {
@@ -103,10 +103,12 @@ class DemoMarketStore {
 	}
 
 	private async reloadAppData() {
+		const userId = authStore.user?.id;
 		await Promise.all([
 			syncMarketClock(),
 			marketStore.load({ silent: true }),
-			portfolioStore.load()
+			portfolioStore.load(),
+			userId ? performanceStore.load(userId) : Promise.resolve()
 		]);
 	}
 }

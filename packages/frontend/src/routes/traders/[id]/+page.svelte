@@ -4,6 +4,10 @@
 	import PerformanceChart from '$lib/components/app/PerformanceChart.svelte';
 	import HoldingsTable from '$lib/components/app/HoldingsTable.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { api, parseApiData } from '$lib/api/client';
+	import type { BackendPerformancePoint } from '$lib/api/backend-types';
+	import type { PerformanceGranularity } from '$lib/stores/performance.svelte';
+	import type { PerformancePoint } from '$lib/performance-history';
 	import { cn, formatCurrency, getInitials } from '$lib/utils';
 	import { Trophy, Shield } from '@lucide/svelte';
 	import type { PageData } from './$types';
@@ -11,6 +15,31 @@
 	let { data }: { data: PageData } = $props();
 
 	const isCurrentUser = $derived(data.profile.userId === authStore.user?.id);
+
+	let performanceData = $state<PerformancePoint[]>([]);
+	let performanceLoading = $state(false);
+	let granularity = $state<PerformanceGranularity>('daily');
+
+	async function loadPerformance() {
+		performanceLoading = true;
+		try {
+			const res = await api.api.v1.users[':id'].performance.$get({
+				param: { id: data.profile.userId },
+				query: { granularity }
+			});
+			performanceData = await parseApiData<BackendPerformancePoint[]>(res);
+		} catch {
+			performanceData = [];
+		} finally {
+			performanceLoading = false;
+		}
+	}
+
+	$effect(() => {
+		const g = granularity;
+		void g;
+		void loadPerformance();
+	});
 </script>
 
 <div class="page-shell">
@@ -80,7 +109,11 @@
 	</div>
 
 	<div class="mb-8">
-		<PerformanceChart data={data.performance} />
+		<PerformanceChart
+			data={performanceData}
+			loading={performanceLoading}
+			bind:granularity
+		/>
 	</div>
 
 	<div class="section-heading">

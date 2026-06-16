@@ -73,6 +73,11 @@ export class SyncService {
     }
 
     private async runSync(tickers: string[]): Promise<void> {
+        if (process.env.STOCK_DEBUG === 'true') {
+            console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
+            return
+        }
+
         const batches = chunk(tickers, RATE_LIMIT_BATCH_SIZE)
         for (let i = 0; i < batches.length; i++) {
             if (i > 0) await sleep(RATE_LIMIT_WINDOW_MS)

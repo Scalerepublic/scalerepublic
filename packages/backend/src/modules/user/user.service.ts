@@ -1,8 +1,8 @@
-import { and, asc, eq, ilike, or } from 'drizzle-orm';
+import { eq, ilike, or } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';
 import { user } from '../../db/schema/auth-schema.ts';
-import { trade } from '../../db/schema/trade/trade.ts';
+import type { PerformanceGranularity, PerformancePoint } from '../portfolio/portfolio-performance.service.ts';
 
 export type UserProfile = {
   userId: string;
@@ -22,10 +22,8 @@ export type UserSearchResult = {
   netWorth: number | null;
 };
 
-export type PerformancePoint = {
-  date: string;
-  value: number;
-};
+export type { PerformancePoint } from '../portfolio/portfolio-performance.service.ts';
+export type { PerformanceGranularity } from '../portfolio/portfolio-performance.service.ts';
 
 export class UserService {
   constructor(private readonly ctx: AppVars) {}
@@ -100,62 +98,13 @@ export class UserService {
     return results;
   }
 
-  async getUserPerformance(userId: string): Promise<PerformancePoint[]> {
+  async getUserPerformance(
+    userId: string,
+    granularity: PerformanceGranularity = 'daily',
+  ): Promise<PerformancePoint[]> {
     const activePortfolio = await this.ctx.portfolioService.getActiveForUser(userId);
     if (!activePortfolio) return [];
 
-    const startingCapital = parseFloat(activePortfolio.startingCapital);
-    const startDate = activePortfolio.createdAt.toISOString().slice(0, 10);
-
-    const trades = await this.ctx.db
-      .select()
-      .from(trade)
-      .where(and(eq(trade.portfolioId, activePortfolio.id), eq(trade.status, 'EXECUTED')))
-      .orderBy(asc(trade.executedAt));
-
-    const points: PerformancePoint[] = [{ date: startDate, value: startingCapital }];
-
-    let cash = startingCapital;
-    const holdings = new Map<string, number>();
-
-    for (const t of trades) {
-      const price = parseFloat(t.executedPrice);
-      const qty = t.quantity;
-
-      if (t.tradeType === 'BUY') {
-        cash -= qty * price;
-        holdings.set(t.stockId, (holdings.get(t.stockId) ?? 0) + qty);
-      } else {
-        cash += qty * price;
-        holdings.set(t.stockId, (holdings.get(t.stockId) ?? 0) - qty);
-      }
-
-      let holdingsValue = 0;
-      for (const [stockId, quantity] of holdings) {
-        if (quantity <= 0) continue;
-        const currentPrice = await this.ctx.stockService.getLatestPriceByStockId(stockId);
-        if (currentPrice !== null) {
-          holdingsValue += quantity * currentPrice;
-        }
-      }
-
-      const executedAt = t.executedAt ?? t.createdAt;
-      points.push({
-        date: executedAt.toISOString().slice(0, 10),
-        value: cash + holdingsValue,
-      });
-    }
-
-    const currentNetWorth = await this.ctx.portfolioService.getNetWorth(activePortfolio.id);
-    const today = new Date().toISOString().slice(0, 10);
-    const last = points[points.length - 1];
-
-    if (last && last.date === today) {
-      points[points.length - 1] = { date: today, value: currentNetWorth };
-    } else {
-      points.push({ date: today, value: currentNetWorth });
-    }
-
-    return points;
+    return this.ctx.portfolioPerformanceService.getPerformance(activePortfolio.id, granularity);
   }
 }

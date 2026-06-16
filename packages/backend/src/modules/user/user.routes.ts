@@ -3,7 +3,7 @@ import { Hono } from "hono";
 
 import { useCtx, type App, type AppEnv } from "../../context.ts";
 
-import { searchQuerySchema, userIdParamSchema } from "./user.schema.ts";
+import { searchQuerySchema, userIdParamSchema, performanceQuerySchema } from "./user.schema.ts";
 
 export const userRoutes = new Hono<AppEnv>()
   .get("/api/v1/users/search", zValidator("query", searchQuerySchema), async (c) => {
@@ -32,14 +32,15 @@ export const userRoutes = new Hono<AppEnv>()
       },
     });
   })
-  .get("/api/v1/users/:id/performance", zValidator("param", userIdParamSchema), async (c) => {
+  .get("/api/v1/users/:id/performance", zValidator("param", userIdParamSchema), zValidator("query", performanceQuerySchema), async (c) => {
     const { id } = c.req.valid("param");
+    const { granularity } = c.req.valid("query");
     const { userService } = useCtx(c);
     const profile = await userService.getUserProfile(id);
     if (!profile) {
       return c.json({ error: "User not found" }, 404);
     }
-    const performance = await userService.getUserPerformance(id);
+    const performance = await userService.getUserPerformance(id, granularity);
     return c.json({ data: performance });
   });
 
