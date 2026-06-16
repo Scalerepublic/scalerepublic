@@ -1,4 +1,8 @@
-import type { AppVars } from "../../context.ts";
+import { desc, eq } from 'drizzle-orm';
+
+import type { AppVars } from '../../context.ts';
+import { user } from '../../db/schema/auth-schema.ts';
+import { portfolio } from '../../db/schema/portfolio/portfolio.ts';
 
 export type LeaderboardEntry = {
   rank: number;
@@ -7,6 +11,9 @@ export type LeaderboardEntry = {
   cashBalance: number;
   portfolioValue: number;
   netWorth: number;
+  startingCapital: number;
+  penaltyCounter: number;
+  lastDefaultedAt: string | null;
   isDefaulted: boolean;
 };
 
@@ -14,42 +21,62 @@ export class LeaderboardService {
   constructor(private readonly ctx: AppVars) {}
 
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
-    const users = [
-      {
-        userId: "user-1",
-        name: "Alice",
-        cashBalance: 100_000,
-        portfolioValue: 50_000,
-        isDefaulted: false,
-        penaltyCounter: 2,
-      },
-      {
-        userId: "user-2",
-        name: "Bob",
-        cashBalance: 80_000,
-        portfolioValue: 10_000,
-        isDefaulted: false,
-        penaltyCounter: 2,
-      },
-      {
-        userId: "user-3",
-        name: "Charlie",
-        cashBalance: 20_000,
-        portfolioValue: 5_000,
-        isDefaulted: true,
-        penaltyCounter: 2,
-      },
-    ];
+    const activePortfolios = await this.ctx.db
+      .select({
+        portfolioId: portfolio.id,
+        userId: portfolio.userId,
+        cashBalance: portfolio.cashBalance,
+        startingCapital: portfolio.startingCapital,
+        userName: user.name,
+      })
+      .from(portfolio)
+      .innerJoin(user, eq(portfolio.userId, user.id))
+      .where(eq(portfolio.status, 'ACTIVE'))
+      .orderBy(desc(portfolio.createdAt));
 
-    return users
-      .map((user) => ({
-        ...user,
-        netWorth: user.cashBalance + user.portfolioValue,
-      }))
+    const latestByUser = new Map<string, (typeof activePortfolios)[number]>();
+    for (const row of activePortfolios) {
+      if (!latestByUser.has(row.userId)) {
+        latestByUser.set(row.userId, row);
+      }
+    }
+
+    const entries: Omit<LeaderboardEntry, 'rank'>[] = [];
+
+    for (const row of latestByUser.values()) {
+      const [portfolioValue, penaltyCounter, lastDefaultedAt] = await Promise.all([
+        this.ctx.portfolioService.getPortfolioValue(row.portfolioId),
+        this.ctx.portfolioService.getDefaultCount(row.userId),
+        this.ctx.portfolioService.getLastDefaultedAt(row.userId),
+      ]);
+
+      const cashBalance = parseFloat(row.cashBalance);
+      const startingCapital = parseFloat(row.startingCapital);
+
+      entries.push({
+        userId: row.userId,
+        name: row.userName,
+        cashBalance,
+        portfolioValue,
+        netWorth: cashBalance + portfolioValue,
+        startingCapital,
+        penaltyCounter,
+        lastDefaultedAt: lastDefaultedAt?.toISOString() ?? null,
+        isDefaulted: false,
+      });
+    }
+
+    return entries
       .sort((a, b) => b.netWorth - a.netWorth)
-      .map((user, index) => ({
+      .map((entry, index) => ({
         rank: index + 1,
-        ...user,
+        ...entry,
       }));
+  }
+
+  async getRankForUser(userId: string): Promise<number | null> {
+    const leaderboard = await this.getLeaderboard();
+    const entry = leaderboard.find((row) => row.userId === userId);
+    return entry?.rank ?? null;
   }
 }

@@ -1,6 +1,6 @@
 compose_file := "./compose.yaml"
 service := "backend"
-db_url := "postgres://postgres:postgres@localhost:5432/scalerepublic"
+db_url := "postgres://postgres:postgres@localhost:50025/scalerepublic"
 
 default:
     @just --list
@@ -12,6 +12,9 @@ db-baseline:
     DATABASE_URL={{db_url}} bun run db:baseline
 
 db-migrate:
+    bun run db:migrate
+
+db-migrate-docker:
     docker compose -f {{compose_file}} exec {{service}} bun run db:migrate
 
 db-reset:
@@ -25,13 +28,13 @@ db-clear:
     printf "SELECT 'TRUNCATE TABLE ' || string_agg(quote_ident(tablename), ', ') || ' RESTART IDENTITY CASCADE' FROM pg_tables WHERE schemaname = 'public'\n\\gexec\n" | docker compose -f {{compose_file}} exec -T postgres psql -U postgres -d scalerepublic
 
 db-push:
-    docker compose -f {{compose_file}} exec {{service}} bun run db:push
+    bun run db:push
 
 db-seed:
-    docker compose -f {{compose_file}} exec {{service}} bun run db:seed
+    bun run db:seed
 
 db-studio:
-    docker compose -f {{compose_file}} exec {{service}} bun run db:studio
+    bun run db:studio
 
 db-drop db_name:
     docker compose -f {{compose_file}} exec -T postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{{db_name}}' AND pid <> pg_backend_pid();"
@@ -63,14 +66,18 @@ restart:
 rebuild:
     docker compose -f {{compose_file}} up {{service}} --build -d
 
+up-db:
+    docker compose -f {{compose_file}} up -d postgres
+
 up:
-    docker compose -f {{compose_file}} up -d
+    docker compose -f {{compose_file}} up --build -d
 
 down:
     docker compose -f {{compose_file}} down
 
 dev:
-    docker compose -f {{compose_file}} up -d && docker compose -f {{compose_file}} logs -f {{service}}
+    @echo "Run 'just dev' from the repository root for the full stack."
+    @exit 1
 
 dev-local:
     bun run dev

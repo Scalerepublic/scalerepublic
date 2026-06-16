@@ -5,6 +5,13 @@ export class PortfolioNotFoundError extends Error {
     }
 }
 
+export class UserSuspendedError extends Error {
+    override readonly name = 'UserSuspendedError';
+    constructor(userId: string) {
+        super(`User ${userId} has been suspended after exceeding the maximum number of defaults`);
+    }
+}
+
 export class PortfolioDefaultedError extends Error {
     override readonly name = 'PortfolioDefaultedError';
     constructor(portfolioId: string) {

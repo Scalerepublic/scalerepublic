@@ -3,7 +3,7 @@ import { createApiClient } from 'backend/api-client';
 import { ApiError } from '$lib/api';
 
 const API_BASE =
-	typeof window !== 'undefined' ? '' : (import.meta.env.VITE_API_URL ?? 'http://localhost:3000');
+	typeof window !== 'undefined' ? '' : (import.meta.env.VITE_API_URL ?? 'http://localhost:50030');
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 

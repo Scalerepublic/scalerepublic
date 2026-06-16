@@ -1,35 +1,55 @@
-# Backend Template
+# Backend
 
-Minimal Bun backend template with:
-- Hono app bootstrap
-- Drizzle Postgres setup
-- One example API module
-- One Zod-validated registered route
+Bun + Hono API with Drizzle ORM and Postgres.
 
-## Structure
+## Local development
 
-`src/index.ts` - app bootstrap and route registration
-
-`src/db/index.ts` - Drizzle + Postgres client
-
-`src/db/schema/example-items.ts` - example Drizzle schema
-
-`src/modules/example/example.routes.ts` - example route module
-
-`src/modules/example/example.service.ts` - example service using Drizzle
-
-`src/modules/example/example.schema.ts` - Zod request schema
-
-## Run
+Use the repository root:
 
 ```bash
-bun install
+just dev
+```
+
+Or from this directory after Postgres is running:
+
+```bash
 bun run dev
 ```
 
-## Required env vars
+Requires `packages/backend/.env` — see `.env.example`.
+
+## Database
+
+| Command | Description |
+|---------|-------------|
+| `just db-migrate` | Apply migrations (host, uses `.env`) |
+| `just db-generate` | Generate migration from schema changes |
+| `just db-studio` | Drizzle Studio |
+| `just db-seed` | Seed data |
+| `just up-db` | Start Postgres container only |
+
+Host `DATABASE_URL` must use port **50025** (Docker maps `50025:5432`).
+
+## Docker
 
 ```bash
-DATABASE_URL=postgres://...
+just up          # Postgres + backend container (rebuilds)
+just up-db       # Postgres only
+just rebuild     # Rebuild backend image
 ```
-x
+
+## Cloudflare Workers
+
+```bash
+bun run cf:dev     # local Workers runtime
+bun run cf:cron    # test scheduled handler
+bun run deploy:staging
+```
+
+Wrangler uses Hyperdrive `localConnectionString` → `localhost:50025`. Add secrets in `.dev.vars`.
+
+## Tests
+
+```bash
+just test
+```

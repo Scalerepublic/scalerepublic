@@ -11,12 +11,14 @@ import {
     PortfolioNotFoundError,
     PriceMismatchError,
     StockPriceUnavailableError,
+    UserSuspendedError,
 } from "./errors.ts";
 import { portfolioIdParamSchema, tradeBodySchema } from "./portfolio.schema.ts";
 
 const handleError = (c: AppContext, err: unknown) => {
     if (err instanceof PortfolioNotFoundError) return c.json({ error: err.message }, 404);
     if (err instanceof PortfolioDefaultedError) return c.json({ error: err.message }, 403);
+    if (err instanceof UserSuspendedError) return c.json({ error: err.message }, 403);
     if (err instanceof InsufficientFundsError) return c.json({ error: err.message }, 422);
     if (err instanceof InsufficientHoldingsError) return c.json({ error: err.message }, 422);
     if (err instanceof StockPriceUnavailableError) return c.json({ error: err.message }, 422);

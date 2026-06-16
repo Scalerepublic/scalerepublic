@@ -1,6 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
 
-const apiOrigin = process.env.API_ORIGIN ?? process.env.VITE_API_URL ?? 'http://localhost:3000';
+const apiOrigin = process.env.API_ORIGIN ?? process.env.VITE_API_URL ?? 'http://localhost:50030';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const { pathname, search } = event.url;

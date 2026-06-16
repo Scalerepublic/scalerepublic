@@ -4,7 +4,7 @@
 	import { cn, formatCurrency, formatPercent, formatNumber } from '$lib/utils';
 	import type { HoldingWithMarket } from '$lib/types';
 
-	let { holdings }: { holdings: HoldingWithMarket[] } = $props();
+	let { holdings, readOnly = false }: { holdings: HoldingWithMarket[]; readOnly?: boolean } = $props();
 
 	let sellTarget = $state<HoldingWithMarket | null>(null);
 	let sellOpen = $state(false);
@@ -53,7 +53,7 @@
 				>
 				<th
 					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-				></th>
+				>{#if !readOnly}&nbsp;{/if}</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -105,9 +105,11 @@
 						</span>
 					</td>
 					<td class="px-4 py-3.5 text-right">
-						<NobleButton type="button" class="h-7 px-3 text-[10px]" onclick={() => openSell(h)}>
-							Sell
-						</NobleButton>
+						{#if !readOnly}
+							<NobleButton type="button" class="h-7 px-3 text-[10px]" onclick={() => openSell(h)}>
+								Sell
+							</NobleButton>
+						{/if}
 					</td>
 				</tr>
 			{/each}
@@ -115,7 +117,7 @@
 	</table>
 </div>
 
-{#if sellTarget}
+{#if sellTarget && !readOnly}
 	<TradeSheet
 		bind:open={sellOpen}
 		stock={sellTarget.stock}

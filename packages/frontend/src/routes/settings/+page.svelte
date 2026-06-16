@@ -17,7 +17,8 @@
 		Wallet,
 		Shield,
 		TrendingUp,
-		LogOut
+		LogOut,
+		Trophy
 	} from '@lucide/svelte';
 
 	let isSigningOut = $state(false);
@@ -174,6 +175,21 @@
 							>
 								{userStore.profile.accountStatus === 'active' ? 'Active' : 'Suspended'}
 							</span>
+						</dd>
+					</div>
+				{/if}
+				{#if userStore.profile.penaltyCounter !== undefined}
+					<div class="flex items-center justify-between px-5 py-3.5">
+						<dt class="flex items-center gap-2.5 text-sm text-muted-foreground">
+							<Trophy class="size-4 shrink-0" /> Defaults
+						</dt>
+						<dd class="flex items-center gap-3">
+							<span class="font-mono font-semibold text-foreground">
+								{userStore.profile.penaltyCounter} / 3
+							</span>
+							<a href="/leaderboard" class="text-xs font-medium text-primary hover:underline">
+								Leaderboard
+							</a>
 						</dd>
 					</div>
 				{/if}

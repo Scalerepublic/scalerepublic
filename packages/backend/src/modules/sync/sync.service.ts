@@ -154,6 +154,7 @@ export class SyncService {
                     lockedBy: null,
                 }).where(eq(syncJob.id, JOB_ID))
                 console.log('[sync] Completed successfully')
+                await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 await this.ctx.db.update(syncJob).set({

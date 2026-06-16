@@ -46,7 +46,7 @@ export function mapPortfolioPayload(payload: BackendPortfolioPayload): ApiPortfo
 }
 
 export function mapLeaderboardEntry(entry: BackendLeaderboardEntry): ApiLeaderboardEntry {
-	const startingCapital = 10_000;
+	const startingCapital = entry.startingCapital;
 	const holdingsValue = entry.portfolioValue;
 	const returnPercent =
 		startingCapital > 0 ? ((entry.netWorth - startingCapital) / startingCapital) * 100 : 0;
@@ -59,8 +59,8 @@ export function mapLeaderboardEntry(entry: BackendLeaderboardEntry): ApiLeaderbo
 		cashBalance: entry.cashBalance,
 		holdingsValue,
 		returnPercent,
-		penalties: entry.isDefaulted ? 1 : 0,
-		lastDefaultedAt: null
+		penalties: entry.penaltyCounter,
+		lastDefaultedAt: entry.lastDefaultedAt
 	};
 }
 
@@ -73,7 +73,9 @@ export function mergeUserProfile(
 	return {
 		...base,
 		name: backend.name || base.name,
-		startingCapital: backend.cashBalance,
-		accountStatus: backend.isDefaulted ? 'suspended' : 'active'
+		startingCapital: backend.startingCapital,
+		accountStatus: backend.isDefaulted ? 'suspended' : 'active',
+		rank: backend.rank ?? undefined,
+		penaltyCounter: backend.penaltyCounter
 	};
 }

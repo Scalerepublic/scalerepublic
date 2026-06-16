@@ -22,6 +22,13 @@
       "when": 1781304572133,
       "tag": "0002_first_silver_samurai",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781628271296,
+      "tag": "0003_curious_cerise",
+      "breakpoints": true
     }
   ]
 }

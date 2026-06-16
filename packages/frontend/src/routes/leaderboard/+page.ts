@@ -7,8 +7,11 @@ export async function load() {
 	try {
 		const res = await api.api.v1.leaderboard.$get({ query: { limit: '50' } });
 		const rows = await parseApiData<BackendLeaderboardEntry[]>(res);
-		return { leaderboard: rows.map(mapLeaderboardEntry) };
-	} catch {
-		return { leaderboard: [] as ApiLeaderboardEntry[] };
+		return { leaderboard: rows.map(mapLeaderboardEntry), error: null as string | null };
+	} catch (e) {
+		return {
+			leaderboard: [] as ApiLeaderboardEntry[],
+			error: e instanceof Error ? e.message : 'Failed to load leaderboard'
+		};
 	}
 }
