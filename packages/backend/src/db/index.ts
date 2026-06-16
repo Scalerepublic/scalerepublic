@@ -38,7 +38,10 @@ export const createDb = (connectionString: string) => {
 // connection string comes from the Hyperdrive binding instead (see app.ts), so
 // this is intentionally not created when DATABASE_URL is absent.
 const connectionString = process.env.DATABASE_URL;
-const singleton = connectionString ? createDb(connectionString) : undefined;
+const singleton =
+    typeof connectionString === "string" && connectionString.length > 0
+        ? createDb(connectionString)
+        : undefined;
 
 export const db = singleton?.db as DbConnection;
 export const client = singleton?.client as DbClient;

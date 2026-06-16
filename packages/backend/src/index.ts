@@ -23,11 +23,11 @@ export default {
     hostname: "0.0.0.0",
     // Invoked by the Cloudflare Cron Trigger (no-op under Bun). Uses a
     // per-invocation DB connection and closes it when the work completes.
-    async scheduled(
+    scheduled: async (
         _controller: CronController,
         env: WorkerBindings,
         ctx: CronExecutionContext,
-    ): Promise<void> {
+    ): Promise<void> => {
         const { ctx: appCtx, client } = createWorkerContext(env);
         ctx.waitUntil(
             appCtx.syncService
