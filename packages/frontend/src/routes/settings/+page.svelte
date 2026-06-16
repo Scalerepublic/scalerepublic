@@ -227,7 +227,10 @@
 							<span class="font-mono font-semibold text-foreground">
 								{userStore.profile.penaltyCounter} / 3
 							</span>
-							<a href="/leaderboard" class="text-xs font-medium text-primary hover:underline">
+							<a
+								href={resolve('/leaderboard')}
+								class="text-xs font-medium text-primary hover:underline"
+							>
 								Leaderboard
 							</a>
 						</dd>

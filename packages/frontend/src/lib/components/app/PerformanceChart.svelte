@@ -206,7 +206,8 @@
 						isPositive ? 'text-positive' : 'text-negative'
 					)}
 				>
-					{formatPercent(periodReturn)} {periodLabel}
+					{formatPercent(periodReturn)}
+					{periodLabel}
 				</p>
 			{/if}
 		</div>

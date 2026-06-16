@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import { cn, formatCurrency, formatPercent, getInitials } from '$lib/utils';
 	import { authStore } from '$lib/stores/auth.svelte';
@@ -109,7 +110,7 @@
 			>
 				{#each searchResults as result (result.userId)}
 					<a
-						href="/traders/{result.userId}"
+						href={resolve(`/traders/${result.userId}`)}
 						class="flex items-center justify-between border-t border-border/60 px-4 py-3 text-sm transition-colors first:border-t-0 hover:bg-muted/40"
 						onmousedown={(e) => e.preventDefault()}
 					>
@@ -207,7 +208,7 @@
 							{/if}
 						</td>
 						<td class="px-4 py-3.5">
-							<a href="/traders/{entry.userId}" class="flex items-center gap-2.5">
+							<a href={resolve(`/traders/${entry.userId}`)} class="flex items-center gap-2.5">
 								<div
 									class={cn(
 										'flex size-6 shrink-0 items-center justify-center text-[10px] font-bold',

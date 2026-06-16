@@ -8,11 +8,7 @@
 	import { marketRevisionStore } from '$lib/stores/market-revision.svelte';
 	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendPerformancePoint, BackendPortfolioPayload } from '$lib/api/backend-types';
-	import {
-		mapPortfolioPayload,
-		mapTraderHoldings,
-		mapTraderSummary
-	} from '$lib/api/mappers';
+	import { mapPortfolioPayload, mapTraderHoldings, mapTraderSummary } from '$lib/api/mappers';
 	import type { PerformanceGranularity } from '$lib/stores/performance.svelte';
 	import type { PerformancePoint } from '$lib/performance-history';
 	import type { HoldingWithMarket } from '$lib/types';
@@ -134,11 +130,7 @@
 	</div>
 
 	<div class="mb-8">
-		<PerformanceChart
-			data={performanceData}
-			loading={performanceLoading}
-			bind:granularity
-		/>
+		<PerformanceChart data={performanceData} loading={performanceLoading} bind:granularity />
 	</div>
 
 	<div class="section-heading">

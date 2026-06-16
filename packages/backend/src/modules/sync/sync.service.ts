@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import type { AppVars } from '../../context.ts'
 import { syncJob } from '../../db/schema/sync.ts'
+import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
 const JOB_ID = 'stock-price-sync'
 const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
@@ -73,7 +74,7 @@ export class SyncService {
     }
 
     private async runSync(tickers: string[]): Promise<void> {
-        if (process.env.STOCK_DEBUG === 'true') {
+        if (isMarketDebugEnabled()) {
             console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
             return
         }

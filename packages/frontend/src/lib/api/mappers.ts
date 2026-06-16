@@ -4,7 +4,13 @@ import type {
 	BackendStockSummary,
 	BackendUserProfile
 } from '$lib/api/backend-types';
-import type { ApiLeaderboardEntry, ApiPortfolio, HoldingWithMarket, Stock, UserProfile } from '$lib/types';
+import type {
+	ApiLeaderboardEntry,
+	ApiPortfolio,
+	HoldingWithMarket,
+	Stock,
+	UserProfile
+} from '$lib/types';
 
 function normalizeExchange(exchange: string): string | undefined {
 	const trimmed = exchange.trim();
@@ -87,7 +93,8 @@ export function mapTraderSummary(portfolio: ApiPortfolio, holdings: HoldingWithM
 		holdingsValue,
 		cashBalance: portfolio.cashBalance,
 		totalPnl,
-		totalPnlPercent: portfolio.startingCapital > 0 ? (totalPnl / portfolio.startingCapital) * 100 : 0
+		totalPnlPercent:
+			portfolio.startingCapital > 0 ? (totalPnl / portfolio.startingCapital) * 100 : 0
 	};
 }
 

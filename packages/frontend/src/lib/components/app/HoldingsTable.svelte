@@ -4,7 +4,8 @@
 	import { cn, formatCurrency, formatPercent, formatNumber } from '$lib/utils';
 	import type { HoldingWithMarket } from '$lib/types';
 
-	let { holdings, readOnly = false }: { holdings: HoldingWithMarket[]; readOnly?: boolean } = $props();
+	let { holdings, readOnly = false }: { holdings: HoldingWithMarket[]; readOnly?: boolean } =
+		$props();
 
 	let sellTarget = $state<HoldingWithMarket | null>(null);
 	let sellOpen = $state(false);
@@ -53,7 +54,8 @@
 				>
 				<th
 					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-				>{#if !readOnly}&nbsp;{/if}</th>
+					>{#if !readOnly}&nbsp;{/if}</th
+				>
 			</tr>
 		</thead>
 		<tbody>

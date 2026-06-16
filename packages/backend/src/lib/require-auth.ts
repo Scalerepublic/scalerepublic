@@ -1,6 +1,6 @@
+import { useCtx, type AppContext } from '../context.ts';
+
 import type { Auth } from './auth.ts';
-import type { AppContext } from '../context.ts';
-import { useCtx } from '../context.ts';
 
 export type AuthSession = {
     user: {
@@ -10,23 +10,24 @@ export type AuthSession = {
     };
 };
 
-export const requireAuth = async (c: AppContext): Promise<AuthSession | Response> => {
-    const { auth } = useCtx(c);
-    const session = await getSession(auth, c);
-    if (!session) {
-        return c.json({ error: 'Unauthorized' }, 401);
-    }
-    return session;
-};
-
 const getSession = async (auth: Auth, c: AppContext): Promise<AuthSession | null> => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    if (!session?.user.id) return null;
+    const userId = session?.user.id;
+    if (userId === undefined || userId === '') return null;
     return {
         user: {
-            id: session.user.id,
+            id: userId,
             email: session.user.email,
             name: session.user.name,
         },
     };
+};
+
+export const requireAuth = async (c: AppContext): Promise<AuthSession | Response> => {
+    const { auth } = useCtx(c);
+    const session = await getSession(auth, c);
+    if (session === null) {
+        return c.json({ error: 'Unauthorized' }, 401);
+    }
+    return session;
 };
