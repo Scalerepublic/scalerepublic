@@ -2,6 +2,9 @@
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import { cn, formatCurrency, formatPercent, getInitials } from '$lib/utils';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { demoMarketStore } from '$lib/stores/demo-market.svelte';
+	import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
+	import { marketRevisionStore } from '$lib/stores/market-revision.svelte';
 	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendUserSearchResult } from '$lib/api/backend-types';
 	import { Trophy, Search } from '@lucide/svelte';
@@ -16,11 +19,19 @@
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const leaderboard = $derived(
-		data.leaderboard.map((e) => ({
-			...e,
-			isCurrentUser: e.userId === authStore.user?.id
-		}))
+		(leaderboardStore.entries.length > 0 ? leaderboardStore.entries : data.leaderboard).map(
+			(e) => ({
+				...e,
+				isCurrentUser: e.userId === authStore.user?.id
+			})
+		)
 	);
+
+	$effect(() => {
+		void marketRevisionStore.revision;
+		void demoMarketStore.revision;
+		void leaderboardStore.load({ silent: true });
+	});
 
 	function formatDefaultDate(iso: string | null): string {
 		if (!iso) return '—';
@@ -281,7 +292,7 @@
 										: 'border-negative/30 bg-negative/8'
 								)}
 							>
-								{entry.returnPercent >= 0 ? '+' : ''}{formatPercent(entry.returnPercent)}
+								{formatPercent(entry.returnPercent)}
 							</span>
 						</td>
 					</tr>

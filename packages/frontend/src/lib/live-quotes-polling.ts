@@ -2,6 +2,7 @@ import { syncMarketClock } from '$lib/sync-market-clock';
 import { marketStore } from '$lib/stores/market.svelte';
 import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
+import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
 import { authStore } from '$lib/stores/auth.svelte';
 
 const POLL_MS = Number(import.meta.env.VITE_LIVE_QUOTES_POLL_MS ?? 5_000);
@@ -14,6 +15,7 @@ function refreshQuotes() {
 	void syncMarketClock();
 	void marketStore.load({ silent: true });
 	void portfolioStore.load();
+	void leaderboardStore.load({ silent: true });
 	if (userId) {
 		void performanceStore.load(userId);
 	}

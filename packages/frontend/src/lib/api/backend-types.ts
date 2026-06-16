@@ -5,6 +5,7 @@ export type BackendStockSummary = {
 	exchange: string;
 	currency: string;
 	latestPrice: number | null;
+	previousClose: number | null;
 };
 
 export type BackendPortfolioRow = {

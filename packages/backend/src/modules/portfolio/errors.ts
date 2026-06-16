@@ -46,3 +46,10 @@ export class PriceMismatchError extends Error {
         super(`Price mismatch: expected $${expected.toFixed(2)}, current price is $${actual.toFixed(2)}`);
     }
 }
+
+export class NoActivePortfolioError extends Error {
+    override readonly name = 'NoActivePortfolioError';
+    constructor(userId: string) {
+        super(`No active portfolio for user ${userId}`);
+    }
+}

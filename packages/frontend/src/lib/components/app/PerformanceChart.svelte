@@ -22,6 +22,25 @@
 		{ value: 'yearly', label: 'Yearly' }
 	];
 
+	const loadingDelayMs = 3000;
+	let showLoading = $state(false);
+
+	$effect(() => {
+		if (!loading) {
+			showLoading = false;
+			return;
+		}
+
+		const timer = setTimeout(() => {
+			showLoading = true;
+		}, loadingDelayMs);
+
+		return () => {
+			clearTimeout(timer);
+			showLoading = false;
+		};
+	});
+
 	const points = $derived(
 		Array.isArray(data)
 			? data.filter(
@@ -74,31 +93,52 @@
 
 	const gridLines = $derived([0, 0.5, 1]);
 
-	const xLabelIndices = $derived.by(() => {
-		if (points.length === 0) return [] as number[];
-		if (points.length === 1) return [0];
+	const xAxisLabels = $derived.by(() => {
+		if (points.length === 0) return [] as { date: string; position: 'start' | 'center' | 'end' }[];
+		if (points.length === 1) {
+			return [{ date: points[0]!.date, position: 'start' as const }];
+		}
 
-		const maxLabels = 5;
-		const indices: number[] = [];
-		let lastDate = '';
+		const startMs = new Date(`${points[0]!.date}T12:00:00.000Z`).getTime();
+		const endMs = new Date(`${points[points.length - 1]!.date}T12:00:00.000Z`).getTime();
+		const midMs = startMs + (endMs - startMs) / 2;
 
+		let midIndex = 0;
+		let bestDiff = Number.POSITIVE_INFINITY;
 		for (let i = 0; i < points.length; i++) {
-			const date = points[i]!.date;
-			const isEdge = i === 0 || i === points.length - 1;
-			const isNewDate = date !== lastDate;
-			if (isEdge || (isNewDate && indices.length < maxLabels)) {
-				if (indices.length === 0 || indices[indices.length - 1] !== i) {
-					indices.push(i);
-					lastDate = date;
-				}
+			const ms = new Date(`${points[i]!.date}T12:00:00.000Z`).getTime();
+			const diff = Math.abs(ms - midMs);
+			if (diff < bestDiff) {
+				bestDiff = diff;
+				midIndex = i;
 			}
 		}
 
-		if (indices[indices.length - 1] !== points.length - 1) {
-			indices.push(points.length - 1);
+		if (midIndex === 0 || midIndex === points.length - 1) {
+			return [
+				{ date: points[0]!.date, position: 'start' as const },
+				{ date: points[points.length - 1]!.date, position: 'end' as const }
+			];
 		}
 
-		return indices;
+		return [
+			{ date: points[0]!.date, position: 'start' as const },
+			{ date: points[midIndex]!.date, position: 'center' as const },
+			{ date: points[points.length - 1]!.date, position: 'end' as const }
+		];
+	});
+
+	const periodLabel = $derived.by(() => {
+		switch (granularity) {
+			case 'weekly':
+				return 'past 7 days';
+			case 'monthly':
+				return 'past 30 days';
+			case 'yearly':
+				return 'past year';
+			default:
+				return 'all time';
+		}
 	});
 
 	const startValue = $derived(points[0]?.value ?? 0);
@@ -166,7 +206,7 @@
 						isPositive ? 'text-positive' : 'text-negative'
 					)}
 				>
-					{formatPercent(periodReturn)} all time
+					{formatPercent(periodReturn)} {periodLabel}
 				</p>
 			{/if}
 		</div>
@@ -190,20 +230,22 @@
 	</div>
 
 	<div class="px-4 py-4 md:px-5">
-		{#if loading}
+		{#if showLoading && points.length === 0}
 			<div
 				class="flex items-center justify-center text-sm text-muted-foreground"
 				style="height: {height}px"
 			>
 				Loading performance…
 			</div>
-		{:else if points.length === 0}
+		{:else if points.length === 0 && !loading}
 			<div
 				class="flex items-center justify-center text-sm text-muted-foreground"
 				style="height: {height}px"
 			>
 				No performance data yet
 			</div>
+		{:else if points.length === 0}
+			<div style="height: {height}px"></div>
 		{:else}
 			<svg
 				viewBox={`0 0 ${width} ${height}`}
@@ -266,14 +308,21 @@
 				{/if}
 			</svg>
 
-			<div class="mt-2 flex justify-between gap-2 text-xs font-medium text-muted-foreground">
-				{#each xLabelIndices as index (index)}
-					{@const label = plotPoints[index]}
-					{#if label}
-						<span class:ml-auto={index === xLabelIndices[xLabelIndices.length - 1]}
-							>{formatAxisDate(label.date)}</span
-						>
-					{/if}
+			<div
+				class="mt-2 grid text-xs font-medium text-muted-foreground"
+				class:grid-cols-1={xAxisLabels.length === 1}
+				class:grid-cols-2={xAxisLabels.length === 2}
+				class:grid-cols-3={xAxisLabels.length === 3}
+			>
+				{#each xAxisLabels as label (label.position)}
+					<span
+						class={cn(
+							label.position === 'center' && 'text-center',
+							label.position === 'end' && 'text-right'
+						)}
+					>
+						{formatAxisDate(label.date)}
+					</span>
 				{/each}
 			</div>
 		{/if}

@@ -44,6 +44,21 @@ class PortfolioStore {
 		}
 	}
 
+	async forceDefault(): Promise<{
+		penaltyCounter: number;
+		isSuspended: boolean;
+		activePortfolioId: string | null;
+	}> {
+		const res = await api.api.v1.portfolio.default.$post();
+		const data = await parseApiData<{
+			penaltyCounter: number;
+			isSuspended: boolean;
+			activePortfolioId: string | null;
+		}>(res);
+		await this.load();
+		return data;
+	}
+
 	async buy(stockId: string, quantity: number) {
 		if (!this._data?.portfolioId) {
 			await this.load();
@@ -88,6 +103,10 @@ class PortfolioStore {
 		}
 		const fromMarket = marketStore.stocks.find((s) => s.id === stockId);
 		return fromMarket?.currentPrice ?? 0;
+	}
+
+	get portfolioStatus(): ApiPortfolio['status'] | null {
+		return this._data?.status ?? null;
 	}
 
 	get holdings(): HoldingWithMarket[] {

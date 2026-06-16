@@ -79,6 +79,13 @@ describe('portfolio default flow', () => {
     })
 })
 
+describe('POST /api/v1/portfolio/default', () => {
+    test('requires authentication', async () => {
+        const res = await app.request('/api/v1/portfolio/default', { method: 'POST' })
+        expect(res.status).toBe(401)
+    })
+})
+
 describe('GET /api/v1/leaderboard', () => {
     test('ranks users by net worth', async () => {
         const low = await seedPortfolio({ cashBalance: '500.00', name: 'Low Trader' })

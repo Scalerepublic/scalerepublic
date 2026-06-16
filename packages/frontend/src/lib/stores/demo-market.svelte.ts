@@ -6,6 +6,8 @@ import { authStore } from '$lib/stores/auth.svelte';
 import { marketStore } from '$lib/stores/market.svelte';
 import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
+import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
+import { marketRevisionStore } from '$lib/stores/market-revision.svelte';
 
 type MarketDebugStatus = {
 	marketDate: string;
@@ -18,6 +20,7 @@ class DemoMarketStore {
 	canOperate = $state(false);
 	loading = $state(false);
 	error = $state<string | null>(null);
+	revision = $state(0);
 
 	get enabled(): boolean {
 		return this.canOperate;
@@ -103,11 +106,14 @@ class DemoMarketStore {
 	}
 
 	private async reloadAppData() {
+		this.revision += 1;
+		marketRevisionStore.bump();
 		const userId = authStore.user?.id;
 		await Promise.all([
 			syncMarketClock(),
 			marketStore.load({ silent: true }),
 			portfolioStore.load(),
+			leaderboardStore.load({ silent: true }),
 			userId ? performanceStore.load(userId) : Promise.resolve()
 		]);
 	}

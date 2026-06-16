@@ -4,6 +4,7 @@ import type { AppVars } from '../../context.ts';
 import { marketState } from '../../db/schema/stock/market.ts';
 import { stepGbm } from '../../db/seed/gbm.ts';
 import { ARCHETYPES, SEED_STOCKS, type Archetype } from '../../db/seed/stocks.ts';
+import { DEBUG_MARKET_PRICE_SOURCE } from '../../lib/market-debug.ts';
 
 const STATE_ID = 'singleton';
 const DEFAULT_ARCHETYPE: Archetype = 'steady_growth';
@@ -120,7 +121,7 @@ export class MarketDebugService {
                 return seed / 2147483647;
             };
             const next = stepGbm(current, drift, volatility, rng);
-            await this.ctx.stockService.insertPrice(row.id, next, 'debug_gbm', recordedAt);
+            await this.ctx.stockService.insertPrice(row.id, next, DEBUG_MARKET_PRICE_SOURCE, recordedAt);
             updated += 1;
         }
 

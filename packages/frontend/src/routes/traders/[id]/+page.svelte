@@ -4,10 +4,18 @@
 	import PerformanceChart from '$lib/components/app/PerformanceChart.svelte';
 	import HoldingsTable from '$lib/components/app/HoldingsTable.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { demoMarketStore } from '$lib/stores/demo-market.svelte';
+	import { marketRevisionStore } from '$lib/stores/market-revision.svelte';
 	import { api, parseApiData } from '$lib/api/client';
-	import type { BackendPerformancePoint } from '$lib/api/backend-types';
+	import type { BackendPerformancePoint, BackendPortfolioPayload } from '$lib/api/backend-types';
+	import {
+		mapPortfolioPayload,
+		mapTraderHoldings,
+		mapTraderSummary
+	} from '$lib/api/mappers';
 	import type { PerformanceGranularity } from '$lib/stores/performance.svelte';
 	import type { PerformancePoint } from '$lib/performance-history';
+	import type { HoldingWithMarket } from '$lib/types';
 	import { cn, formatCurrency, getInitials } from '$lib/utils';
 	import { Trophy, Shield } from '@lucide/svelte';
 	import type { PageData } from './$types';
@@ -19,6 +27,8 @@
 	let performanceData = $state<PerformancePoint[]>([]);
 	let performanceLoading = $state(false);
 	let granularity = $state<PerformanceGranularity>('daily');
+	let holdings = $state<HoldingWithMarket[]>(data.holdings);
+	let summary = $state(data.summary);
 
 	async function loadPerformance() {
 		performanceLoading = true;
@@ -35,10 +45,32 @@
 		}
 	}
 
+	async function loadPortfolio() {
+		try {
+			const res = await api.api.v1.users[':id'].portfolio.$get({
+				param: { id: data.profile.userId }
+			});
+			const portfolioPayload = await parseApiData<BackendPortfolioPayload>(res);
+			const portfolio = mapPortfolioPayload(portfolioPayload);
+			holdings = mapTraderHoldings(portfolio);
+			summary = mapTraderSummary(portfolio, holdings);
+		} catch {
+			holdings = [];
+		}
+	}
+
+	async function reloadTraderView() {
+		await Promise.all([loadPerformance(), loadPortfolio()]);
+	}
+
 	$effect(() => {
+		const rev = marketRevisionStore.revision;
+		const debugRev = demoMarketStore.revision;
 		const g = granularity;
+		void rev;
+		void debugRev;
 		void g;
-		void loadPerformance();
+		void reloadTraderView();
 	});
 </script>
 
@@ -70,13 +102,6 @@
 			{getInitials(data.profile.name)}
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
-			{#if isCurrentUser}
-				<span
-					class="border border-border bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-foreground uppercase"
-				>
-					You
-				</span>
-			{/if}
 			{#if data.profile.isDefaulted}
 				<span
 					class="inline-flex items-center gap-1 border border-negative/30 bg-negative/8 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-negative uppercase"
@@ -96,16 +121,16 @@
 	</div>
 
 	<div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-		<StatCard label="Net Worth" value={formatCurrency(data.summary.totalValue)} accent />
+		<StatCard label="Net Worth" value={formatCurrency(summary.totalValue)} accent />
 		<StatCard
 			label="Total Return"
-			value={formatCurrency(data.summary.totalPnl)}
-			change={data.summary.totalPnl}
-			changePct={data.summary.totalPnlPercent}
+			value={formatCurrency(summary.totalPnl)}
+			change={summary.totalPnl}
+			changePct={summary.totalPnlPercent}
 			changeShowAmount={false}
 		/>
-		<StatCard label="Cash" value={formatCurrency(data.summary.cashBalance)} />
-		<StatCard label="Holdings" value={formatCurrency(data.summary.holdingsValue)} />
+		<StatCard label="Cash" value={formatCurrency(summary.cashBalance)} />
+		<StatCard label="Holdings" value={formatCurrency(summary.holdingsValue)} />
 	</div>
 
 	<div class="mb-8">
@@ -121,12 +146,12 @@
 		<span
 			class="border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
 		>
-			{data.holdings.length}
-			{data.holdings.length === 1 ? 'position' : 'positions'}
+			{holdings.length}
+			{holdings.length === 1 ? 'position' : 'positions'}
 		</span>
 	</div>
 
-	{#if data.holdings.length === 0}
+	{#if holdings.length === 0}
 		<div
 			class={cn(
 				'flex flex-col items-center justify-center border border-dashed border-border py-16 text-center'
@@ -135,6 +160,6 @@
 			<p class="font-serif text-base font-semibold text-muted-foreground">No open positions.</p>
 		</div>
 	{:else}
-		<HoldingsTable holdings={data.holdings} readOnly />
+		<HoldingsTable {holdings} readOnly />
 	{/if}
 </div>

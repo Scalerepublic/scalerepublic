@@ -2,11 +2,13 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 
 import { useCtx, type App, type AppContext, type AppEnv } from "../../context.ts";
+import { requireAuth } from "../../lib/require-auth.ts";
 import { userIdParamSchema } from "../user/user.schema.ts";
 
 import {
     InsufficientFundsError,
     InsufficientHoldingsError,
+    NoActivePortfolioError,
     PortfolioDefaultedError,
     PortfolioNotFoundError,
     PriceMismatchError,
@@ -14,6 +16,7 @@ import {
     UserSuspendedError,
 } from "./errors.ts";
 import { portfolioIdParamSchema, tradeBodySchema } from "./portfolio.schema.ts";
+import { MAX_DEFAULT_STRIKES } from "./portfolio.services.ts";
 
 const handleError = (c: AppContext, err: unknown) => {
     if (err instanceof PortfolioNotFoundError) return c.json({ error: err.message }, 404);
@@ -23,6 +26,7 @@ const handleError = (c: AppContext, err: unknown) => {
     if (err instanceof InsufficientHoldingsError) return c.json({ error: err.message }, 422);
     if (err instanceof StockPriceUnavailableError) return c.json({ error: err.message }, 422);
     if (err instanceof PriceMismatchError) return c.json({ error: err.message }, 409);
+    if (err instanceof NoActivePortfolioError) return c.json({ error: err.message }, 404);
     throw err;
 }
 
@@ -132,7 +136,40 @@ export const portfolioRoutes = new Hono<AppEnv>()
                 return handleError(c, err);
             }
         },
-    );
+    )
+    .post("/api/v1/portfolio/default", async (c) => {
+        const authResult = await requireAuth(c);
+        if (authResult instanceof Response) return authResult;
+
+        const { portfolioService, portfolioDefaultService } = useCtx(c);
+        const userId = authResult.user.id;
+
+        try {
+            const active = await portfolioService.getActiveForUser(userId);
+            if (!active) {
+                const defaultCount = await portfolioService.getDefaultCount(userId);
+                if (defaultCount >= MAX_DEFAULT_STRIKES) {
+                    throw new UserSuspendedError(userId);
+                }
+                throw new NoActivePortfolioError(userId);
+            }
+
+            await portfolioDefaultService.defaultPortfolio(active.id);
+
+            const penaltyCounter = await portfolioService.getDefaultCount(userId);
+            const nextActive = await portfolioService.getActiveForUser(userId);
+
+            return c.json({
+                data: {
+                    penaltyCounter,
+                    isSuspended: penaltyCounter >= MAX_DEFAULT_STRIKES,
+                    activePortfolioId: nextActive?.id ?? null,
+                },
+            });
+        } catch (err) {
+            return handleError(c, err);
+        }
+    });
 
 export const registerPortfolioRoutes = (app: App) => {
     app.route('/', portfolioRoutes)

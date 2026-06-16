@@ -2,6 +2,7 @@ import { and, asc, eq } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';
 import { trade } from '../../db/schema/trade/trade.ts';
+import { isMarketDebugEnabled } from '../../lib/market-debug.ts';
 
 export type PerformanceGranularity = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -26,38 +27,26 @@ const addUtcDays = (date: Date, days: number): Date => {
 
 const endOfUtcDay = (isoDate: string): Date => new Date(`${isoDate}T23:59:59.999Z`);
 
-const weekKey = (isoDate: string): string => {
-    const d = new Date(`${isoDate}T12:00:00.000Z`);
-    const day = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - day);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
-    return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+const windowDays: Record<PerformanceGranularity, number | null> = {
+    daily: null,
+    weekly: 7,
+    monthly: 30,
+    yearly: 365,
 };
 
-const monthKey = (isoDate: string): string => isoDate.slice(0, 7);
-
-const yearKey = (isoDate: string): string => isoDate.slice(0, 4);
-
-const bucketKey = (isoDate: string, granularity: PerformanceGranularity): string => {
-    if (granularity === 'weekly') return weekKey(isoDate);
-    if (granularity === 'monthly') return monthKey(isoDate);
-    if (granularity === 'yearly') return yearKey(isoDate);
-    return isoDate;
-};
-
-const downsample = (
+const filterToWindow = (
     points: PerformancePoint[],
     granularity: PerformanceGranularity,
 ): PerformancePoint[] => {
-    if (granularity === 'daily' || points.length === 0) return points;
+    const days = windowDays[granularity];
+    if (days === null || points.length === 0) return points;
 
-    const buckets = new Map<string, PerformancePoint>();
-    for (const point of points) {
-        buckets.set(bucketKey(point.date, granularity), point);
-    }
+    const endDate = points[points.length - 1]!.date;
+    const end = startOfUtcDay(new Date(`${endDate}T12:00:00.000Z`));
+    const cutoff = addUtcDays(end, -(days - 1));
+    const cutoffIso = toUtcDateIso(cutoff);
 
-    return [...buckets.values()];
+    return points.filter((p) => p.date >= cutoffIso);
 };
 
 export class PortfolioPerformanceService {
@@ -77,7 +66,9 @@ export class PortfolioPerformanceService {
             .orderBy(asc(trade.executedAt));
 
         const start = startOfUtcDay(portfolio.createdAt);
-        const end = startOfUtcDay(new Date());
+        const end = isMarketDebugEnabled()
+            ? startOfUtcDay(this.ctx.marketDebugService.getMarketDate())
+            : startOfUtcDay(new Date());
 
         const daily: PerformancePoint[] = [];
         let tradeIdx = 0;
@@ -117,6 +108,6 @@ export class PortfolioPerformanceService {
             daily.push({ date: dayIso, value: cash + holdingsValue });
         }
 
-        return downsample(daily, granularity);
+        return filterToWindow(daily, granularity);
     }
 }

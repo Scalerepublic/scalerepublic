@@ -1,37 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { api, parseApiData } from '$lib/api/client';
 import type { BackendPortfolioPayload, BackendUserProfile } from '$lib/api/backend-types';
-import { mapPortfolioPayload } from '$lib/api/mappers';
-import type { HoldingWithMarket } from '$lib/types';
-
-function mapHoldings(payload: ReturnType<typeof mapPortfolioPayload>): HoldingWithMarket[] {
-	return payload.holdings.map((h) => {
-		const currentPrice = h.currentPrice ?? 0;
-		const currentValue = currentPrice * h.shares;
-		const totalCost = h.avgCost * h.shares;
-		const pnl = currentValue - totalCost;
-
-		return {
-			ticker: h.ticker,
-			shares: h.shares,
-			avgCost: h.avgCost,
-			stock: {
-				id: h.stockId,
-				ticker: h.ticker,
-				name: h.companyName || h.ticker,
-				sector: '',
-				currentPrice,
-				previousClose: currentPrice,
-				dayChange: 0,
-				dayChangePercent: 0
-			},
-			currentValue,
-			totalCost,
-			pnl,
-			pnlPercent: totalCost > 0 ? (pnl / totalCost) * 100 : 0
-		};
-	});
-}
+import { mapPortfolioPayload, mapTraderHoldings, mapTraderSummary } from '$lib/api/mappers';
 
 export async function load({ params }: { params: { id: string } }) {
 	try {
@@ -44,23 +14,14 @@ export async function load({ params }: { params: { id: string } }) {
 		const portfolioPayload = await parseApiData<BackendPortfolioPayload>(portfolioRes);
 
 		const portfolio = mapPortfolioPayload(portfolioPayload);
-		const holdings = mapHoldings(portfolio);
-		const holdingsValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-		const totalValue = holdingsValue + portfolio.cashBalance;
-		const totalPnl = totalValue - portfolio.startingCapital;
+		const holdings = mapTraderHoldings(portfolio);
+		const summary = mapTraderSummary(portfolio, holdings);
 
 		return {
 			profile,
 			portfolio,
 			holdings,
-			summary: {
-				totalValue,
-				holdingsValue,
-				cashBalance: portfolio.cashBalance,
-				totalPnl,
-				totalPnlPercent:
-					portfolio.startingCapital > 0 ? (totalPnl / portfolio.startingCapital) * 100 : 0
-			}
+			summary
 		};
 	} catch {
 		error(404, 'Trader not found');

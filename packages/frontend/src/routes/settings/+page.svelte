@@ -3,8 +3,13 @@
 	import { resolve } from '$app/paths';
 	import { userStore } from '$lib/stores/user.svelte';
 	import { portfolioStore } from '$lib/stores/portfolio.svelte';
+	import { performanceStore } from '$lib/stores/performance.svelte';
+	import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
+	import ConfirmDialog from '$lib/components/app/ConfirmDialog.svelte';
+	import { ApiError } from '$lib/api';
 	import { signOut } from '$lib/auth-client';
+	import { authStore } from '$lib/stores/auth.svelte';
 	import { setMode, userPrefersMode } from 'mode-watcher';
 	import { toast } from 'svelte-sonner';
 	import { cn, formatCurrency, getInitials } from '$lib/utils';
@@ -18,10 +23,45 @@
 		Shield,
 		TrendingUp,
 		LogOut,
-		Trophy
+		Trophy,
+		AlertTriangle
 	} from '@lucide/svelte';
 
 	let isSigningOut = $state(false);
+	let defaultDialogOpen = $state(false);
+	let forcingDefault = $state(false);
+
+	const canForceDefault = $derived(
+		userStore.profile.accountStatus === 'active' &&
+			(userStore.profile.penaltyCounter ?? 0) < 3 &&
+			portfolioStore.portfolioStatus === 'ACTIVE'
+	);
+
+	async function handleForceDefault() {
+		if (forcingDefault) return;
+		forcingDefault = true;
+		try {
+			const result = await portfolioStore.forceDefault();
+			defaultDialogOpen = false;
+			const userId = authStore.user?.id;
+			await Promise.all([
+				userStore.load(),
+				userId ? performanceStore.load(userId) : Promise.resolve(),
+				leaderboardStore.load({ silent: true })
+			]);
+			if (result.isSuspended) {
+				toast.error('Portfolio defaulted. Your account is now suspended.');
+			} else {
+				toast.success('Portfolio defaulted. A fresh portfolio has been created.');
+			}
+		} catch (e) {
+			const message =
+				e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Force default failed';
+			toast.error(message);
+		} finally {
+			forcingDefault = false;
+		}
+	}
 
 	async function handleSignOut() {
 		if (isSigningOut) return;
@@ -195,6 +235,34 @@
 				{/if}
 			</dl>
 		</section>
+
+		<section class="mt-5 border border-destructive/30 bg-card">
+			<div class="border-b border-destructive/20 px-5 py-4">
+				<div class="flex items-center gap-2">
+					<AlertTriangle class="size-4 text-destructive" />
+					<h2 class="text-sm font-semibold text-foreground">Danger Zone</h2>
+				</div>
+				<p class="mt-1 text-xs text-muted-foreground">
+					Force-default your active portfolio. This counts as one strike toward suspension.
+				</p>
+			</div>
+			<div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<p class="text-sm font-medium text-foreground">Force portfolio default</p>
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						Closes your current portfolio and starts a new one with $1,000 unless you are suspended.
+					</p>
+				</div>
+				<button
+					type="button"
+					onclick={() => (defaultDialogOpen = true)}
+					disabled={!canForceDefault || forcingDefault}
+					class="shrink-0 border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					Force default
+				</button>
+			</div>
+		</section>
 	{/if}
 
 	{#if activeTab === 'appearance'}
@@ -256,3 +324,13 @@
 		</section>
 	{/if}
 </div>
+
+<ConfirmDialog
+	bind:open={defaultDialogOpen}
+	title="Force portfolio default?"
+	message="Are you sure? Your active portfolio will be marked as defaulted. You will receive a fresh $1,000 portfolio unless this is your third default."
+	confirmLabel="Yes, force default"
+	cancelLabel="Cancel"
+	confirming={forcingDefault}
+	onConfirm={handleForceDefault}
+/>
