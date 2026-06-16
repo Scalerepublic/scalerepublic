@@ -153,8 +153,8 @@
 						type="button"
 						class="flex h-10 w-12 items-center justify-center border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
 						onclick={() => (quantity = Math.max(1, quantity - 1))}
-						aria-label="Decrease quantity"
-					>−</button>
+						aria-label="Decrease quantity">−</button
+					>
 					<input
 						id="trade-quantity"
 						type="number"
@@ -167,8 +167,8 @@
 						type="button"
 						class="flex h-10 w-12 items-center justify-center border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
 						onclick={() => (quantity = Math.min(maxQuantity, quantity + 1))}
-						aria-label="Increase quantity"
-					>+</button>
+						aria-label="Increase quantity">+</button
+					>
 				</div>
 				<p class="mb-4 text-xs text-muted-foreground">
 					{mode === 'sell'

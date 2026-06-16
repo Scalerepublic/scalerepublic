@@ -11,7 +11,14 @@
 		children?: import('svelte').Snippet;
 	} & HTMLButtonAttributes;
 
-	let { href, type = 'button', class: className = '', variant = 'primary', children, ...rest }: Props = $props();
+	let {
+		href,
+		type = 'button',
+		class: className = '',
+		variant = 'primary',
+		children,
+		...rest
+	}: Props = $props();
 
 	let classes = $derived(
 		cn(
@@ -23,7 +30,7 @@
 </script>
 
 {#if href}
-	<a href={resolve(href)} class={classes} {...(rest as HTMLAnchorAttributes)}>
+	<a href={resolve(href)} class={classes} {...rest as HTMLAnchorAttributes}>
 		{@render children?.()}
 	</a>
 {:else}

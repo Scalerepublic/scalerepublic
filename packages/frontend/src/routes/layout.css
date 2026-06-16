@@ -275,3 +275,33 @@
 		animation-delay: 450ms;
 	}
 }
+
+/*
+ * Mobile touch behavior. These rules are intentionally unlayered so they win
+ * over Tailwind's `@layer utilities` (e.g. `text-sm` on inputs).
+ */
+
+/* Stop the page text from rescaling on orientation change. */
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+/* Disable double-tap-to-zoom (keeps pinch-zoom, which `manipulation` allows). */
+html,
+body {
+	touch-action: manipulation;
+}
+
+/*
+ * Prevent iOS Safari from zooming in when a form field is focused. Safari only
+ * zooms when the control's font-size is below 16px, so force >=16px on small
+ * screens (desktop keeps the smaller design size).
+ */
+@media (max-width: 767px) {
+	input:not([type='checkbox']):not([type='radio']):not([type='range']),
+	textarea,
+	select {
+		font-size: 16px;
+	}
+}
