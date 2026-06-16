@@ -1,15 +1,14 @@
-import type { Context } from 'hono';
-
-import { auth } from './auth.ts';
+import { type AppContext, useCtx } from '../context.ts';
 import { getMarketDebugOperatorEmail, isMarketDebugEnabled } from './market-debug.ts';
 
 export const requireMarketDebugOperator = async (
-    c: Context,
+    c: AppContext,
 ): Promise<Response | null> => {
     if (!isMarketDebugEnabled()) {
         return c.json({ error: 'Market debug disabled' }, 404);
     }
 
+    const { auth } = useCtx(c);
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     const email = session?.user.email.trim().toLowerCase();
     const allowed = getMarketDebugOperatorEmail();

@@ -1,21 +1,34 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
-import { db } from "../db";
-import { account, session, user, verification } from "../db/schema/auth-schema";
+import type { DbConnection } from "../db/index.ts";
+import { account, session, user, verification } from "../db/schema/auth-schema.ts";
 
-const authUrl = process.env.BETTER_AUTH_URL;
+export type Auth = ReturnType<typeof createAuth>;
 
-export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema: { user, session, account, verification },
-  }),
-  emailAndPassword: {
-    enabled: true,
-  },
-  trustedOrigins: authUrl !== undefined && authUrl !== "" ? [authUrl] : [],
-  advanced: {
-    useSecureCookies: authUrl !== undefined && authUrl !== "" ? authUrl.startsWith("https://") : false,
-  },
-});
+export type AuthOptions = {
+  secret?: string;
+  baseURL?: string;
+};
+
+export const createAuth = (db: DbConnection, options: AuthOptions = {}) => {
+  const secret = options.secret ?? process.env.BETTER_AUTH_SECRET;
+  const rawBaseURL = options.baseURL ?? process.env.BETTER_AUTH_URL;
+  const baseURL = rawBaseURL !== undefined && rawBaseURL !== "" ? rawBaseURL : undefined;
+
+  return betterAuth({
+    secret: secret !== undefined && secret !== "" ? secret : undefined,
+    baseURL,
+    database: drizzleAdapter(db, {
+      provider: "pg",
+      schema: { user, session, account, verification },
+    }),
+    emailAndPassword: {
+      enabled: true,
+    },
+    trustedOrigins: baseURL !== undefined ? [baseURL] : [],
+    advanced: {
+      useSecureCookies: baseURL !== undefined ? baseURL.startsWith("https://") : false,
+    },
+  });
+};

@@ -4,6 +4,7 @@ import {
   text,
   numeric,
   timestamp,
+  integer,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -105,3 +106,20 @@ export const stockPriceRelations = relations(
     }),
   }),
 );
+
+/**
+ * MARKET STATE (simulated/debug market)
+ *
+ * Single-row table holding the simulated market clock used by
+ * MarketDebugService. It is persisted (rather than kept in memory) because the
+ * backend runs on Cloudflare Workers, where each request gets a fresh,
+ * stateless context — in-memory state would not survive between requests.
+ */
+export const marketState = pgTable("market_state", {
+  id: text("id").primaryKey(),
+  dayOffset: integer("day_offset").notNull().default(0),
+  ticksOnCurrentDay: integer("ticks_on_current_day").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

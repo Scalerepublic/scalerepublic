@@ -29,7 +29,7 @@ export const marketDebugRoutes = new Hono<AppEnv>()
         const denied = await requireMarketDebugOperator(c);
         if (denied) return denied;
         const { marketDebugService } = useCtx(c);
-        const status = marketDebugService.advanceDay();
+        const status = await marketDebugService.advanceDay();
         const tick = await marketDebugService.applyGbmTick();
         return c.json({ data: { ...status, ...tick } });
     })
@@ -37,7 +37,7 @@ export const marketDebugRoutes = new Hono<AppEnv>()
         const denied = await requireMarketDebugOperator(c);
         if (denied) return denied;
         const { marketDebugService } = useCtx(c);
-        return c.json({ data: marketDebugService.retreatDay() });
+        return c.json({ data: await marketDebugService.retreatDay() });
     })
     .post('/api/v1/debug/market/tick', async (c) => {
         const denied = await requireMarketDebugOperator(c);
