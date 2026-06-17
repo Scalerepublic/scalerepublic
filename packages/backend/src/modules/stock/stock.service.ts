@@ -2,6 +2,8 @@ import { and, asc, desc, eq, gte, lte, ne, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockPrice } from '../../db/schema/stock/index.ts'
+import { portfolio } from '../../db/schema/portfolio/portfolio.ts'
+import { trade } from '../../db/schema/trade/index.ts'
 import { DEBUG_MARKET_PRICE_SOURCE, isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
 export type StockSummary = {
@@ -15,7 +17,7 @@ export type StockSummary = {
 }
 
 export class StockService {
-    constructor(private readonly ctx: AppVars) {}
+    constructor(private readonly ctx: AppVars) { }
 
     private priceSourceFilter(): SQL {
         if (isMarketDebugEnabled()) {
@@ -163,5 +165,63 @@ export class StockService {
             source,
             recordedAt,
         }).onConflictDoNothing()
+    }
+
+    async getStockDetail(
+        ticker: string,
+        userId?: string,
+        priceFromDate?: Date,
+        priceToDate?: Date,
+    ) {
+        // 1. Retrieve basic stock information
+        const [stockRow] = await this.ctx.db
+            .select()
+            .from(stock)
+            .where(eq(stock.ticker, ticker))
+            .limit(1)
+
+        if (!stockRow) return null
+
+        // 2. Retrieve historical price data if a date range is provided
+        let priceHistory = null
+        if (priceFromDate && priceToDate) {
+            priceHistory = await this.getPriceHistory(ticker, priceFromDate, priceToDate)
+        }
+
+        // 3. Retrieve the user's trade history if a userId is provided
+        let userTrades: any[] = []
+        if (userId) {
+            // Find the portfolio id associated with the user
+            const userPortfolio = await this.ctx.db
+                .select({ id: portfolio.id })
+                .from(portfolio)
+                .where(eq(portfolio.userId, userId))
+                .limit(1)
+
+            if (userPortfolio[0]) {
+                // Retrieve all trades for this stock within the user's portfolio
+                userTrades = await this.ctx.db
+                    .select()
+                    .from(trade)
+                    .where(and(
+                        eq(trade.portfolioId, userPortfolio[0].id),
+                        eq(trade.stockId, stockRow.id),
+                    ))
+                    .orderBy(desc(trade.createdAt))
+            }
+        }
+
+        // 4. Construct and return the response object
+        return {
+            stock: {
+                id: stockRow.id,
+                ticker: stockRow.ticker,
+                companyName: stockRow.companyName,
+                exchange: stockRow.exchange,
+                currency: stockRow.currency,
+            },
+            priceHistory,
+            userTrades,
+        }
     }
 }
