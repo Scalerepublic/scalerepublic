@@ -1,8 +1,8 @@
 import { and, asc, desc, eq, gte, lte, ne, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
-import { stock, stockPrice } from '../../db/schema/stock/index.ts'
 import { portfolio } from '../../db/schema/portfolio/portfolio.ts'
+import { stock, stockPrice } from '../../db/schema/stock/index.ts'
 import { trade } from '../../db/schema/trade/index.ts'
 import { DEBUG_MARKET_PRICE_SOURCE, isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
@@ -183,14 +183,17 @@ export class StockService {
         if (!stockRow) return null
 
         // 2. Retrieve historical price data if a date range is provided
-        let priceHistory = null
+        let priceHistory: Array<{
+            recordedAt: Date
+            price: number
+        }> | null = null
         if (priceFromDate && priceToDate) {
             priceHistory = await this.getPriceHistory(ticker, priceFromDate, priceToDate)
         }
 
         // 3. Retrieve the user's trade history if a userId is provided
-        let userTrades: any[] = []
-        if (userId) {
+        let userTrades: typeof trade.$inferSelect[] = []
+        if (userId !== undefined && userId !== "") {
             // Find the portfolio id associated with the user
             const userPortfolio = await this.ctx.db
                 .select({ id: portfolio.id })

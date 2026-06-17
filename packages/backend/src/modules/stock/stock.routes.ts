@@ -24,8 +24,15 @@ export const stockRoutes = new Hono<AppEnv>()
         const { stockService } = useCtx(c)
 
         // Convert ISO date strings to Date objects
-        const priceFromDate = priceFrom ? new Date(priceFrom) : undefined
-        const priceToDate = priceTo ? new Date(priceTo) : undefined
+        const priceFromDate =
+            priceFrom !== undefined && priceFrom !== ''
+                ? new Date(priceFrom)
+                : undefined
+
+        const priceToDate =
+            priceTo !== undefined && priceTo !== ''
+                ? new Date(priceTo)
+                : undefined
 
         const detail = await stockService.getStockDetail(ticker, userId, priceFromDate, priceToDate)
 
