@@ -26,6 +26,12 @@ export const createAuth = (db: DbConnection, options: AuthOptions = {}) => {
     emailAndPassword: {
       enabled: true,
     },
+    user: {
+      changeEmail: {
+        enabled: true,
+        updateEmailWithoutVerification: true,
+      },
+    },
     trustedOrigins: baseURL !== undefined ? [baseURL] : [],
     advanced: {
       useSecureCookies: baseURL !== undefined ? baseURL.startsWith("https://") : false,

@@ -77,10 +77,17 @@
 				</div>
 
 				<div class="space-y-1.5">
-					<label
-						for="password"
-						class="text-xs font-semibold tracking-wide text-foreground uppercase">Password</label
-					>
+					<div class="flex items-center justify-between">
+						<label
+							for="password"
+							class="text-xs font-semibold tracking-wide text-foreground uppercase">Password</label
+						>
+						<a
+							href={resolve('/forgot-password')}
+							class="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+							>Forgot password?</a
+						>
+					</div>
 					<input
 						id="password"
 						type="password"
@@ -118,10 +125,9 @@
 		</div>
 
 		<p class="mt-5 text-center text-sm text-muted-foreground">
-			Don&apos;t have an account?
 			<a
 				href={resolve('/signup')}
-				class="font-semibold text-foreground underline-offset-4 hover:underline">Create one</a
+				class="font-semibold text-foreground underline-offset-4 hover:underline">Create an account</a
 			>
 		</p>
 	</div>
