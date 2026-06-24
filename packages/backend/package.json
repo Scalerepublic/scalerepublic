@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api/index.ts",
-    "./api-client": "./src/api/client.ts"
+    "./api-client": "./src/api/client.ts",
+    "./validation": "./src/lib/validation.ts"
   },
   "scripts": {
     "dev": "bun --hot src/index.ts",
