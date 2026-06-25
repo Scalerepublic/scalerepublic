@@ -1,11 +1,15 @@
 default:
     @just --list
 
+dev:
+    @echo "Run 'just dev' from the repository root for the full stack."
+    @exit 1
+
+dev-local:
+    bun run dev
+
 lint:
     bun run lint
-
-dev:
-    bun run dev
 
 build:
     bun run build

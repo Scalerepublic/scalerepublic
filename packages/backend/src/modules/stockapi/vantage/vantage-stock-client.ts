@@ -1,4 +1,4 @@
-import type { StockDataClient, StockMeta, StockQuote } from '../stock-data-client.ts'
+import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from '../stock-data-client.ts'
 
 import { createAlphaVantageClient } from './vantage.client.ts'
 
@@ -15,6 +15,10 @@ export class AlphaVantageStockClient implements StockDataClient {
         const result = await this.client.searchSymbol(symbol)
         const match = result.bestMatches.find(m => m.symbol === symbol)
         if (!match) return null
-        return { name: match.name, exchange: match.region, currency: match.currency }
+        return { name: match.name, exchange: match.region, currency: match.currency, description: match.name }
+    }
+
+    async getDailyBar(): Promise<StockDailyBar | null> {
+        return null
     }
 }

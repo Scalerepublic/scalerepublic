@@ -4,11 +4,19 @@ import { isMarketDebugOperator } from '$lib/market-debug-operator';
 import { syncMarketClock } from '$lib/sync-market-clock';
 import { authStore } from '$lib/stores/auth.svelte';
 import { marketStore } from '$lib/stores/market.svelte';
+import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
+import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
+import { marketRevisionStore } from '$lib/stores/market-revision.svelte';
 
 type MarketDebugStatus = {
 	marketDate: string;
 	dayOffset: number;
+};
+
+type MarketDebugActionResult = MarketDebugStatus & {
+	updated?: number;
+	percentage?: number;
 };
 
 class DemoMarketStore {
@@ -17,6 +25,7 @@ class DemoMarketStore {
 	canOperate = $state(false);
 	loading = $state(false);
 	error = $state<string | null>(null);
+	revision = $state(0);
 
 	get enabled(): boolean {
 		return this.canOperate;
@@ -65,12 +74,17 @@ class DemoMarketStore {
 		return this.marketDate ?? new Date().toISOString().slice(0, 10);
 	}
 
-	private async post(path: string) {
+	private async post(path: string, body?: Record<string, unknown>) {
 		this.loading = true;
 		this.error = null;
 		try {
-			const res = await fetch(path, { method: 'POST', credentials: 'include' });
-			const json = (await res.json()) as { data?: MarketDebugStatus; error?: string };
+			const res = await fetch(path, {
+				method: 'POST',
+				credentials: 'include',
+				headers: body ? { 'Content-Type': 'application/json' } : undefined,
+				body: body ? JSON.stringify(body) : undefined
+			});
+			const json = (await res.json()) as { data?: MarketDebugActionResult; error?: string };
 			if (!res.ok) {
 				throw new ApiError(json.error ?? res.statusText, res.status);
 			}
@@ -95,18 +109,26 @@ class DemoMarketStore {
 
 	async retreatDay() {
 		await this.post('/api/v1/debug/market/retreat');
-		portfolioStore.trimPerformanceHistoryTo(this.marketDateIso);
 	}
 
 	async applyGbmTick() {
 		await this.post('/api/v1/debug/market/tick');
 	}
 
+	async applyMarketCrash(percentage: number) {
+		await this.post('/api/v1/debug/market/crash', { percentage });
+	}
+
 	private async reloadAppData() {
+		this.revision += 1;
+		marketRevisionStore.bump();
+		const userId = authStore.user?.id;
 		await Promise.all([
 			syncMarketClock(),
 			marketStore.load({ silent: true }),
-			portfolioStore.load()
+			portfolioStore.load(),
+			leaderboardStore.load({ silent: true }),
+			userId ? performanceStore.load(userId) : Promise.resolve()
 		]);
 	}
 }

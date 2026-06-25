@@ -47,6 +47,7 @@ export interface UserProfile {
 	joinedAt: string;
 	avatarUrl: string | null;
 	rank?: number;
+	penaltyCounter?: number;
 }
 
 export interface AppSettings {

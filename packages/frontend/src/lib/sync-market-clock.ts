@@ -15,11 +15,11 @@ export async function syncMarketClock(): Promise<void> {
 		}
 		const json = (await res.json()) as { data?: MarketClock };
 		const clock = json.data;
-		if (!clock) {
+		if (!clock?.simulated) {
 			setDemoMarketDate(null);
 			return;
 		}
-		setDemoMarketDate(clock.simulated || clock.dayOffset !== 0 ? clock.marketDate : null);
+		setDemoMarketDate(clock.marketDate);
 	} catch {
 		setDemoMarketDate(null);
 	}

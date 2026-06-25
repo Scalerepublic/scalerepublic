@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { Loader2 } from '@lucide/svelte';
 	import { signUp } from '$lib/auth-client';
+	import { emailSchema, passwordSchema } from 'backend/validation';
 	import { toast } from 'svelte-sonner';
 
 	let name = $state('');
@@ -12,11 +13,21 @@
 	let isSubmitting = $state(false);
 	let errorMessage = $state<string | null>(null);
 
+	const emailIssue = $derived(
+		email.trim().length === 0
+			? null
+			: (emailSchema.safeParse(email.trim()).error?.issues[0]?.message ?? null)
+	);
+	const passwordIssue = $derived(
+		password.length === 0
+			? null
+			: (passwordSchema.safeParse(password).error?.issues[0]?.message ?? null)
+	);
 	const passwordsMatch = $derived(password.length === 0 || password === confirmPassword);
 	const canSubmit = $derived(
 		name.trim().length > 0 &&
-			email.trim().length > 0 &&
-			password.length >= 8 &&
+			emailSchema.safeParse(email.trim()).success &&
+			passwordSchema.safeParse(password).success &&
 			password === confirmPassword
 	);
 
@@ -95,9 +106,13 @@
 						required
 						bind:value={email}
 						disabled={isSubmitting}
+						aria-invalid={emailIssue !== null}
 						placeholder="you@example.com"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
 					/>
+					{#if emailIssue}
+						<p class="text-xs font-medium text-destructive">{emailIssue}</p>
+					{/if}
 				</div>
 
 				<div class="space-y-1.5">
@@ -116,6 +131,11 @@
 						placeholder="At least 8 characters"
 						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
 					/>
+					{#if passwordIssue}
+						<p class="text-xs font-medium text-destructive">{passwordIssue}</p>
+					{:else}
+						<p class="text-xs text-muted-foreground">Must be at least 8 characters.</p>
+					{/if}
 				</div>
 
 				<div class="space-y-1.5">
@@ -165,7 +185,6 @@
 		</div>
 
 		<p class="mt-5 text-center text-sm text-muted-foreground">
-			Already have an account?
 			<a
 				href={resolve('/login')}
 				class="font-semibold text-foreground underline-offset-4 hover:underline">Sign in</a

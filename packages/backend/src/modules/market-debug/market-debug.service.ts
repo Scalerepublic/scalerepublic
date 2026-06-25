@@ -1,6 +1,12 @@
+import { eq } from 'drizzle-orm';
+
 import type { AppVars } from '../../context.ts';
+import { marketState } from '../../db/schema/stock/market.ts';
 import { stepGbm } from '../../db/seed/gbm.ts';
 import { ARCHETYPES, SEED_STOCKS, type Archetype } from '../../db/seed/stocks.ts';
+import { DEBUG_MARKET_CRASH_SOURCE, DEBUG_MARKET_PRICE_SOURCE } from '../../lib/market-debug.ts';
+
+const STATE_ID = 'singleton';
 const DEFAULT_ARCHETYPE: Archetype = 'steady_growth';
 const archetypeByTicker = Object.fromEntries(
     SEED_STOCKS.map((s) => [s.ticker, s.archetype]),
@@ -15,6 +21,42 @@ export class MarketDebugService {
     private ticksOnCurrentDay = 0;
 
     constructor(private readonly ctx: AppVars) {}
+
+    /**
+     * Loads the persisted simulated-market clock into memory for the current
+     * request. Must be called once per request before any sync getter
+     * (getAsOf/status/...) is used, because the Workers runtime builds a fresh
+     * service instance per request. Defaults to offset 0 if no row exists yet.
+     */
+    async loadState(): Promise<void> {
+        const [row] = await this.ctx.db
+            .select({ dayOffset: marketState.dayOffset, ticksOnCurrentDay: marketState.ticksOnCurrentDay })
+            .from(marketState)
+            .where(eq(marketState.id, STATE_ID))
+            .limit(1);
+        this.dayOffset = row?.dayOffset ?? 0;
+        this.ticksOnCurrentDay = row?.ticksOnCurrentDay ?? 0;
+    }
+
+    private async persistState(): Promise<void> {
+        const now = new Date();
+        await this.ctx.db
+            .insert(marketState)
+            .values({
+                id: STATE_ID,
+                dayOffset: this.dayOffset,
+                ticksOnCurrentDay: this.ticksOnCurrentDay,
+                updatedAt: now,
+            })
+            .onConflictDoUpdate({
+                target: marketState.id,
+                set: {
+                    dayOffset: this.dayOffset,
+                    ticksOnCurrentDay: this.ticksOnCurrentDay,
+                    updatedAt: now,
+                },
+            });
+    }
 
     getDayOffset(): number {
         return this.dayOffset;
@@ -37,15 +79,17 @@ export class MarketDebugService {
         return d;
     }
 
-    advanceDay(): { marketDate: string; dayOffset: number } {
+    async advanceDay(): Promise<{ marketDate: string; dayOffset: number }> {
         this.dayOffset += 1;
         this.ticksOnCurrentDay = 0;
+        await this.persistState();
         return this.status();
     }
 
-    retreatDay(): { marketDate: string; dayOffset: number } {
+    async retreatDay(): Promise<{ marketDate: string; dayOffset: number }> {
         this.dayOffset -= 1;
         this.ticksOnCurrentDay = 0;
+        await this.persistState();
         return this.status();
     }
 
@@ -77,12 +121,46 @@ export class MarketDebugService {
                 return seed / 2147483647;
             };
             const next = stepGbm(current, drift, volatility, rng);
-            await this.ctx.stockService.insertPrice(row.id, next, 'debug_gbm', recordedAt);
+            await this.ctx.stockService.insertPrice(row.id, next, DEBUG_MARKET_PRICE_SOURCE, recordedAt);
             updated += 1;
         }
 
         this.ticksOnCurrentDay += 1;
+        await this.persistState();
         return { marketDate: this.getMarketDateIso(), updated };
+    }
+
+    async applyMarketCrash(percentage: number): Promise<{ marketDate: string; updated: number; percentage: number }> {
+        const stocks = await this.ctx.stockService.getAll();
+        const recordedAt = this.nextRecordedAt();
+        const crashFactor = 1 - percentage / 100;
+        let updated = 0;
+
+        for (const row of stocks) {
+            const current =
+                row.latestPrice ??
+                initialPriceByTicker[row.ticker] ??
+                100;
+
+            const crashedPrice = current * crashFactor;
+
+            await this.ctx.stockService.insertPrice(
+                row.id,
+                crashedPrice,
+                DEBUG_MARKET_CRASH_SOURCE,
+                recordedAt,
+            );
+            updated += 1;
+        }
+
+        this.ticksOnCurrentDay += 1;
+        await this.persistState();
+
+        return {
+            marketDate: this.getMarketDateIso(),
+            updated,
+            percentage,
+        };
     }
 
     private nextRecordedAt(): Date {

@@ -6,13 +6,18 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api/index.ts",
-    "./api-client": "./src/api/client.ts"
+    "./api-client": "./src/api/client.ts",
+    "./validation": "./src/lib/validation.ts"
   },
   "scripts": {
     "dev": "bun --hot src/index.ts",
     "start": "bun src/index.ts",
     "start:prod": "bun dist/index.js",
     "build": "bun build src/index.ts --outdir dist --target bun",
+    "cf:dev": "wrangler dev",
+    "cf:cron": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
     "lint": "eslint src tests",
     "test": "bun test",
     "check": "bunx tsc --noEmit",
@@ -33,6 +38,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260612.1",
     "@eslint/js": "^9.39.1",
     "@types/bun": "latest",
     "@types/node": "^25.7.0",
@@ -44,6 +50,7 @@
     "eslint-plugin-prefer-arrow": "^1.2.3",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.58.1"
+    "typescript-eslint": "^8.58.1",
+    "wrangler": "^4.100.0"
   }
 }

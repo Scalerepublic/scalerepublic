@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 
 import { useCtx, type App, type AppEnv } from '../../context.ts'
 
-import { calculateStockBodySchema, priceHistoryQuerySchema } from './stock.schema.ts'
+import { calculateStockBodySchema, priceHistoryQuerySchema, stockDetailQuerySchema } from './stock.schema.ts'
 
 export const stockRoutes = new Hono<AppEnv>()
     .get('/api/v1/stocks', async (c) => {
@@ -17,6 +17,19 @@ export const stockRoutes = new Hono<AppEnv>()
         const history = await stockService.getPriceHistory(ticker, from, to)
         if (history === null) return c.json({ error: 'Stock not found' }, 404)
         return c.json({ data: history })
+    })
+    .get('/api/v1/stocks/:ticker/detail', zValidator('query', stockDetailQuerySchema), async (c) => {
+        const { ticker } = c.req.param()
+        const { historyDays } = c.req.valid('query')
+        const { stockService } = useCtx(c)
+
+        const detail = await stockService.getStockDetail(ticker, historyDays)
+
+        if (detail === null) {
+            return c.json({ error: 'Stock not found' }, 404)
+        }
+
+        return c.json({ data: detail })
     })
     .post('/api/v1/stocks/calculate', zValidator('json', calculateStockBodySchema), (c) => {
         const { symbol, quantity, price } = c.req.valid('json')

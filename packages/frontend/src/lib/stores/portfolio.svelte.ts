@@ -2,15 +2,12 @@ import { ApiError } from '$lib/api';
 import { api, parseApiData } from '$lib/api/client';
 import type { BackendPortfolioPayload } from '$lib/api/backend-types';
 import { mapPortfolioPayload } from '$lib/api/mappers';
-import { initialPerformanceHistory, type PerformancePoint } from '$lib/performance-history';
 import { authStore } from '$lib/stores/auth.svelte';
-import { getEffectiveMarketDate } from '$lib/demo-market-date';
 import { marketStore } from '$lib/stores/market.svelte';
 import type { ApiPortfolio, HoldingWithMarket, PortfolioSummary } from '$lib/types';
 
 class PortfolioStore {
 	private _data = $state<ApiPortfolio | null>(null);
-	performanceHistory = $state<PerformancePoint[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);
 	private trackedPortfolioId: string | null = null;
@@ -19,7 +16,6 @@ class PortfolioStore {
 		const userId = authStore.user?.id;
 		if (!userId) {
 			this._data = null;
-			this.performanceHistory = [];
 			this.trackedPortfolioId = null;
 			return;
 		}
@@ -33,15 +29,12 @@ class PortfolioStore {
 			const payload = await parseApiData<BackendPortfolioPayload>(res);
 			const mapped = mapPortfolioPayload(payload);
 			if (mapped.portfolioId !== this.trackedPortfolioId) {
-				this.performanceHistory = [];
 				this.trackedPortfolioId = mapped.portfolioId;
 			}
 			this._data = mapped;
-			this.syncPerformanceHistory();
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Failed to load portfolio';
 			this._data = null;
-			this.performanceHistory = [];
 			this.trackedPortfolioId = null;
 			if (e instanceof ApiError && e.status === 401) {
 				return;
@@ -51,49 +44,19 @@ class PortfolioStore {
 		}
 	}
 
-	trimPerformanceHistoryTo(marketDate: string) {
-		this.performanceHistory = this.performanceHistory.filter((p) => p.date <= marketDate);
-	}
-
-	syncPerformanceHistory() {
-		if (!this._data) return;
-
-		const marketDate = getEffectiveMarketDate();
-		const totalValue = this.summary.totalValue;
-		const startingCapital = this._data.startingCapital;
-
-		if (this.performanceHistory.length === 0) {
-			this.performanceHistory = initialPerformanceHistory(startingCapital, totalValue, marketDate);
-			return;
-		}
-
-		const last = this.performanceHistory[this.performanceHistory.length - 1];
-		if (last?.date === marketDate) {
-			const history = [...this.performanceHistory];
-			history[history.length - 1] = { date: marketDate, value: totalValue };
-			this.performanceHistory = history;
-			return;
-		}
-
-		this.performanceHistory = [...this.performanceHistory, { date: marketDate, value: totalValue }];
-	}
-
-	get chartHistory(): PerformancePoint[] {
-		if (!this._data) return [];
-
-		if (this.performanceHistory.length > 0) {
-			return this.performanceHistory;
-		}
-
-		return initialPerformanceHistory(this._data.startingCapital, this.summary.totalValue);
-	}
-
-	private resolvePrice(stockId: string, fallback: number | null): number {
-		if (fallback !== null && fallback > 0) {
-			return fallback;
-		}
-		const fromMarket = marketStore.stocks.find((s) => s.id === stockId);
-		return fromMarket?.currentPrice ?? 0;
+	async forceDefault(): Promise<{
+		penaltyCounter: number;
+		isSuspended: boolean;
+		activePortfolioId: string | null;
+	}> {
+		const res = await api.api.v1.portfolio.default.$post();
+		const data = await parseApiData<{
+			penaltyCounter: number;
+			isSuspended: boolean;
+			activePortfolioId: string | null;
+		}>(res);
+		await this.load();
+		return data;
 	}
 
 	async buy(stockId: string, quantity: number) {
@@ -132,6 +95,18 @@ class PortfolioStore {
 		});
 		await parseApiData(res);
 		await this.load();
+	}
+
+	private resolvePrice(stockId: string, fallback: number | null): number {
+		if (fallback !== null && fallback > 0) {
+			return fallback;
+		}
+		const fromMarket = marketStore.stocks.find((s) => s.id === stockId);
+		return fromMarket?.currentPrice ?? 0;
+	}
+
+	get portfolioStatus(): ApiPortfolio['status'] | null {
+		return this._data?.status ?? null;
 	}
 
 	get holdings(): HoldingWithMarket[] {

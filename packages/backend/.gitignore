@@ -17,6 +17,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # dotenv environment variable files
 .env
+!.env.example
 .env.development.local
 .env.test.local
 .env.production.local
@@ -26,6 +27,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .eslintcache
 .cache
 *.tsbuildinfo
+
+# cloudflare / wrangler
+.wrangler
+.dev.vars
+.dev.vars.*
 
 # IntelliJ based IDEs
 .idea

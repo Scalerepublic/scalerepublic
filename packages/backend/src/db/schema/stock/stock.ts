@@ -32,6 +32,10 @@ export const stock = pgTable(
         currency: text("currency")
             .notNull(),
 
+        description: text("description"),
+
+        isAccumulating: boolean("is_accumulating"),
+
         isActive: boolean("is_active")
             .default(true)
             .notNull(),

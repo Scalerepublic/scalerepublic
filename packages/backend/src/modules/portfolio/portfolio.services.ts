@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, count, desc, eq, max } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';
 import { portfolio } from '../../db/schema/portfolio/portfolio.ts';
@@ -11,11 +11,13 @@ import {
     PortfolioNotFoundError,
     PriceMismatchError,
     StockPriceUnavailableError,
+    UserSuspendedError,
 } from './errors.ts';
 
 export type Portfolio = typeof portfolio.$inferSelect;
 
-const DEFAULT_STARTING_CAPITAL = '1000.00';
+export const DEFAULT_STARTING_CAPITAL = '1000.00';
+export const MAX_DEFAULT_STRIKES = 3;
 
 export class PortfolioService {
     constructor(private readonly ctx: AppVars) {}
@@ -34,13 +36,40 @@ export class PortfolioService {
         return this.ctx.db
             .select()
             .from(portfolio)
-            .where(eq(portfolio.userId, userId));
+            .where(eq(portfolio.userId, userId))
+            .orderBy(desc(portfolio.createdAt));
     }
 
-    async ensureForUser(userId: string): Promise<Portfolio> {
-        const existing = await this.getByUserId(userId);
-        if (existing[0]) return existing[0];
+    async getActiveForUser(userId: string): Promise<Portfolio | null> {
+        const [row] = await this.ctx.db
+            .select()
+            .from(portfolio)
+            .where(and(eq(portfolio.userId, userId), eq(portfolio.status, 'ACTIVE')))
+            .orderBy(desc(portfolio.createdAt))
+            .limit(1);
 
+        return row ?? null;
+    }
+
+    async getDefaultCount(userId: string): Promise<number> {
+        const [row] = await this.ctx.db
+            .select({ value: count() })
+            .from(portfolio)
+            .where(and(eq(portfolio.userId, userId), eq(portfolio.status, 'DEFAULTED')));
+
+        return row?.value ?? 0;
+    }
+
+    async getLastDefaultedAt(userId: string): Promise<Date | null> {
+        const [row] = await this.ctx.db
+            .select({ value: max(portfolio.defaultedAt) })
+            .from(portfolio)
+            .where(and(eq(portfolio.userId, userId), eq(portfolio.status, 'DEFAULTED')));
+
+        return row?.value ?? null;
+    }
+
+    async createForUser(userId: string): Promise<Portfolio> {
         const id = crypto.randomUUID();
         await this.ctx.db.insert(portfolio).values({
             id,
@@ -51,6 +80,18 @@ export class PortfolioService {
         });
 
         return this.getById(id);
+    }
+
+    async ensureForUser(userId: string): Promise<Portfolio> {
+        const active = await this.getActiveForUser(userId);
+        if (active) return active;
+
+        const defaultCount = await this.getDefaultCount(userId);
+        if (defaultCount >= MAX_DEFAULT_STRIKES) {
+            throw new UserSuspendedError(userId);
+        }
+
+        return this.createForUser(userId);
     }
 
     async getHoldings(portfolioId: string): Promise<Holding[]> {
@@ -65,6 +106,12 @@ export class PortfolioService {
             if (price !== null) total += h.quantity * price;
         }
         return total;
+    }
+
+    async getNetWorth(portfolioId: string): Promise<number> {
+        const p = await this.getById(portfolioId);
+        const portfolioValue = await this.getPortfolioValue(portfolioId);
+        return parseFloat(p.cashBalance) + portfolioValue;
     }
 
     private async verifyExpectedPrice(stockId: string, expectedPrice: number): Promise<number> {
@@ -94,16 +141,19 @@ export class PortfolioService {
 
         if (cashBalance < cost) throw new InsufficientFundsError(cashBalance, cost);
 
-        return this.ctx.db.transaction(async (tx) => {
-            const tradeRow = await this.ctx.tradesService.executeBuy(portfolioId, stockId, quantity, price, tx);
+        const tradeRow = await this.ctx.db.transaction(async (tx) => {
+            const row = await this.ctx.tradesService.executeBuy(portfolioId, stockId, quantity, price, tx);
 
             await tx
                 .update(portfolio)
                 .set({ cashBalance: (cashBalance - cost).toFixed(2) })
                 .where(eq(portfolio.id, portfolioId));
 
-            return tradeRow;
+            return row;
         });
+
+        await this.ctx.portfolioDefaultService.checkPortfolio(portfolioId);
+        return tradeRow;
     }
 
     async sell(
@@ -127,15 +177,18 @@ export class PortfolioService {
 
         const proceeds = quantity * price;
 
-        return this.ctx.db.transaction(async (tx) => {
-            const tradeRow = await this.ctx.tradesService.executeSell(portfolioId, stockId, quantity, price, tx);
+        const tradeRow = await this.ctx.db.transaction(async (tx) => {
+            const row = await this.ctx.tradesService.executeSell(portfolioId, stockId, quantity, price, tx);
 
             await tx
                 .update(portfolio)
                 .set({ cashBalance: (parseFloat(p.cashBalance) + proceeds).toFixed(2) })
                 .where(eq(portfolio.id, portfolioId));
 
-            return tradeRow;
+            return row;
         });
+
+        await this.ctx.portfolioDefaultService.checkPortfolio(portfolioId);
+        return tradeRow;
     }
 }

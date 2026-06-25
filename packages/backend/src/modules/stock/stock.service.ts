@@ -1,8 +1,15 @@
-import { and, asc, desc, eq, gte, lte, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte, ne, or, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
-import { stock, stockPrice } from '../../db/schema/stock/index.ts'
-import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
+import { stock, stockDailyBar, stockPrice } from '../../db/schema/stock/index.ts'
+import {
+    DEBUG_MARKET_CRASH_SOURCE,
+    DEBUG_MARKET_PRICE_SOURCE,
+    isMarketDebugEnabled,
+} from '../../lib/market-debug.ts'
+
+const HISTORY_DAYS = 30
+const MAX_DAILY_BAR_FETCHES = 10
 
 export type StockSummary = {
     id: string
@@ -11,26 +18,82 @@ export type StockSummary = {
     exchange: string
     currency: string
     latestPrice: number | null
+    previousClose: number | null
+}
+
+export type StockDetailPerformance = {
+    latestPrice: number | null
+    previousClose: number | null
+    dayChange: number | null
+    dayChangePercent: number | null
+    periodChangePercent: number | null
+}
+
+export type StockDetail = {
+    stock: {
+        id: string
+        ticker: string
+        companyName: string
+        exchange: string
+        currency: string
+        description: string | null
+        isAccumulating: boolean | null
+    }
+    performance: StockDetailPerformance
+    priceHistory: Array<{ date: string; close: number }>
 }
 
 export class StockService {
-    constructor(private readonly ctx: AppVars) {}
+    constructor(private readonly ctx: AppVars) { }
 
-    private priceAsOfFilter(): SQL | undefined {
-        if (!isMarketDebugEnabled()) return undefined;
-        const asOf = this.ctx.marketDebugService.getAsOf();
-        return lte(stockPrice.recordedAt, asOf);
+    private priceSourceFilter(): SQL {
+        if (isMarketDebugEnabled()) {
+            return or(
+                eq(stockPrice.source, DEBUG_MARKET_PRICE_SOURCE),
+                eq(stockPrice.source, DEBUG_MARKET_CRASH_SOURCE),
+            )!
+        }
+        return and(
+            ne(stockPrice.source, DEBUG_MARKET_PRICE_SOURCE),
+            ne(stockPrice.source, DEBUG_MARKET_CRASH_SOURCE),
+        )!
+    }
+
+    private asOfFilter(asOf?: Date): SQL | undefined {
+        const effectiveAsOf =
+            asOf ?? (isMarketDebugEnabled() ? this.ctx.marketDebugService.getAsOf() : undefined)
+        return effectiveAsOf ? lte(stockPrice.recordedAt, effectiveAsOf) : undefined
+    }
+
+    private priceFilters(asOf?: Date): SQL[] {
+        const filters: SQL[] = [this.priceSourceFilter()]
+        const asOfClause = this.asOfFilter(asOf)
+        if (asOfClause) filters.push(asOfClause)
+        return filters
+    }
+
+    private previousDayEnd(): Date {
+        if (isMarketDebugEnabled()) {
+            const d = this.ctx.marketDebugService.getMarketDate()
+            d.setUTCDate(d.getUTCDate() - 1)
+            d.setUTCHours(23, 59, 59, 999)
+            return d
+        }
+        const d = new Date()
+        d.setUTCDate(d.getUTCDate() - 1)
+        d.setUTCHours(23, 59, 59, 999)
+        return d
     }
 
     async getAll(): Promise<StockSummary[]> {
-        const asOfClause = this.priceAsOfFilter();
+        const filters = this.priceFilters()
         const latestPricePerStock = this.ctx.db
             .selectDistinctOn([stockPrice.stockId], {
                 stockId: stockPrice.stockId,
                 price: stockPrice.price,
             })
             .from(stockPrice)
-            .where(asOfClause)
+            .where(and(...filters))
             .orderBy(stockPrice.stockId, desc(stockPrice.recordedAt))
             .as('latest_price')
 
@@ -47,10 +110,19 @@ export class StockService {
             .leftJoin(latestPricePerStock, eq(stock.id, latestPricePerStock.stockId))
             .where(eq(stock.isActive, true))
 
-        return rows.map((r) => ({
-            ...r,
-            latestPrice: r.latestPrice !== null ? parseFloat(r.latestPrice) : null,
-        }))
+        const previousDayEnd = this.previousDayEnd()
+
+        return Promise.all(
+            rows.map(async (r) => {
+                const latestPrice = r.latestPrice !== null ? parseFloat(r.latestPrice) : null
+                const previousClose = await this.getLatestPriceByStockId(r.id, previousDayEnd)
+                return {
+                    ...r,
+                    latestPrice,
+                    previousClose,
+                }
+            }),
+        )
     }
 
     async getPriceHistory(
@@ -71,6 +143,7 @@ export class StockService {
             .from(stockPrice)
             .where(and(
                 eq(stockPrice.stockId, stockRow.id),
+                this.priceSourceFilter(),
                 gte(stockPrice.recordedAt, from),
                 lte(stockPrice.recordedAt, to),
             ))
@@ -100,27 +173,21 @@ export class StockService {
     async createStock(ticker: string, companyName: string, exchange: string, currency: string): Promise<string> {
         const id = crypto.randomUUID()
         await this.ctx.db.insert(stock).values({ id, ticker, companyName, exchange, currency, isActive: true }).onConflictDoNothing()
-        // Re-fetch to handle the case where a concurrent insert won the race
         const row = await this.ctx.db.select({ id: stock.id }).from(stock).where(eq(stock.ticker, ticker)).limit(1)
         return row[0]!.id
     }
 
     async getLatestPriceByStockId(stockId: string, asOf?: Date): Promise<number | null> {
-        const effectiveAsOf =
-            asOf ?? (isMarketDebugEnabled() ? this.ctx.marketDebugService.getAsOf() : undefined);
-        const conditions = [eq(stockPrice.stockId, stockId)];
-        if (effectiveAsOf) {
-            conditions.push(lte(stockPrice.recordedAt, effectiveAsOf));
-        }
+        const conditions = [eq(stockPrice.stockId, stockId), ...this.priceFilters(asOf)]
 
         const [row] = await this.ctx.db
             .select({ price: stockPrice.price })
             .from(stockPrice)
             .where(and(...conditions))
             .orderBy(desc(stockPrice.recordedAt))
-            .limit(1);
+            .limit(1)
 
-        return row ? parseFloat(row.price) : null;
+        return row ? parseFloat(row.price) : null
     }
 
     async insertPrice(stockId: string, price: number, source: string, recordedAt: Date): Promise<void> {
@@ -131,5 +198,177 @@ export class StockService {
             source,
             recordedAt,
         }).onConflictDoNothing()
+    }
+
+    private formatUtcDate(date: Date): string {
+        return date.toISOString().slice(0, 10)
+    }
+
+    private buildPlaceholderDescription(companyName: string): string {
+        return `this stock (${companyName}) is good because i like it`
+    }
+
+    private addUtcDays(date: Date, days: number): Date {
+        const next = new Date(date)
+        next.setUTCDate(next.getUTCDate() + days)
+        return next
+    }
+
+    private async ensureStockMetadata(
+        stockRow: typeof stock.$inferSelect,
+    ): Promise<typeof stock.$inferSelect> {
+        if (stockRow.description !== null && stockRow.description !== '') {
+            return stockRow
+        }
+
+        const companyName = stockRow.companyName
+        const description = this.buildPlaceholderDescription(companyName) // TODO, GET REAL DESCRIPTION
+
+        if (stockRow.companyName !== stockRow.ticker) {
+            await this.ctx.db
+                .update(stock)
+                .set({ description })
+                .where(eq(stock.id, stockRow.id))
+            return { ...stockRow, description }
+        }
+
+        const meta = await this.ctx.stockDataClient.getStockMeta(stockRow.ticker)
+        const resolvedName = meta?.name ?? companyName
+        const resolvedDescription = this.buildPlaceholderDescription(resolvedName) // TODO, GET REAL DESCRIPTION
+        await this.ctx.db
+            .update(stock)
+            .set({
+                companyName: resolvedName,
+                description: resolvedDescription,
+            })
+            .where(eq(stock.id, stockRow.id))
+
+        return {
+            ...stockRow,
+            companyName: resolvedName,
+            description: resolvedDescription,
+        }
+    }
+
+    private async cacheMissingDailyBars(stockId: string, ticker: string, days: number): Promise<void> {
+        const today = new Date()
+        today.setUTCHours(0, 0, 0, 0)
+
+        let attempts = 0
+        for (let offset = 0; offset < days && attempts < MAX_DAILY_BAR_FETCHES; offset += 1) {
+            const tradingDate = this.formatUtcDate(this.addUtcDays(today, -offset))
+
+            const [existing] = await this.ctx.db
+                .select({ id: stockDailyBar.id })
+                .from(stockDailyBar)
+                .where(and(
+                    eq(stockDailyBar.stockId, stockId),
+                    eq(stockDailyBar.tradingDate, tradingDate),
+                ))
+                .limit(1)
+
+            if (existing) continue
+
+            attempts += 1
+            const bar = await this.ctx.stockDataClient.getDailyBar(ticker, this.addUtcDays(today, -offset))
+            if (bar === null) continue
+            await this.ctx.db.insert(stockDailyBar).values({
+                id: crypto.randomUUID(),
+                stockId,
+                tradingDate,
+                open: bar.open.toString(),
+                high: bar.high.toString(),
+                low: bar.low.toString(),
+                close: bar.close.toString(),
+                source: this.ctx.stockDataClient.source,
+            }).onConflictDoNothing()
+        }
+    }
+
+    private async getCachedDailyBarHistory(
+        stockId: string,
+        days: number,
+    ): Promise<Array<{ date: string; close: number }>> {
+        const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
+
+        const rows = await this.ctx.db
+            .select({
+                tradingDate: stockDailyBar.tradingDate,
+                close: stockDailyBar.close,
+            })
+            .from(stockDailyBar)
+            .where(and(
+                eq(stockDailyBar.stockId, stockId),
+                gte(stockDailyBar.tradingDate, fromDate),
+            ))
+            .orderBy(asc(stockDailyBar.tradingDate))
+
+        return rows.map((row) => ({
+            date: row.tradingDate,
+            close: parseFloat(row.close),
+        }))
+    }
+
+    async getStockDetail(ticker: string, historyDays = HISTORY_DAYS): Promise<StockDetail | null> {
+        const [stockRow] = await this.ctx.db
+            .select()
+            .from(stock)
+            .where(eq(stock.ticker, ticker))
+            .limit(1)
+
+        if (!stockRow) return null
+
+        const enrichedStock = await this.ensureStockMetadata(stockRow)
+
+        let priceHistory = await this.getCachedDailyBarHistory(enrichedStock.id, historyDays)
+        if (priceHistory.length < historyDays) {
+            await this.cacheMissingDailyBars(enrichedStock.id, enrichedStock.ticker, historyDays)
+            priceHistory = await this.getCachedDailyBarHistory(enrichedStock.id, historyDays)
+        }
+
+        const latestPrice = await this.getLatestPriceByStockId(enrichedStock.id)
+        const previousClose = await this.getLatestPriceByStockId(enrichedStock.id, this.previousDayEnd())
+
+        if (priceHistory.length === 0) {
+            const from = this.addUtcDays(new Date(), -(historyDays - 1))
+            const fallback = await this.getPriceHistory(ticker, from, new Date())
+            priceHistory = (fallback ?? []).map((point) => ({
+                date: this.formatUtcDate(point.recordedAt),
+                close: point.price,
+            }))
+        }
+
+        const dayChange =
+            latestPrice !== null && previousClose !== null ? latestPrice - previousClose : null
+        const dayChangePercent =
+            dayChange !== null && previousClose !== null && previousClose > 0
+                ? (dayChange / previousClose) * 100
+                : null
+
+        const firstClose = priceHistory[0]?.close ?? null
+        const periodChangePercent =
+            latestPrice !== null && firstClose !== null && firstClose > 0
+                ? ((latestPrice - firstClose) / firstClose) * 100
+                : null
+
+        return {
+            stock: {
+                id: enrichedStock.id,
+                ticker: enrichedStock.ticker,
+                companyName: enrichedStock.companyName,
+                exchange: enrichedStock.exchange,
+                currency: enrichedStock.currency,
+                description: this.buildPlaceholderDescription(enrichedStock.companyName), // TODO, GET REAL DESCRIPTION
+                isAccumulating: enrichedStock.isAccumulating,
+            },
+            performance: {
+                latestPrice,
+                previousClose,
+                dayChange,
+                dayChangePercent,
+                periodChangePercent,
+            },
+            priceHistory,
+        }
     }
 }

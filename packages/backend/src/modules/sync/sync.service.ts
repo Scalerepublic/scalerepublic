@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import type { AppVars } from '../../context.ts'
 import { syncJob } from '../../db/schema/sync.ts'
+import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
 const JOB_ID = 'stock-price-sync'
 const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
@@ -73,6 +74,11 @@ export class SyncService {
     }
 
     private async runSync(tickers: string[]): Promise<void> {
+        if (isMarketDebugEnabled()) {
+            console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
+            return
+        }
+
         const batches = chunk(tickers, RATE_LIMIT_BATCH_SIZE)
         for (let i = 0; i < batches.length; i++) {
             if (i > 0) await sleep(RATE_LIMIT_WINDOW_MS)
@@ -122,6 +128,58 @@ export class SyncService {
         await this.runSync(tickers)
     }
 
+    /**
+     * Runs a single scheduler tick: claims the DB lock, syncs if due, and
+     * releases the lock. Safe to invoke from a Cloudflare Cron Trigger
+     * (scheduled handler) or from the local polling loop. The DB advisory lock
+     * guards against overlapping runs.
+     */
+    async runDueTick(tickers: string[]): Promise<void> {
+        const syncIntervalMs = Number(process.env['SYNC_INTERVAL_MS'] ?? DEFAULT_SYNC_INTERVAL_MS)
+
+        await this.ctx.db.insert(syncJob).values({ id: JOB_ID }).onConflictDoNothing()
+
+        try {
+            const staleThreshold = new Date(Date.now() - STALE_LOCK_MS)
+            const syncDueThreshold = new Date(Date.now() - syncIntervalMs)
+
+            if (!await this.isSyncDue(syncDueThreshold)) return
+            if (!await this.tryClaimJob(staleThreshold)) {
+                console.log('[sync] Failed to lock sync')
+                return
+            }
+            console.log(`[sync] Lock acquired by ${this.lockId}`)
+
+            try {
+                await this.runSync(tickers)
+                await this.ctx.db.update(syncJob).set({
+                    status: 'idle',
+                    lastSuccessAt: new Date(),
+                    lastError: null,
+                    lockedAt: null,
+                    lockedBy: null,
+                }).where(eq(syncJob.id, JOB_ID))
+                console.log('[sync] Completed successfully')
+                await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err)
+                await this.ctx.db.update(syncJob).set({
+                    status: 'failed',
+                    lastError: message,
+                    lockedAt: null,
+                    lockedBy: null,
+                }).where(eq(syncJob.id, JOB_ID))
+                console.error(`[sync] Failed: ${message}`)
+            }
+        } catch (err) {
+            console.error('[sync] Tick error:', err)
+        }
+    }
+
+    /**
+     * Local/Bun-only polling loop. On Cloudflare Workers this is replaced by a
+     * Cron Trigger that calls {@link runDueTick} directly.
+     */
     async startScheduler(): Promise<void> {
         const tickers = parseTrackedTickers()
         const syncIntervalMs = Number(process.env['SYNC_INTERVAL_MS'] ?? DEFAULT_SYNC_INTERVAL_MS)
@@ -129,48 +187,9 @@ export class SyncService {
 
         console.log(`[sync] Tracking: ${tickers.join(', ')}. Sync every ${syncIntervalMs / 1000}s, check every ${checkIntervalMs / 1000}s`)
 
-        await this.ctx.db.insert(syncJob).values({ id: JOB_ID }).onConflictDoNothing()
-
-        const tick = async (): Promise<void> => {
-            try {
-                const staleThreshold = new Date(Date.now() - STALE_LOCK_MS)
-                const syncDueThreshold = new Date(Date.now() - syncIntervalMs)
-
-                if (!await this.isSyncDue(syncDueThreshold)) return
-                if (!await this.tryClaimJob(staleThreshold)) {
-                  console.log('[sync] Failed to lock sync')
-                  return
-                }
-                console.log(`[sync] Lock acquired by ${this.lockId}`)
-
-                try {
-                    await this.runSync(tickers)
-                    await this.ctx.db.update(syncJob).set({
-                        status: 'idle',
-                        lastSuccessAt: new Date(),
-                        lastError: null,
-                        lockedAt: null,
-                        lockedBy: null,
-                    }).where(eq(syncJob.id, JOB_ID))
-                    console.log('[sync] Completed successfully')
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err)
-                    await this.ctx.db.update(syncJob).set({
-                        status: 'failed',
-                        lastError: message,
-                        lockedAt: null,
-                        lockedBy: null,
-                    }).where(eq(syncJob.id, JOB_ID))
-                    console.error(`[sync] Failed: ${message}`)
-                }
-            } catch (err) {
-                console.error('[sync] Tick error:', err)
-            }
-        }
-
         for (;;) {
-          await tick()
-          await sleep(checkIntervalMs)
+            await this.runDueTick(tickers)
+            await sleep(checkIntervalMs)
         }
     }
 }

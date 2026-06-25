@@ -4,8 +4,10 @@ import {
   text,
   numeric,
   timestamp,
+  integer,
   index,
   uniqueIndex,
+  date,
 } from "drizzle-orm/pg-core";
 
 import { stock } from "./stock";
@@ -105,3 +107,62 @@ export const stockPriceRelations = relations(
     }),
   }),
 );
+
+export const stockDailyBar = pgTable(
+  "stock_daily_bar",
+  {
+    id: text("id").primaryKey(),
+
+    stockId: text("stock_id")
+      .notNull()
+      .references(() => stock.id, {
+        onDelete: "cascade",
+      }),
+
+    tradingDate: date("trading_date").notNull(),
+
+    open: numeric("open", { precision: 18, scale: 4 }).notNull(),
+    high: numeric("high", { precision: 18, scale: 4 }).notNull(),
+    low: numeric("low", { precision: 18, scale: 4 }).notNull(),
+    close: numeric("close", { precision: 18, scale: 4 }).notNull(),
+
+    source: text("source").notNull(),
+
+    createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("stock_daily_bar_stock_date_uniq")
+      .on(table.stockId, table.tradingDate),
+    index("stock_daily_bar_stock_id_idx")
+      .on(table.stockId),
+  ],
+);
+
+export const stockDailyBarRelations = relations(
+  stockDailyBar,
+  ({ one }) => ({
+    stock: one(stock, {
+      fields: [stockDailyBar.stockId],
+      references: [stock.id],
+    }),
+  }),
+);
+
+/**
+ * MARKET STATE (simulated/debug market)
+ *
+ * Single-row table holding the simulated market clock used by
+ * MarketDebugService. It is persisted (rather than kept in memory) because the
+ * backend runs on Cloudflare Workers, where each request gets a fresh,
+ * stateless context — in-memory state would not survive between requests.
+ */
+export const marketState = pgTable("market_state", {
+  id: text("id").primaryKey(),
+  dayOffset: integer("day_offset").notNull().default(0),
+  ticksOnCurrentDay: integer("ticks_on_current_day").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

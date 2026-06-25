@@ -49,13 +49,11 @@ export const portfolio = pgTable(
     {
         id: text("id").primaryKey(),
 
-        // FK → user.id — one portfolio per user
         userId: text("user_id")
             .notNull()
             .references(() => user.id, {
                 onDelete: "cascade",
-            })
-            .unique(),
+            }),
 
         /**
         * Liquid cash currently available for trading.
@@ -100,8 +98,7 @@ export const portfolio = pgTable(
     },
     (table) => [
         index("portfolio_user_id_idx").on(table.userId),
-
-        // Leaderboard query filters on ACTIVE portfolios only
+        index("portfolio_user_id_status_idx").on(table.userId, table.status),
         index("portfolio_status_idx").on(table.status),
     ],
 );
