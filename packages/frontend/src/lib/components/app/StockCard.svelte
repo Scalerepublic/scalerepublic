@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ChangeIndicator from './ChangeIndicator.svelte';
 	import NobleButton from './NobleButton.svelte';
+	import StockDetailSheet from './StockDetailSheet.svelte';
 	import TradeSheet from './TradeSheet.svelte';
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
@@ -8,6 +9,7 @@
 	let { stock }: { stock: Stock } = $props();
 
 	let tradeOpen = $state(false);
+	let detailOpen = $state(false);
 
 	const badgeLabel = $derived.by(() => {
 		const label = (stock.exchange || stock.sector || '').trim();
@@ -16,8 +18,10 @@
 	});
 </script>
 
-<article
-	class="group flex flex-col overflow-hidden border border-border bg-card transition-[border-color] hover:border-foreground/40"
+<button
+	type="button"
+	class="group flex w-full cursor-pointer flex-col overflow-hidden border border-border bg-card text-left transition-[border-color] hover:border-foreground/40"
+	onclick={() => (detailOpen = true)}
 >
 	<div class="flex flex-1 flex-col p-4">
 		<div class="flex items-start justify-between gap-2 border-b border-border pb-3">
@@ -43,11 +47,19 @@
 					<ChangeIndicator amount={stock.dayChange} percent={stock.dayChangePercent} size="sm" />
 				</div>
 			</div>
-			<NobleButton type="button" class="h-8 px-4 text-xs" onclick={() => (tradeOpen = true)}>
+			<NobleButton
+				type="button"
+				class="h-8 px-4 text-xs"
+				onclick={(event) => {
+					event.stopPropagation();
+					tradeOpen = true;
+				}}
+			>
 				Buy
 			</NobleButton>
 		</div>
 	</div>
-</article>
+</button>
 
 <TradeSheet bind:open={tradeOpen} {stock} mode="buy" />
+<StockDetailSheet bind:open={detailOpen} {stock} />

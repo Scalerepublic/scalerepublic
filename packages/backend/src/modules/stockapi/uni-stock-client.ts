@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { StockDataClient, StockMeta, StockQuote } from './stock-data-client.ts'
+import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from './stock-data-client.ts'
 
 
 // Endpoint currently unused because of the rate limit
@@ -35,10 +35,13 @@ export class UniStockClient implements StockDataClient {
         this.baseUrl = u
     }
 
-    private async get(path: string): Promise<unknown> {
-        console.log(`[uniapi] GET ${this.baseUrl}${path}?token=${this.token}`)
+    private async get(path: string, query: Record<string, string> = {}): Promise<unknown> {
         const url = new URL(`${this.baseUrl}${path}`)
+        for (const [key, value] of Object.entries(query)) {
+            url.searchParams.set(key, value)
+        }
         url.searchParams.set('token', this.token)
+        console.log(`[uniapi] GET ${url.toString()}`)
         const res = await fetch(url.toString())
         if (!res.ok) throw new Error(`Uni API error: ${res.status} ${res.statusText}`)
         return res.json()
@@ -59,14 +62,41 @@ export class UniStockClient implements StockDataClient {
         // return { symbol: data.stock_symbol, price: data.stock_price, tradingDay: new Date() }
     }
 
+    private formatDateParam(date: Date): string {
+        return date.toISOString().slice(0, 10)
+    }
+
+    async getDailyBar(symbol: string, date?: Date): Promise<StockDailyBar | null> {
+        try {
+            const query = date === undefined ? {} : { date: this.formatDateParam(date) }
+            const raw = await this.get(`/stocks/${symbol}`, query)
+            const data = DailyResponseSchema.parse(raw)
+            return {
+                symbol: data.stock_symbol,
+                name: data.stock_name,
+                tradingDate: data.date,
+                open: data.stock_open,
+                high: data.stock_high,
+                low: data.stock_low,
+                close: data.stock_close,
+            }
+        } catch {
+            return null
+        }
+    }
+
     async getStockMeta(symbol: string): Promise<StockMeta | null> {
         try {
             const raw = await this.get(`/stocks/${symbol}`)
             const data = DailyResponseSchema.parse(raw)
-            return { name: data.stock_name, exchange: 'UNKNOWN', currency: 'USD' }
+            return {
+                name: data.stock_name,
+                exchange: 'UNKNOWN',
+                currency: 'USD',
+                description: data.stock_name,
+            }
         } catch {
-            // Fall back to a placeholder rather than blocking stock creation
-            return { name: symbol, exchange: 'UNKNOWN', currency: 'USD' }
+            return { name: symbol, exchange: 'UNKNOWN', currency: 'USD', description: symbol }
         }
     }
 }

@@ -10,3 +10,7 @@ export const priceHistoryQuerySchema = z.object({
     from: z.coerce.date(),
     to: z.coerce.date(),
 })
+
+export const stockDetailQuerySchema = z.object({
+    historyDays: z.coerce.number().int().min(7).max(90).optional(),
+})

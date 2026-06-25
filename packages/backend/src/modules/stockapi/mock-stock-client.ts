@@ -1,4 +1,4 @@
-import type { StockDataClient, StockMeta, StockQuote } from './stock-data-client.ts'
+import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from './stock-data-client.ts'
 
 type StockSeed = {
     symbol: string
@@ -49,5 +49,23 @@ export class MockStockDataClient implements StockDataClient {
 
     async getStockMeta(symbol: string): Promise<StockMeta | null> {
         return this.meta.get(symbol) ?? null
+    }
+
+    async getDailyBar(symbol: string, date?: Date): Promise<StockDailyBar | null> {
+        const price = this.quotes.get(symbol)
+        const meta = this.meta.get(symbol)
+        if (price === undefined || meta === undefined) return null
+
+        const tradingDate = (date ?? new Date()).toISOString().slice(0, 10)
+        const spread = price * 0.02
+        return {
+            symbol,
+            name: meta.name,
+            tradingDate,
+            open: price - spread * 0.5,
+            low: price - spread,
+            high: price + spread,
+            close: price,
+        }
     }
 }
