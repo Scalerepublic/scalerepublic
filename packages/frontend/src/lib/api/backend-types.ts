@@ -5,6 +5,7 @@ export type BackendStockSummary = {
 	exchange: string;
 	currency: string;
 	latestPrice: number | null;
+	previousClose: number | null;
 };
 
 export type BackendPortfolioRow = {
@@ -40,6 +41,9 @@ export type BackendLeaderboardEntry = {
 	cashBalance: number;
 	portfolioValue: number;
 	netWorth: number;
+	startingCapital: number;
+	penaltyCounter: number;
+	lastDefaultedAt: string | null;
 	isDefaulted: boolean;
 };
 
@@ -47,6 +51,21 @@ export type BackendUserProfile = {
 	userId: string;
 	name: string;
 	cashBalance: number;
+	netWorth: number;
+	startingCapital: number;
 	isDefaulted: boolean;
 	penaltyCounter: number;
+	rank: number | null;
+};
+
+export type BackendUserSearchResult = {
+	userId: string;
+	name: string;
+	rank: number | null;
+	netWorth: number | null;
+};
+
+export type BackendPerformancePoint = {
+	date: string;
+	value: number;
 };

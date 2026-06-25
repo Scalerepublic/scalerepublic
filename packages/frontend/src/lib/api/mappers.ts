@@ -4,7 +4,13 @@ import type {
 	BackendStockSummary,
 	BackendUserProfile
 } from '$lib/api/backend-types';
-import type { ApiLeaderboardEntry, ApiPortfolio, Stock, UserProfile } from '$lib/types';
+import type {
+	ApiLeaderboardEntry,
+	ApiPortfolio,
+	HoldingWithMarket,
+	Stock,
+	UserProfile
+} from '$lib/types';
 
 function normalizeExchange(exchange: string): string | undefined {
 	const trimmed = exchange.trim();
@@ -14,6 +20,9 @@ function normalizeExchange(exchange: string): string | undefined {
 
 export function mapStockSummary(row: BackendStockSummary): Stock {
 	const price = row.latestPrice ?? 0;
+	const previousClose = row.previousClose ?? price;
+	const dayChange = price - previousClose;
+	const dayChangePercent = previousClose > 0 ? (dayChange / previousClose) * 100 : 0;
 
 	return {
 		id: row.id,
@@ -22,9 +31,9 @@ export function mapStockSummary(row: BackendStockSummary): Stock {
 		sector: '',
 		exchange: normalizeExchange(row.exchange),
 		currentPrice: price,
-		previousClose: price,
-		dayChange: 0,
-		dayChangePercent: 0
+		previousClose,
+		dayChange,
+		dayChangePercent
 	};
 }
 
@@ -45,8 +54,52 @@ export function mapPortfolioPayload(payload: BackendPortfolioPayload): ApiPortfo
 	};
 }
 
+export function mapTraderHoldings(portfolio: ApiPortfolio): HoldingWithMarket[] {
+	return portfolio.holdings.map((h) => {
+		const currentPrice = h.currentPrice ?? 0;
+		const currentValue = currentPrice * h.shares;
+		const totalCost = h.avgCost * h.shares;
+		const pnl = currentValue - totalCost;
+
+		return {
+			ticker: h.ticker,
+			shares: h.shares,
+			avgCost: h.avgCost,
+			stock: {
+				id: h.stockId,
+				ticker: h.ticker,
+				name: h.companyName || h.ticker,
+				sector: '',
+				currentPrice,
+				previousClose: currentPrice,
+				dayChange: 0,
+				dayChangePercent: 0
+			},
+			currentValue,
+			totalCost,
+			pnl,
+			pnlPercent: totalCost > 0 ? (pnl / totalCost) * 100 : 0
+		};
+	});
+}
+
+export function mapTraderSummary(portfolio: ApiPortfolio, holdings: HoldingWithMarket[]) {
+	const holdingsValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+	const totalValue = holdingsValue + portfolio.cashBalance;
+	const totalPnl = totalValue - portfolio.startingCapital;
+
+	return {
+		totalValue,
+		holdingsValue,
+		cashBalance: portfolio.cashBalance,
+		totalPnl,
+		totalPnlPercent:
+			portfolio.startingCapital > 0 ? (totalPnl / portfolio.startingCapital) * 100 : 0
+	};
+}
+
 export function mapLeaderboardEntry(entry: BackendLeaderboardEntry): ApiLeaderboardEntry {
-	const startingCapital = 10_000;
+	const startingCapital = entry.startingCapital;
 	const holdingsValue = entry.portfolioValue;
 	const returnPercent =
 		startingCapital > 0 ? ((entry.netWorth - startingCapital) / startingCapital) * 100 : 0;
@@ -59,8 +112,8 @@ export function mapLeaderboardEntry(entry: BackendLeaderboardEntry): ApiLeaderbo
 		cashBalance: entry.cashBalance,
 		holdingsValue,
 		returnPercent,
-		penalties: entry.isDefaulted ? 1 : 0,
-		lastDefaultedAt: null
+		penalties: entry.penaltyCounter,
+		lastDefaultedAt: entry.lastDefaultedAt
 	};
 }
 
@@ -73,7 +126,9 @@ export function mergeUserProfile(
 	return {
 		...base,
 		name: backend.name || base.name,
-		startingCapital: backend.cashBalance,
-		accountStatus: backend.isDefaulted ? 'suspended' : 'active'
+		startingCapital: backend.startingCapital,
+		accountStatus: backend.isDefaulted ? 'suspended' : 'active',
+		rank: backend.rank ?? undefined,
+		penaltyCounter: backend.penaltyCounter
 	};
 }

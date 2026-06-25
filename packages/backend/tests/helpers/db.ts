@@ -13,15 +13,17 @@ export const resetDb = async (): Promise<void> => {
 
 export const seedPortfolio = async (opts?: {
     cashBalance?: string
+    name?: string
+    email?: string
 }): Promise<{ userId: string; portfolioId: string }> => {
     const userId = crypto.randomUUID()
     const portfolioId = crypto.randomUUID()
-    const balance = opts?.cashBalance ?? '100000.00'
+    const balance = opts?.cashBalance ?? '1000.00'
 
     await db.insert(user).values({
         id: userId,
-        name: 'Test User',
-        email: `${userId}@test.com`,
+        name: opts?.name ?? 'Test User',
+        email: opts?.email ?? `${userId}@test.com`,
     })
 
     await db.insert(portfolio).values({
@@ -29,6 +31,7 @@ export const seedPortfolio = async (opts?: {
         userId,
         cashBalance: balance,
         startingCapital: balance,
+        status: 'ACTIVE',
     })
 
     return { userId, portfolioId }

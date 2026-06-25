@@ -4,6 +4,8 @@ import { db as defaultDb, type DbConnection } from './db/index.ts'
 import { type Auth, type AuthOptions, createAuth } from './lib/auth.ts'
 import { LeaderboardService } from './modules/leaderboard/leaderboard.service.ts'
 import { MarketDebugService } from './modules/market-debug/market-debug.service.ts'
+import { PortfolioDefaultService } from './modules/portfolio/portfolio-default.service.ts'
+import { PortfolioPerformanceService } from './modules/portfolio/portfolio-performance.service.ts'
 import { PortfolioService } from './modules/portfolio/portfolio.services.ts'
 import { StockService } from './modules/stock/stock.service.ts'
 import { MockStockDataClient } from './modules/stockapi/mock-stock-client.ts'
@@ -24,6 +26,8 @@ export type AppVars = {
     leaderboardService: LeaderboardService
     syncService: SyncService
     portfolioService: PortfolioService
+    portfolioDefaultService: PortfolioDefaultService
+    portfolioPerformanceService: PortfolioPerformanceService
     tradesService: TradesService
 }
 
@@ -63,6 +67,8 @@ export const createAppContext = (
     ctx.leaderboardService = new LeaderboardService(ctx)
     ctx.syncService = new SyncService(ctx)
     ctx.portfolioService = new PortfolioService(ctx)
+    ctx.portfolioDefaultService = new PortfolioDefaultService(ctx)
+    ctx.portfolioPerformanceService = new PortfolioPerformanceService(ctx)
     ctx.tradesService = new TradesService(ctx)
     return ctx
 }

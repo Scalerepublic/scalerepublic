@@ -5,6 +5,13 @@ export class PortfolioNotFoundError extends Error {
     }
 }
 
+export class UserSuspendedError extends Error {
+    override readonly name = 'UserSuspendedError';
+    constructor(userId: string) {
+        super(`User ${userId} has been suspended after exceeding the maximum number of defaults`);
+    }
+}
+
 export class PortfolioDefaultedError extends Error {
     override readonly name = 'PortfolioDefaultedError';
     constructor(portfolioId: string) {
@@ -37,5 +44,12 @@ export class PriceMismatchError extends Error {
     override readonly name = 'PriceMismatchError';
     constructor(expected: number, actual: number) {
         super(`Price mismatch: expected $${expected.toFixed(2)}, current price is $${actual.toFixed(2)}`);
+    }
+}
+
+export class NoActivePortfolioError extends Error {
+    override readonly name = 'NoActivePortfolioError';
+    constructor(userId: string) {
+        super(`No active portfolio for user ${userId}`);
     }
 }

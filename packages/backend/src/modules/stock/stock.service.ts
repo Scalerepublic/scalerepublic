@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, gte, lte, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte, ne, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockPrice } from '../../db/schema/stock/index.ts'
-import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
+import { DEBUG_MARKET_PRICE_SOURCE, isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
 export type StockSummary = {
     id: string
@@ -11,26 +11,54 @@ export type StockSummary = {
     exchange: string
     currency: string
     latestPrice: number | null
+    previousClose: number | null
 }
 
 export class StockService {
     constructor(private readonly ctx: AppVars) {}
 
-    private priceAsOfFilter(): SQL | undefined {
-        if (!isMarketDebugEnabled()) return undefined;
-        const asOf = this.ctx.marketDebugService.getAsOf();
-        return lte(stockPrice.recordedAt, asOf);
+    private priceSourceFilter(): SQL {
+        if (isMarketDebugEnabled()) {
+            return eq(stockPrice.source, DEBUG_MARKET_PRICE_SOURCE)
+        }
+        return ne(stockPrice.source, DEBUG_MARKET_PRICE_SOURCE)
+    }
+
+    private asOfFilter(asOf?: Date): SQL | undefined {
+        const effectiveAsOf =
+            asOf ?? (isMarketDebugEnabled() ? this.ctx.marketDebugService.getAsOf() : undefined)
+        return effectiveAsOf ? lte(stockPrice.recordedAt, effectiveAsOf) : undefined
+    }
+
+    private priceFilters(asOf?: Date): SQL[] {
+        const filters: SQL[] = [this.priceSourceFilter()]
+        const asOfClause = this.asOfFilter(asOf)
+        if (asOfClause) filters.push(asOfClause)
+        return filters
+    }
+
+    private previousDayEnd(): Date {
+        if (isMarketDebugEnabled()) {
+            const d = this.ctx.marketDebugService.getMarketDate()
+            d.setUTCDate(d.getUTCDate() - 1)
+            d.setUTCHours(23, 59, 59, 999)
+            return d
+        }
+        const d = new Date()
+        d.setUTCDate(d.getUTCDate() - 1)
+        d.setUTCHours(23, 59, 59, 999)
+        return d
     }
 
     async getAll(): Promise<StockSummary[]> {
-        const asOfClause = this.priceAsOfFilter();
+        const filters = this.priceFilters()
         const latestPricePerStock = this.ctx.db
             .selectDistinctOn([stockPrice.stockId], {
                 stockId: stockPrice.stockId,
                 price: stockPrice.price,
             })
             .from(stockPrice)
-            .where(asOfClause)
+            .where(and(...filters))
             .orderBy(stockPrice.stockId, desc(stockPrice.recordedAt))
             .as('latest_price')
 
@@ -47,10 +75,19 @@ export class StockService {
             .leftJoin(latestPricePerStock, eq(stock.id, latestPricePerStock.stockId))
             .where(eq(stock.isActive, true))
 
-        return rows.map((r) => ({
-            ...r,
-            latestPrice: r.latestPrice !== null ? parseFloat(r.latestPrice) : null,
-        }))
+        const previousDayEnd = this.previousDayEnd()
+
+        return Promise.all(
+            rows.map(async (r) => {
+                const latestPrice = r.latestPrice !== null ? parseFloat(r.latestPrice) : null
+                const previousClose = await this.getLatestPriceByStockId(r.id, previousDayEnd)
+                return {
+                    ...r,
+                    latestPrice,
+                    previousClose,
+                }
+            }),
+        )
     }
 
     async getPriceHistory(
@@ -71,6 +108,7 @@ export class StockService {
             .from(stockPrice)
             .where(and(
                 eq(stockPrice.stockId, stockRow.id),
+                this.priceSourceFilter(),
                 gte(stockPrice.recordedAt, from),
                 lte(stockPrice.recordedAt, to),
             ))
@@ -100,27 +138,21 @@ export class StockService {
     async createStock(ticker: string, companyName: string, exchange: string, currency: string): Promise<string> {
         const id = crypto.randomUUID()
         await this.ctx.db.insert(stock).values({ id, ticker, companyName, exchange, currency, isActive: true }).onConflictDoNothing()
-        // Re-fetch to handle the case where a concurrent insert won the race
         const row = await this.ctx.db.select({ id: stock.id }).from(stock).where(eq(stock.ticker, ticker)).limit(1)
         return row[0]!.id
     }
 
     async getLatestPriceByStockId(stockId: string, asOf?: Date): Promise<number | null> {
-        const effectiveAsOf =
-            asOf ?? (isMarketDebugEnabled() ? this.ctx.marketDebugService.getAsOf() : undefined);
-        const conditions = [eq(stockPrice.stockId, stockId)];
-        if (effectiveAsOf) {
-            conditions.push(lte(stockPrice.recordedAt, effectiveAsOf));
-        }
+        const conditions = [eq(stockPrice.stockId, stockId), ...this.priceFilters(asOf)]
 
         const [row] = await this.ctx.db
             .select({ price: stockPrice.price })
             .from(stockPrice)
             .where(and(...conditions))
             .orderBy(desc(stockPrice.recordedAt))
-            .limit(1);
+            .limit(1)
 
-        return row ? parseFloat(row.price) : null;
+        return row ? parseFloat(row.price) : null
     }
 
     async insertPrice(stockId: string, price: number, source: string, recordedAt: Date): Promise<void> {

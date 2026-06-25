@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import type { AppVars } from '../../context.ts'
 import { syncJob } from '../../db/schema/sync.ts'
+import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
 const JOB_ID = 'stock-price-sync'
 const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
@@ -73,6 +74,11 @@ export class SyncService {
     }
 
     private async runSync(tickers: string[]): Promise<void> {
+        if (isMarketDebugEnabled()) {
+            console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
+            return
+        }
+
         const batches = chunk(tickers, RATE_LIMIT_BATCH_SIZE)
         for (let i = 0; i < batches.length; i++) {
             if (i > 0) await sleep(RATE_LIMIT_WINDOW_MS)
@@ -154,6 +160,7 @@ export class SyncService {
                     lockedBy: null,
                 }).where(eq(syncJob.id, JOB_ID))
                 console.log('[sync] Completed successfully')
+                await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 await this.ctx.db.update(syncJob).set({

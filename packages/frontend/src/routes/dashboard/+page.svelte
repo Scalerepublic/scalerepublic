@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { portfolioStore } from '$lib/stores/portfolio.svelte';
+	import { performanceStore } from '$lib/stores/performance.svelte';
 	import { userStore } from '$lib/stores/user.svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import StatCard from '$lib/components/app/StatCard.svelte';
@@ -16,7 +17,9 @@
 		year: 'numeric'
 	});
 
-	const performanceHistory = $derived.by(() => portfolioStore.chartHistory);
+	function handleGranularityChange() {
+		void performanceStore.load();
+	}
 </script>
 
 <div class="page-shell">
@@ -56,7 +59,12 @@
 	</div>
 
 	<div class="mb-8">
-		<PerformanceChart data={performanceHistory} />
+		<PerformanceChart
+			data={performanceStore.data}
+			loading={performanceStore.loading}
+			bind:granularity={performanceStore.granularity}
+			onGranularityChange={handleGranularityChange}
+		/>
 	</div>
 
 	<div class="section-heading">

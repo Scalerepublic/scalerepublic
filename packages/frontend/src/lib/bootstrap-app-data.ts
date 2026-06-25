@@ -1,6 +1,7 @@
 import { authStore } from '$lib/stores/auth.svelte';
 import { syncMarketClock } from '$lib/sync-market-clock';
 import { marketStore } from '$lib/stores/market.svelte';
+import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
 import { userStore } from '$lib/stores/user.svelte';
 
@@ -29,6 +30,7 @@ export function bootstrapAppData() {
 	void Promise.all([
 		syncMarketClock(),
 		portfolioStore.load(),
+		performanceStore.load(userId),
 		marketStore.load(),
 		userStore.load()
 	]).then(() => {
