@@ -20,21 +20,10 @@ export const stockRoutes = new Hono<AppEnv>()
     })
     .get('/api/v1/stocks/:ticker/detail', zValidator('query', stockDetailQuerySchema), async (c) => {
         const { ticker } = c.req.param()
-        const { priceFrom, priceTo, userId } = c.req.valid('query')
+        const { historyDays } = c.req.valid('query')
         const { stockService } = useCtx(c)
 
-        // Convert ISO date strings to Date objects
-        const priceFromDate =
-            priceFrom !== undefined && priceFrom !== ''
-                ? new Date(priceFrom)
-                : undefined
-
-        const priceToDate =
-            priceTo !== undefined && priceTo !== ''
-                ? new Date(priceTo)
-                : undefined
-
-        const detail = await stockService.getStockDetail(ticker, userId, priceFromDate, priceToDate)
+        const detail = await stockService.getStockDetail(ticker, historyDays)
 
         if (detail === null) {
             return c.json({ error: 'Stock not found' }, 404)

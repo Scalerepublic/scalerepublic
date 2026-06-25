@@ -7,6 +7,7 @@ import {
   integer,
   index,
   uniqueIndex,
+  date,
 } from "drizzle-orm/pg-core";
 
 import { stock } from "./stock";
@@ -102,6 +103,48 @@ export const stockPriceRelations = relations(
   ({ one }) => ({
     stock: one(stock, {
       fields: [stockPrice.stockId],
+      references: [stock.id],
+    }),
+  }),
+);
+
+export const stockDailyBar = pgTable(
+  "stock_daily_bar",
+  {
+    id: text("id").primaryKey(),
+
+    stockId: text("stock_id")
+      .notNull()
+      .references(() => stock.id, {
+        onDelete: "cascade",
+      }),
+
+    tradingDate: date("trading_date").notNull(),
+
+    open: numeric("open", { precision: 18, scale: 4 }).notNull(),
+    high: numeric("high", { precision: 18, scale: 4 }).notNull(),
+    low: numeric("low", { precision: 18, scale: 4 }).notNull(),
+    close: numeric("close", { precision: 18, scale: 4 }).notNull(),
+
+    source: text("source").notNull(),
+
+    createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("stock_daily_bar_stock_date_uniq")
+      .on(table.stockId, table.tradingDate),
+    index("stock_daily_bar_stock_id_idx")
+      .on(table.stockId),
+  ],
+);
+
+export const stockDailyBarRelations = relations(
+  stockDailyBar,
+  ({ one }) => ({
+    stock: one(stock, {
+      fields: [stockDailyBar.stockId],
       references: [stock.id],
     }),
   }),

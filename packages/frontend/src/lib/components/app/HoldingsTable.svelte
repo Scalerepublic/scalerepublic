@@ -1,18 +1,27 @@
 <script lang="ts">
 	import NobleButton from './NobleButton.svelte';
+	import StockDetailSheet from './StockDetailSheet.svelte';
 	import TradeSheet from './TradeSheet.svelte';
 	import { cn, formatCurrency, formatPercent, formatNumber } from '$lib/utils';
-	import type { HoldingWithMarket } from '$lib/types';
+	import type { HoldingWithMarket, Stock } from '$lib/types';
 
 	let { holdings, readOnly = false }: { holdings: HoldingWithMarket[]; readOnly?: boolean } =
 		$props();
 
 	let sellTarget = $state<HoldingWithMarket | null>(null);
 	let sellOpen = $state(false);
+	let detailStock = $state<Stock | null>(null);
+	let detailOpen = $state(false);
 
-	function openSell(h: HoldingWithMarket) {
+	function openSell(h: HoldingWithMarket, event: MouseEvent) {
+		event.stopPropagation();
 		sellTarget = h;
 		sellOpen = true;
+	}
+
+	function openDetail(h: HoldingWithMarket) {
+		detailStock = h.stock;
+		detailOpen = true;
 	}
 </script>
 
@@ -62,9 +71,10 @@
 			{#each holdings as h, i (h.ticker)}
 				<tr
 					class={cn(
-						'border-t border-border/60 transition-colors hover:bg-muted/40',
+						'cursor-pointer border-t border-border/60 transition-colors hover:bg-muted/40',
 						i % 2 !== 0 && 'bg-background'
 					)}
+					onclick={() => openDetail(h)}
 				>
 					<td class="px-4 py-3.5">
 						<div>
@@ -108,7 +118,11 @@
 					</td>
 					<td class="px-4 py-3.5 text-right">
 						{#if !readOnly}
-							<NobleButton type="button" class="h-7 px-3 text-[10px]" onclick={() => openSell(h)}>
+							<NobleButton
+								type="button"
+								class="h-7 px-3 text-[10px]"
+								onclick={(event) => openSell(h, event)}
+							>
 								Sell
 							</NobleButton>
 						{/if}
@@ -126,4 +140,8 @@
 		mode="sell"
 		maxQuantity={sellTarget.shares}
 	/>
+{/if}
+
+{#if detailStock}
+	<StockDetailSheet bind:open={detailOpen} stock={detailStock} />
 {/if}

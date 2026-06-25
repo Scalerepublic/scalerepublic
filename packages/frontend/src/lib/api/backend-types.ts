@@ -69,3 +69,23 @@ export type BackendPerformancePoint = {
 	date: string;
 	value: number;
 };
+
+export type BackendStockDetail = {
+	stock: {
+		id: string;
+		ticker: string;
+		companyName: string;
+		exchange: string;
+		currency: string;
+		description: string | null;
+		isAccumulating: boolean | null;
+	};
+	performance: {
+		latestPrice: number | null;
+		previousClose: number | null;
+		dayChange: number | null;
+		dayChangePercent: number | null;
+		periodChangePercent: number | null;
+	};
+	priceHistory: Array<{ date: string; close: number }>;
+};
