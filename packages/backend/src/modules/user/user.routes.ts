@@ -31,4 +31,23 @@ export const registerUserRoutes = (app: Hono) => {
       },
     });
   });
-}
+
+  app.patch('/api/v1/users/:id/pause', zValidator('param', userIdParamSchema), async (c) => {
+    const { id } = c.req.valid('param');
+    const success = await userService.pauseAccount(id);
+    if (!success) {
+        return c.json({ error: 'Failed to pause account' }, 500);
+    }
+    return c.json({ data: { userId: id, status: 'DEFAULTED' } });
+});
+
+  app.delete('/api/v1/users/:id', zValidator('param', userIdParamSchema), async (c) => {
+    const { id } = c.req.valid('param');
+    const success = await userService.deleteAccount(id);
+    if (!success) {
+      return c.json({ error: 'Failed to delete account' }, 500);
+    }
+    return c.json({ data: { userId: id, deleted: true } });
+  });
+
+};
