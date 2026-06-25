@@ -4,7 +4,7 @@ import type { AppVars } from '../../context.ts';
 import { marketState } from '../../db/schema/stock/market.ts';
 import { stepGbm } from '../../db/seed/gbm.ts';
 import { ARCHETYPES, SEED_STOCKS, type Archetype } from '../../db/seed/stocks.ts';
-import { DEBUG_MARKET_PRICE_SOURCE } from '../../lib/market-debug.ts';
+import { DEBUG_MARKET_CRASH_SOURCE, DEBUG_MARKET_PRICE_SOURCE } from '../../lib/market-debug.ts';
 
 const STATE_ID = 'singleton';
 const DEFAULT_ARCHETYPE: Archetype = 'steady_growth';
@@ -129,32 +129,39 @@ export class MarketDebugService {
         await this.persistState();
         return { marketDate: this.getMarketDateIso(), updated };
     }
+
     async applyMarketCrash(percentage: number): Promise<{ marketDate: string; updated: number; percentage: number }> {
-    const stocks = await this.ctx.stockService.getAll();
-    const recordedAt = this.nextRecordedAt();
-    const crashFactor = 1 - percentage / 100;
-    let updated = 0;
+        const stocks = await this.ctx.stockService.getAll();
+        const recordedAt = this.nextRecordedAt();
+        const crashFactor = 1 - percentage / 100;
+        let updated = 0;
 
-    for (const row of stocks) {
-        const current =
-            row.latestPrice ??
-            initialPriceByTicker[row.ticker] ??
-            100;
+        for (const row of stocks) {
+            const current =
+                row.latestPrice ??
+                initialPriceByTicker[row.ticker] ??
+                100;
 
-        const crashedPrice = current * crashFactor;
+            const crashedPrice = current * crashFactor;
 
-        await this.ctx.stockService.insertPrice(row.id, crashedPrice, 'debug_market_crash', recordedAt);
-        updated += 1;
+            await this.ctx.stockService.insertPrice(
+                row.id,
+                crashedPrice,
+                DEBUG_MARKET_CRASH_SOURCE,
+                recordedAt,
+            );
+            updated += 1;
+        }
+
+        this.ticksOnCurrentDay += 1;
+        await this.persistState();
+
+        return {
+            marketDate: this.getMarketDateIso(),
+            updated,
+            percentage,
+        };
     }
-
-    this.ticksOnCurrentDay += 1;
-
-    return {
-        marketDate: this.getMarketDateIso(),
-        updated,
-        percentage,
-    };
-}
 
     private nextRecordedAt(): Date {
         const d = this.getMarketDate();

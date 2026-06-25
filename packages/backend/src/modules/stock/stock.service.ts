@@ -1,8 +1,12 @@
-import { and, asc, desc, eq, gte, lte, ne, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte, ne, or, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockDailyBar, stockPrice } from '../../db/schema/stock/index.ts'
-import { DEBUG_MARKET_PRICE_SOURCE, isMarketDebugEnabled } from '../../lib/market-debug.ts'
+import {
+    DEBUG_MARKET_CRASH_SOURCE,
+    DEBUG_MARKET_PRICE_SOURCE,
+    isMarketDebugEnabled,
+} from '../../lib/market-debug.ts'
 
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
@@ -44,9 +48,15 @@ export class StockService {
 
     private priceSourceFilter(): SQL {
         if (isMarketDebugEnabled()) {
-            return eq(stockPrice.source, DEBUG_MARKET_PRICE_SOURCE)
+            return or(
+                eq(stockPrice.source, DEBUG_MARKET_PRICE_SOURCE),
+                eq(stockPrice.source, DEBUG_MARKET_CRASH_SOURCE),
+            )!
         }
-        return ne(stockPrice.source, DEBUG_MARKET_PRICE_SOURCE)
+        return and(
+            ne(stockPrice.source, DEBUG_MARKET_PRICE_SOURCE),
+            ne(stockPrice.source, DEBUG_MARKET_CRASH_SOURCE),
+        )!
     }
 
     private asOfFilter(asOf?: Date): SQL | undefined {

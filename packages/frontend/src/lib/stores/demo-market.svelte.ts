@@ -14,6 +14,11 @@ type MarketDebugStatus = {
 	dayOffset: number;
 };
 
+type MarketDebugActionResult = MarketDebugStatus & {
+	updated?: number;
+	percentage?: number;
+};
+
 class DemoMarketStore {
 	marketDate = $state<string | null>(null);
 	dayOffset = $state(0);
@@ -69,12 +74,17 @@ class DemoMarketStore {
 		return this.marketDate ?? new Date().toISOString().slice(0, 10);
 	}
 
-	private async post(path: string) {
+	private async post(path: string, body?: Record<string, unknown>) {
 		this.loading = true;
 		this.error = null;
 		try {
-			const res = await fetch(path, { method: 'POST', credentials: 'include' });
-			const json = (await res.json()) as { data?: MarketDebugStatus; error?: string };
+			const res = await fetch(path, {
+				method: 'POST',
+				credentials: 'include',
+				headers: body ? { 'Content-Type': 'application/json' } : undefined,
+				body: body ? JSON.stringify(body) : undefined
+			});
+			const json = (await res.json()) as { data?: MarketDebugActionResult; error?: string };
 			if (!res.ok) {
 				throw new ApiError(json.error ?? res.statusText, res.status);
 			}
@@ -103,6 +113,10 @@ class DemoMarketStore {
 
 	async applyGbmTick() {
 		await this.post('/api/v1/debug/market/tick');
+	}
+
+	async applyMarketCrash(percentage: number) {
+		await this.post('/api/v1/debug/market/crash', { percentage });
 	}
 
 	private async reloadAppData() {

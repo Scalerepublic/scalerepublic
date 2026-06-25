@@ -5,3 +5,4 @@ export const isMarketDebugEnabled = (): boolean =>
     process.env.STOCK_DEBUG === 'true' && process.env.NODE_ENV !== 'test';
 
 export const DEBUG_MARKET_PRICE_SOURCE = 'debug_gbm';
+export const DEBUG_MARKET_CRASH_SOURCE = 'debug_market_crash';
