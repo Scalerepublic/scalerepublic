@@ -110,7 +110,8 @@
 				<div class="space-y-1.5">
 					<label
 						for="password"
-						class="text-xs font-semibold tracking-wide text-foreground uppercase">New password</label
+						class="text-xs font-semibold tracking-wide text-foreground uppercase"
+						>New password</label
 					>
 					<input
 						id="password"
@@ -177,7 +178,6 @@
 		</div>
 
 		<p class="mt-5 text-center text-sm text-muted-foreground">
-
 			<a
 				href={resolve('/login')}
 				class="font-semibold text-foreground underline-offset-4 hover:underline">Back to sign in</a

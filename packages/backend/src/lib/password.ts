@@ -52,7 +52,9 @@ const timingSafeEqual = (a: Uint8Array, b: Uint8Array): boolean => {
   }
   let diff = 0;
   for (let i = 0; i < a.length; i += 1) {
-    diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) {
+      diff = 1;
+    }
   }
   return diff === 0;
 };

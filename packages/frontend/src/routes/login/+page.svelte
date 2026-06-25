@@ -127,7 +127,8 @@
 		<p class="mt-5 text-center text-sm text-muted-foreground">
 			<a
 				href={resolve('/signup')}
-				class="font-semibold text-foreground underline-offset-4 hover:underline">Create an account</a
+				class="font-semibold text-foreground underline-offset-4 hover:underline"
+				>Create an account</a
 			>
 		</p>
 	</div>

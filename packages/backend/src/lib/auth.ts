@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 import type { DbConnection } from "../db/index.ts";
 import { account, session, user, verification } from "../db/schema/auth-schema.ts";
+
 import { hashPassword, verifyPassword } from "./password.ts";
 
 export type Auth = ReturnType<typeof createAuth>;

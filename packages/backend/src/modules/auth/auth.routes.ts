@@ -13,7 +13,7 @@ export const authRoutes = new Hono<AppEnv>()
       const { email } = c.req.valid("query");
       const { auth } = useCtx(c);
 
-      // better-auth's change-email intentionally reports success even when the
+      // Better-auth's change-email intentionally reports success even when the
       // target email is already taken (to avoid leaking account existence). For
       // this demo we want explicit feedback, so we expose a simple lookup.
       const ctx = await auth.$context;
