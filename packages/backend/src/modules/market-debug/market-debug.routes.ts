@@ -45,6 +45,22 @@ export const marketDebugRoutes = new Hono<AppEnv>()
         const { marketDebugService } = useCtx(c);
         const tick = await marketDebugService.applyGbmTick();
         return c.json({ data: tick });
+    })
+    .post('/api/v1/debug/market/crash', async (c) => {
+        const denied = await requireMarketDebugOperator(c);
+        if (denied) return denied;
+
+        const body = await c.req.json<{ percentage?: number }>();
+        const percentage = body.percentage ?? 50;
+
+        if (percentage <= 0 || percentage >= 100) {
+            return c.json({ error: 'Percentage must be between 0 and 100' }, 400);
+        }
+
+        const { marketDebugService } = useCtx(c);
+        const result = await marketDebugService.applyMarketCrash(percentage);
+
+        return c.json({ data: result });
     });
 
 export const registerMarketDebugRoutes = (app: App) => {
