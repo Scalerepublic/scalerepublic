@@ -1,57 +1,51 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "scalerepublic-backend",
+	"account_id": "6a0955753ada2dde00b92d526f9d8f30",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-06-12",
-	// nodejs_compat enables node:os, process.env, and the postgres.js driver.
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
-	"observability": {
-		"enabled": true
-	},
-	// Non-secret config. Set secrets (BETTER_AUTH_SECRET, BETTER_AUTH_URL,
-	// ALPHAVANTAGE_API_KEY) with `wrangler secret put <NAME>` instead.
-	"vars": {
-		"NODE_ENV": "production",
-		"STOCK_DEBUG": "false"
-	},
-	// Pooled Postgres connection via Hyperdrive. Replace <PROD_HYPERDRIVE_ID>
-	// with the id printed by `wrangler hyperdrive create` (production Neon
-	// branch). localConnectionString is used by `wrangler dev` and points at the
-	// Docker Postgres from compose.yaml (host port 50025).
-	"hyperdrive": [
-		{
-			"binding": "HYPERDRIVE",
-			"id": "8f842c6819e2483c92cdccf52f62ab11",
-			"localConnectionString": "postgres://postgres:postgres@localhost:50025/scalerepublic"
-		}
-	],
-	// Hourly price sync (replaces the old in-process polling loop). Invokes the
-	// `scheduled` handler in src/index.ts.
-	"triggers": {
-		"crons": [
-			"0 * * * *"
-		]
-	},
-	// Named environments. Non-inheritable keys (vars, hyperdrive, services,
-	// triggers, observability) MUST be repeated per environment.
-	// Deploy with: wrangler deploy --env staging
 	"env": {
+		"production": {
+			"name": "scalerepublic-backend",
+			"observability": {
+				"enabled": true
+			},
+			"vars": {
+				"NODE_ENV": "production",
+				"STOCK_DEBUG": "false",
+				"STOCK_API_PROVIDER": "uni",
+				"BETTER_AUTH_URL": "https://scalerepublic-frontend.tu-projects.workers.dev",
+				"SYNC_INTERVAL_MS": "3600000",
+				"MIN_NET_WORTH_THRESHOLD": "1.00"
+			},
+			"hyperdrive": [
+				{
+					"binding": "HYPERDRIVE",
+					"id": "8f842c6819e2483c92cdccf52f62ab11",
+					"localConnectionString": "postgres://postgres:postgres@localhost:50025/scalerepublic"
+				}
+			],
+			"triggers": {
+				"crons": [
+					"0 * * * *"
+				]
+			}
+		},
 		"staging": {
-      "name": "scalerepublic-backend-staging",
-      "observability": {
-        "enabled": true
-      },
-      // STOCK_DEBUG=true mirrors local dev (compose.yaml): the simulated GBM
-      // market with an advanceable clock. To use the operator-only endpoints
-      // (/api/v1/debug/market/*), also set MARKET_DEBUG_OPERATOR_EMAIL to your
-      // account email (as a var here or via `wrangler secret put ... --env staging`).
-      "vars": {
-        "NODE_ENV": "production",
-        "STOCK_DEBUG": "true"
-      },
-			// Points at the staging Neon branch. Replace <STAGING_HYPERDRIVE_ID>.
+			"name": "scalerepublic-backend-staging",
+			"observability": {
+				"enabled": true
+			},
+			"vars": {
+				"NODE_ENV": "staging",
+				"STOCK_DEBUG": "true",
+				"STOCK_API_PROVIDER": "uni",
+				"BETTER_AUTH_URL": "https://scalerepublic-frontend-staging.tu-projects.workers.dev",
+				"SYNC_INTERVAL_MS": "3600000",
+				"MIN_NET_WORTH_THRESHOLD": "1.00"
+			},
 			"hyperdrive": [
 				{
 					"binding": "HYPERDRIVE",
@@ -59,9 +53,6 @@
 					"localConnectionString": "postgres://postgres:postgres@localhost:50025/scalerepublic"
 				}
 			],
-			// Cron disabled on staging to avoid duplicate syncs and extra stock-API
-			// quota usage. Test the scheduled handler manually instead:
-			//   wrangler dev --env staging --test-scheduled
 			"triggers": {
 				"crons": []
 			}
