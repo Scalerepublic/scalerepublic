@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"prebuild": "bun install --cwd ../backend --frozen-lockfile",
 		"build": "vite build",
 		"preview": "vite preview",
 		"cf:preview": "vite build && wrangler dev",
