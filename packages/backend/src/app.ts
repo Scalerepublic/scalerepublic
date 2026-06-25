@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { type App, type AppEnv, type AppVars, createAppContext, useCtx } from "./context.ts";
 import { createDb, type DbClient } from "./db/index.ts";
 import { isMarketDebugEnabled } from "./lib/market-debug.ts";
+import { registerAuthRoutes } from "./modules/auth/auth.routes.ts";
 import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.routes.ts";
 import { registerMarketDebugRoutes } from "./modules/market-debug/index.ts";
 import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
@@ -82,6 +83,7 @@ export const createApp = (staticCtx?: AppVars): App => {
 
     app.on(["POST", "GET"], "/api/auth/*", (c) => useCtx(c).auth.handler(c.req.raw));
 
+    registerAuthRoutes(app);
     registerStockRoutes(app);
     registerUserRoutes(app);
     registerLeaderboardRoutes(app);

@@ -2,11 +2,9 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Loader2 } from '@lucide/svelte';
-	import { signUp } from '$lib/auth-client';
 	import { emailSchema, passwordSchema } from 'backend/validation';
 	import { toast } from 'svelte-sonner';
 
-	let name = $state('');
 	let email = $state('');
 	let password = $state('');
 	let confirmPassword = $state('');
@@ -25,8 +23,7 @@
 	);
 	const passwordsMatch = $derived(password.length === 0 || password === confirmPassword);
 	const canSubmit = $derived(
-		name.trim().length > 0 &&
-			emailSchema.safeParse(email.trim()).success &&
+		emailSchema.safeParse(email.trim()).success &&
 			passwordSchema.safeParse(password).success &&
 			password === confirmPassword
 	);
@@ -38,25 +35,33 @@
 		errorMessage = null;
 		isSubmitting = true;
 
-		const { error } = await signUp.email({
-			name: name.trim(),
-			email: email.trim(),
-			password,
-			callbackURL: resolve('/dashboard')
-		});
+		try {
+			const res = await fetch('/api/v1/auth/reset-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ email: email.trim(), newPassword: password })
+			});
 
-		if (error) {
-			errorMessage = error.message ?? 'Could not create your account. Please try again.';
+			if (!res.ok) {
+				const body = (await res.json().catch(() => null)) as { error?: string } | null;
+				errorMessage = body?.error ?? 'Could not reset your password. Please try again.';
+				toast.error(errorMessage);
+				isSubmitting = false;
+				return;
+			}
+
+			toast.success('Password updated. You can sign in with your new password.');
+			await goto(resolve('/login'), { replaceState: true });
+		} catch {
+			errorMessage = 'Could not reach the server. Please try again.';
 			toast.error(errorMessage);
 			isSubmitting = false;
-			return;
 		}
-
-		await goto(resolve('/dashboard'), { replaceState: true, invalidateAll: true });
 	}
 </script>
 
-<svelte:head><title>Create account · ScaleRepublic</title></svelte:head>
+<svelte:head><title>Reset password · ScaleRepublic</title></svelte:head>
 
 <div class="flex min-h-svh items-center justify-center bg-background px-4 py-10">
 	<div class="w-full max-w-sm">
@@ -75,26 +80,13 @@
 
 		<div class="border border-border bg-card p-7">
 			<header class="mb-6 border-b border-border pb-5">
-				<h1 class="font-serif text-2xl font-bold text-foreground">Open an account</h1>
+				<h1 class="font-serif text-2xl font-bold text-foreground">Reset your password</h1>
+				<p class="mt-1 text-sm text-muted-foreground">
+					Verify your email and choose a new password.
+				</p>
 			</header>
 
 			<form class="space-y-4" onsubmit={handleSubmit} novalidate>
-				<div class="space-y-1.5">
-					<label for="name" class="text-xs font-semibold tracking-wide text-foreground uppercase"
-						>Full name</label
-					>
-					<input
-						id="name"
-						type="text"
-						autocomplete="name"
-						required
-						bind:value={name}
-						disabled={isSubmitting}
-						placeholder="Jane Doe"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
-					/>
-				</div>
-
 				<div class="space-y-1.5">
 					<label for="email" class="text-xs font-semibold tracking-wide text-foreground uppercase"
 						>Email</label
@@ -118,7 +110,8 @@
 				<div class="space-y-1.5">
 					<label
 						for="password"
-						class="text-xs font-semibold tracking-wide text-foreground uppercase">Password</label
+						class="text-xs font-semibold tracking-wide text-foreground uppercase"
+						>New password</label
 					>
 					<input
 						id="password"
@@ -142,7 +135,7 @@
 					<label
 						for="confirm-password"
 						class="text-xs font-semibold tracking-wide text-foreground uppercase"
-						>Confirm password</label
+						>Confirm new password</label
 					>
 					<input
 						id="confirm-password"
@@ -151,14 +144,14 @@
 						required
 						bind:value={confirmPassword}
 						disabled={isSubmitting}
-						aria-invalid={!passwordsMatch}
-						placeholder="Repeat your password"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
+						placeholder="••••••••"
+						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
 					/>
-					{#if !passwordsMatch}
-						<p class="text-xs font-medium text-destructive">Passwords don&apos;t match.</p>
-					{/if}
 				</div>
+
+				{#if !passwordsMatch}
+					<p class="text-xs font-medium text-destructive">Passwords do not match.</p>
+				{/if}
 
 				{#if errorMessage}
 					<div
@@ -176,9 +169,9 @@
 				>
 					{#if isSubmitting}
 						<Loader2 class="size-4 animate-spin" />
-						Creating account…
+						Updating…
 					{:else}
-						Create account
+						Reset password
 					{/if}
 				</button>
 			</form>
@@ -187,7 +180,7 @@
 		<p class="mt-5 text-center text-sm text-muted-foreground">
 			<a
 				href={resolve('/login')}
-				class="font-semibold text-foreground underline-offset-4 hover:underline">Sign in</a
+				class="font-semibold text-foreground underline-offset-4 hover:underline">Back to sign in</a
 			>
 		</p>
 	</div>

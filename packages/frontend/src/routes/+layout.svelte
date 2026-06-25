@@ -16,7 +16,7 @@
 
 	let { children } = $props();
 
-	const PUBLIC_ROUTES = ['/login', '/signup'];
+	const PUBLIC_ROUTES = ['/login', '/signup', '/forgot-password'];
 	const isPublicRoute = $derived(PUBLIC_ROUTES.includes(page.url.pathname));
 
 	let authTimedOut = $state(false);
