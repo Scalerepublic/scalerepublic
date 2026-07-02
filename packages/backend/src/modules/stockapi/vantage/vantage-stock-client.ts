@@ -12,10 +12,14 @@ export class AlphaVantageStockClient implements StockDataClient {
     }
 
     async getStockMeta(symbol: string): Promise<StockMeta | null> {
-        const result = await this.client.searchSymbol(symbol)
-        const match = result.bestMatches.find(m => m.symbol === symbol)
-        if (!match) return null
-        return { name: match.name, exchange: match.region, currency: match.currency, description: match.name }
+        try {
+            const result = await this.client.searchSymbol(symbol)
+            const match = result.bestMatches.find(m => m.symbol === symbol)
+            if (!match) return null
+            return { name: match.name, exchange: match.region, currency: match.currency, description: match.name }
+        } catch {
+            return null
+        }
     }
 
     async getDailyBar(): Promise<StockDailyBar | null> {

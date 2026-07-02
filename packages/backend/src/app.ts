@@ -79,6 +79,11 @@ export const createApp = (staticCtx?: AppVars): App => {
         }
     });
 
+    app.onError((err, c) => {
+        console.error(err)
+        return c.json({ error: "Internal server error" }, 500)
+    })
+
     app.get("/health", (c) => c.json({ status: "ok" }));
 
     app.on(["POST", "GET"], "/api/auth/*", (c) => useCtx(c).auth.handler(c.req.raw));
