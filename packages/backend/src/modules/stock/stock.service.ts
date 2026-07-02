@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte, ne, or, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lte, ne, or, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockDailyBar, stockPrice } from '../../db/schema/stock/index.ts'
@@ -19,6 +19,9 @@ export type StockSummary = {
     currency: string
     latestPrice: number | null
     previousClose: number | null
+    dayChange: number | null
+    dayChangePercent: number | null
+    periodChangePercent: number | null
 }
 
 export type StockDetailPerformance = {
@@ -85,6 +88,81 @@ export class StockService {
         return d
     }
 
+    private computePerformanceMetrics(
+        latestPrice: number | null,
+        priceHistory: Array<{ date: string; close: number }>,
+        priceTablePreviousClose: number | null,
+    ): StockDetailPerformance {
+        const lastBarClose = priceHistory.at(-1)?.close ?? null
+        const prevBarClose = priceHistory.length >= 2 ? priceHistory.at(-2)?.close ?? null : null
+        const firstClose = priceHistory[0]?.close ?? null
+        const effectiveLatest = latestPrice ?? lastBarClose
+
+        let previousClose = priceTablePreviousClose
+        let dayChange: number | null = null
+        let dayChangePercent: number | null = null
+
+        if (prevBarClose !== null && effectiveLatest !== null) {
+            previousClose = prevBarClose
+            dayChange = effectiveLatest - prevBarClose
+            dayChangePercent = prevBarClose > 0 ? (dayChange / prevBarClose) * 100 : null
+        } else if (effectiveLatest !== null && priceTablePreviousClose !== null) {
+            previousClose = priceTablePreviousClose
+            dayChange = effectiveLatest - priceTablePreviousClose
+            dayChangePercent =
+                priceTablePreviousClose > 0 ? (dayChange / priceTablePreviousClose) * 100 : null
+        }
+
+        const periodChangePercent =
+            effectiveLatest !== null && firstClose !== null && firstClose > 0
+                ? ((effectiveLatest - firstClose) / firstClose) * 100
+                : null
+
+        return {
+            latestPrice: effectiveLatest,
+            previousClose,
+            dayChange,
+            dayChangePercent,
+            periodChangePercent,
+        }
+    }
+
+    private async getDailyBarHistoriesByStockIds(
+        stockIds: string[],
+        days: number,
+    ): Promise<Map<string, Array<{ date: string; close: number }>>> {
+        if (stockIds.length === 0) {
+            return new Map()
+        }
+
+        const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
+
+        const rows = await this.ctx.db
+            .select({
+                stockId: stockDailyBar.stockId,
+                tradingDate: stockDailyBar.tradingDate,
+                close: stockDailyBar.close,
+            })
+            .from(stockDailyBar)
+            .where(and(
+                inArray(stockDailyBar.stockId, stockIds),
+                gte(stockDailyBar.tradingDate, fromDate),
+            ))
+            .orderBy(asc(stockDailyBar.tradingDate))
+
+        const histories = new Map<string, Array<{ date: string; close: number }>>()
+        for (const row of rows) {
+            const history = histories.get(row.stockId) ?? []
+            history.push({
+                date: row.tradingDate,
+                close: parseFloat(row.close),
+            })
+            histories.set(row.stockId, history)
+        }
+
+        return histories
+    }
+
     async getAll(): Promise<StockSummary[]> {
         const filters = this.priceFilters()
         const latestPricePerStock = this.ctx.db
@@ -111,15 +189,29 @@ export class StockService {
             .where(eq(stock.isActive, true))
 
         const previousDayEnd = this.previousDayEnd()
+        const dailyBarHistories = await this.getDailyBarHistoriesByStockIds(
+            rows.map((row) => row.id),
+            HISTORY_DAYS,
+        )
 
         return Promise.all(
             rows.map(async (r) => {
                 const latestPrice = r.latestPrice !== null ? parseFloat(r.latestPrice) : null
-                const previousClose = await this.getLatestPriceByStockId(r.id, previousDayEnd)
+                const priceTablePreviousClose = await this.getLatestPriceByStockId(r.id, previousDayEnd)
+                const priceHistory = dailyBarHistories.get(r.id) ?? []
+                const performance = this.computePerformanceMetrics(
+                    latestPrice,
+                    priceHistory,
+                    priceTablePreviousClose,
+                )
+
                 return {
                     ...r,
-                    latestPrice,
-                    previousClose,
+                    latestPrice: performance.latestPrice,
+                    previousClose: performance.previousClose,
+                    dayChange: performance.dayChange,
+                    dayChangePercent: performance.dayChangePercent,
+                    periodChangePercent: performance.periodChangePercent,
                 }
             }),
         )
@@ -327,7 +419,10 @@ export class StockService {
         }
 
         const latestPrice = await this.getLatestPriceByStockId(enrichedStock.id)
-        const previousClose = await this.getLatestPriceByStockId(enrichedStock.id, this.previousDayEnd())
+        const priceTablePreviousClose = await this.getLatestPriceByStockId(
+            enrichedStock.id,
+            this.previousDayEnd(),
+        )
 
         if (priceHistory.length === 0) {
             const from = this.addUtcDays(new Date(), -(historyDays - 1))
@@ -338,18 +433,11 @@ export class StockService {
             }))
         }
 
-        const dayChange =
-            latestPrice !== null && previousClose !== null ? latestPrice - previousClose : null
-        const dayChangePercent =
-            dayChange !== null && previousClose !== null && previousClose > 0
-                ? (dayChange / previousClose) * 100
-                : null
-
-        const firstClose = priceHistory[0]?.close ?? null
-        const periodChangePercent =
-            latestPrice !== null && firstClose !== null && firstClose > 0
-                ? ((latestPrice - firstClose) / firstClose) * 100
-                : null
+        const performance = this.computePerformanceMetrics(
+            latestPrice,
+            priceHistory,
+            priceTablePreviousClose,
+        )
 
         return {
             stock: {
@@ -358,16 +446,10 @@ export class StockService {
                 companyName: enrichedStock.companyName,
                 exchange: enrichedStock.exchange,
                 currency: enrichedStock.currency,
-                description: this.buildPlaceholderDescription(enrichedStock.companyName), // TODO, GET REAL DESCRIPTION
+                description: this.buildPlaceholderDescription(enrichedStock.companyName),
                 isAccumulating: enrichedStock.isAccumulating,
             },
-            performance: {
-                latestPrice,
-                previousClose,
-                dayChange,
-                dayChangePercent,
-                periodChangePercent,
-            },
+            performance,
             priceHistory,
         }
     }

@@ -7,7 +7,8 @@
 	import type { BackendStockDetail } from '$lib/api/backend-types';
 	import type { PerformancePoint } from '$lib/performance-history';
 	import { getCachedStockDetail, setCachedStockDetail } from '$lib/stores/stock-detail-cache';
-	import { cn, formatCurrency, formatPercent } from '$lib/utils';
+	import { marketStore } from '$lib/stores/market.svelte';
+	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -34,9 +35,18 @@
 	let activeTicker = $state<string | null>(null);
 
 	const displayPrice = $derived(detail?.performance.latestPrice ?? stock.currentPrice);
+	const periodChangePercent = $derived(
+		detail?.performance.periodChangePercent ?? stock.periodChangePercent ?? null
+	);
 	const dayChange = $derived(detail?.performance.dayChange ?? stock.dayChange);
 	const dayChangePercent = $derived(detail?.performance.dayChangePercent ?? stock.dayChangePercent);
-	const periodChangePercent = $derived(detail?.performance.periodChangePercent ?? null);
+	const displayChangePercent = $derived(periodChangePercent ?? dayChangePercent);
+	const displayChangeAmount = $derived.by(() => {
+		if (periodChangePercent !== null) {
+			return displayPrice - displayPrice / (1 + periodChangePercent / 100);
+		}
+		return dayChange;
+	});
 	const description = $derived(
 		detail?.stock.description?.trim() ||
 			`this stock (${detail?.stock.companyName ?? stock.name}) is good because i like it`
@@ -67,6 +77,12 @@
 		if (cached) {
 			detail = cached;
 			loading = false;
+			marketStore.applyDetailMetrics(ticker, {
+				currentPrice: cached.performance.latestPrice ?? stock.currentPrice,
+				dayChange: cached.performance.dayChange,
+				dayChangePercent: cached.performance.dayChangePercent,
+				periodChangePercent: cached.performance.periodChangePercent
+			});
 			return;
 		}
 
@@ -85,6 +101,12 @@
 			if (activeTicker !== ticker) return;
 			detail = loaded;
 			setCachedStockDetail(ticker, loaded);
+			marketStore.applyDetailMetrics(ticker, {
+				currentPrice: loaded.performance.latestPrice ?? stock.currentPrice,
+				dayChange: loaded.performance.dayChange,
+				dayChangePercent: loaded.performance.dayChangePercent,
+				periodChangePercent: loaded.performance.periodChangePercent
+			});
 		} catch (e) {
 			if (activeTicker !== ticker) return;
 			error = e instanceof Error ? e.message : 'Could not load stock details.';
@@ -173,21 +195,11 @@
 								<p class="font-mono text-3xl font-bold text-foreground">
 									{formatCurrency(displayPrice)}
 								</p>
-								<ChangeIndicator amount={dayChange} percent={dayChangePercent} />
+								<ChangeIndicator
+									amount={displayChangeAmount}
+									percent={displayChangePercent}
+								/>
 							</div>
-							{#if periodChangePercent !== null}
-								<p class="mt-2 text-xs text-muted-foreground">
-									30-day change:
-									<span
-										class={cn(
-											'font-mono font-semibold',
-											periodChangePercent >= 0 ? 'text-positive' : 'text-negative'
-										)}
-									>
-										{formatPercent(periodChangePercent)}
-									</span>
-								</p>
-							{/if}
 						</div>
 
 						{#if showChart}

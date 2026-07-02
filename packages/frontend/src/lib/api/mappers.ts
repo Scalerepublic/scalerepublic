@@ -21,8 +21,15 @@ function normalizeExchange(exchange: string): string | undefined {
 export function mapStockSummary(row: BackendStockSummary): Stock {
 	const price = row.latestPrice ?? 0;
 	const previousClose = row.previousClose ?? price;
-	const dayChange = price - previousClose;
-	const dayChangePercent = previousClose > 0 ? (dayChange / previousClose) * 100 : 0;
+	const dayChange = row.dayChange ?? price - previousClose;
+	const dayChangePercent =
+		row.dayChangePercent ?? (previousClose > 0 ? (dayChange / previousClose) * 100 : 0);
+	const periodChangePercent = row.periodChangePercent ?? null;
+	const displayPercent = periodChangePercent ?? dayChangePercent;
+	const displayChange =
+		periodChangePercent !== null
+			? price - price / (1 + periodChangePercent / 100)
+			: dayChange;
 
 	return {
 		id: row.id,
@@ -32,8 +39,9 @@ export function mapStockSummary(row: BackendStockSummary): Stock {
 		exchange: normalizeExchange(row.exchange),
 		currentPrice: price,
 		previousClose,
-		dayChange,
-		dayChangePercent
+		dayChange: displayChange,
+		dayChangePercent: displayPercent,
+		periodChangePercent
 	};
 }
 

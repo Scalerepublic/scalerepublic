@@ -57,6 +57,35 @@ class MarketStore {
 			(s) => s.ticker.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
 		);
 	}
+
+	applyDetailMetrics(
+		ticker: string,
+		metrics: {
+			currentPrice: number;
+			dayChange: number | null;
+			dayChangePercent: number | null;
+			periodChangePercent: number | null;
+		}
+	) {
+		const periodChangePercent = metrics.periodChangePercent;
+		const displayPercent = periodChangePercent ?? metrics.dayChangePercent ?? 0;
+		const displayChange =
+			periodChangePercent !== null
+				? metrics.currentPrice - metrics.currentPrice / (1 + periodChangePercent / 100)
+				: (metrics.dayChange ?? 0);
+
+		this.stocks = this.stocks.map((stock) =>
+			stock.ticker === ticker
+				? {
+						...stock,
+						currentPrice: metrics.currentPrice,
+						dayChange: displayChange,
+						dayChangePercent: displayPercent,
+						periodChangePercent
+					}
+				: stock
+		);
+	}
 }
 
 export const marketStore = new MarketStore();

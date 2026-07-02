@@ -6,6 +6,9 @@ export type BackendStockSummary = {
 	currency: string;
 	latestPrice: number | null;
 	previousClose: number | null;
+	dayChange: number | null;
+	dayChangePercent: number | null;
+	periodChangePercent: number | null;
 };
 
 export type BackendPortfolioRow = {

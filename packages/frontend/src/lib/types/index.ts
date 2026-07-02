@@ -8,6 +8,7 @@ export interface Stock {
 	previousClose: number;
 	dayChange: number;
 	dayChangePercent: number;
+	periodChangePercent?: number | null;
 	marketCap?: number;
 	volume?: number;
 }

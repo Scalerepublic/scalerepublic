@@ -40,7 +40,7 @@
 			},
 			"vars": {
 				"NODE_ENV": "staging",
-				"STOCK_DEBUG": "true",
+				"STOCK_DEBUG": "false",
 				"STOCK_API_PROVIDER": "uni",
 				"BETTER_AUTH_URL": "https://scalerepublic-frontend-staging.tu-projects.workers.dev",
 				"SYNC_INTERVAL_MS": "3600000",
