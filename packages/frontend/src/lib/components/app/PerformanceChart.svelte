@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { cn, formatCurrency, formatPercent } from '$lib/utils';
-	import type { PerformanceGranularity } from '$lib/stores/performance.svelte';
-	import type { PerformancePoint } from '$lib/performance-history';
+	import {
+		filterPerformanceByGranularity,
+		type PerformanceGranularity,
+		type PerformancePoint
+	} from '$lib/performance-history';
 
 	let {
 		data,
@@ -42,12 +45,15 @@
 	});
 
 	const points = $derived(
-		Array.isArray(data)
-			? data.filter(
-					(p): p is PerformancePoint =>
-						p != null && typeof p.date === 'string' && Number.isFinite(p.value)
-				)
-			: []
+		filterPerformanceByGranularity(
+			Array.isArray(data)
+				? data.filter(
+						(p): p is PerformancePoint =>
+							p != null && typeof p.date === 'string' && Number.isFinite(p.value)
+					)
+				: [],
+			granularity
+		)
 	);
 
 	const width = 800;
@@ -147,6 +153,12 @@
 	const isPositive = $derived(periodReturn >= 0);
 
 	let activeIndex = $state<number | null>(null);
+
+	$effect(() => {
+		granularity;
+		points.length;
+		activeIndex = null;
+	});
 
 	const activePoint = $derived(activeIndex !== null ? plotPoints[activeIndex] : null);
 

@@ -6,7 +6,7 @@
 	import { resolve } from '$app/paths';
 	import AppShell from '$lib/components/app/AppShell.svelte';
 	import { ModeWatcher } from 'mode-watcher';
-	import { Toaster } from 'svelte-sonner';
+	import AppToaster from '$lib/components/app/AppToaster.svelte';
 	import { signOut } from '$lib/auth-client';
 	import { bootstrapAppData, resetAppDataBootstrap } from '$lib/bootstrap-app-data';
 	import DemoDebugPanel from '$lib/components/app/DemoDebugPanel.svelte';
@@ -73,7 +73,7 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <ModeWatcher />
-<Toaster richColors position="top-center" />
+<AppToaster />
 
 {#if isPublicRoute}
 	{@render children()}

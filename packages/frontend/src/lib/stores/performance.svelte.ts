@@ -1,9 +1,9 @@
 import { api, parseApiData } from '$lib/api/client';
 import type { BackendPerformancePoint } from '$lib/api/backend-types';
 import { authStore } from '$lib/stores/auth.svelte';
-import type { PerformancePoint } from '$lib/performance-history';
+import type { PerformanceGranularity, PerformancePoint } from '$lib/performance-history';
 
-export type PerformanceGranularity = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type { PerformanceGranularity };
 
 class PerformanceStore {
 	data = $state<PerformancePoint[]>([]);

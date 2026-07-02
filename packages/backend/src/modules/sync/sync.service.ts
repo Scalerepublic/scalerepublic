@@ -69,6 +69,7 @@ export class SyncService {
 
         const quote = await this.ctx.stockDataClient.getQuote(ticker)
         await this.ctx.stockService.insertPrice(stockId, quote.price, this.ctx.stockDataClient.source, new Date())
+        await this.ctx.stockService.ensureDailyBarHistory(stockId, ticker)
 
         console.log(`[sync] ${ticker}: ${quote.price} (${quote.tradingDay.toISOString().slice(0, 10)})`)
     }

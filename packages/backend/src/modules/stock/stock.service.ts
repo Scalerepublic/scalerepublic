@@ -189,7 +189,12 @@ export class StockService {
             .where(eq(stock.isActive, true))
 
         const previousDayEnd = this.previousDayEnd()
-        const dailyBarHistories = await this.getDailyBarHistoriesByStockIds(
+
+        for (const row of rows) {
+            await this.ensureDailyBarHistory(row.id, row.ticker, HISTORY_DAYS)
+        }
+
+        const refreshedDailyBarHistories = await this.getDailyBarHistoriesByStockIds(
             rows.map((row) => row.id),
             HISTORY_DAYS,
         )
@@ -198,7 +203,7 @@ export class StockService {
             rows.map(async (r) => {
                 const latestPrice = r.latestPrice !== null ? parseFloat(r.latestPrice) : null
                 const priceTablePreviousClose = await this.getLatestPriceByStockId(r.id, previousDayEnd)
-                const priceHistory = dailyBarHistories.get(r.id) ?? []
+                const priceHistory = refreshedDailyBarHistories.get(r.id) ?? []
                 const performance = this.computePerformanceMetrics(
                     latestPrice,
                     priceHistory,
@@ -401,6 +406,13 @@ export class StockService {
         }))
     }
 
+    async ensureDailyBarHistory(stockId: string, ticker: string, days = HISTORY_DAYS): Promise<void> {
+        const history = await this.getCachedDailyBarHistory(stockId, days)
+        if (history.length < days) {
+            await this.cacheMissingDailyBars(stockId, ticker, days)
+        }
+    }
+
     async getStockDetail(ticker: string, historyDays = HISTORY_DAYS): Promise<StockDetail | null> {
         const [stockRow] = await this.ctx.db
             .select()
@@ -412,11 +424,8 @@ export class StockService {
 
         const enrichedStock = await this.ensureStockMetadata(stockRow)
 
+        await this.ensureDailyBarHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
         let priceHistory = await this.getCachedDailyBarHistory(enrichedStock.id, historyDays)
-        if (priceHistory.length < historyDays) {
-            await this.cacheMissingDailyBars(enrichedStock.id, enrichedStock.ticker, historyDays)
-            priceHistory = await this.getCachedDailyBarHistory(enrichedStock.id, historyDays)
-        }
 
         const latestPrice = await this.getLatestPriceByStockId(enrichedStock.id)
         const priceTablePreviousClose = await this.getLatestPriceByStockId(

@@ -1,8 +1,43 @@
 import type { BackendStockSummary } from '$lib/api/backend-types';
 import { api, parseApiData } from '$lib/api/client';
 import { mapStockSummary } from '$lib/api/mappers';
+import { getCachedStockDetail } from '$lib/stores/stock-detail-cache';
 import { mockStocks } from '$lib/mock/stocks';
 import type { Stock } from '$lib/types';
+
+function withPerformanceMetrics(stock: Stock, periodChangePercent: number | null | undefined): Stock {
+	if (periodChangePercent == null) {
+		return stock;
+	}
+
+	const displayPercent = periodChangePercent;
+	const displayChange = stock.currentPrice - stock.currentPrice / (1 + displayPercent / 100);
+
+	return {
+		...stock,
+		dayChange: displayChange,
+		dayChangePercent: displayPercent,
+		periodChangePercent
+	};
+}
+
+function enrichStockSummary(row: BackendStockSummary, previous?: Stock): Stock {
+	const mapped = mapStockSummary(row);
+	if (mapped.periodChangePercent != null) {
+		return mapped;
+	}
+
+	if (previous?.periodChangePercent != null) {
+		return withPerformanceMetrics(mapped, previous.periodChangePercent);
+	}
+
+	const cachedDetail = getCachedStockDetail(mapped.ticker);
+	if (cachedDetail?.performance.periodChangePercent != null) {
+		return withPerformanceMetrics(mapped, cachedDetail.performance.periodChangePercent);
+	}
+
+	return mapped;
+}
 
 class MarketStore {
 	stocks = $state<Stock[]>([]);
@@ -36,7 +71,10 @@ class MarketStore {
 		try {
 			const res = await api.api.v1.stocks.$get();
 			const rows = await parseApiData<BackendStockSummary[]>(res);
-			this.stocks = rows.map(mapStockSummary);
+			const previousByTicker = new Map(this.stocks.map((stock) => [stock.ticker, stock]));
+			this.stocks = rows.map((row) =>
+				enrichStockSummary(row, previousByTicker.get(row.ticker))
+			);
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Failed to load stocks';
 			this.stocks = mockStocks.map((s) => ({
@@ -67,24 +105,22 @@ class MarketStore {
 			periodChangePercent: number | null;
 		}
 	) {
-		const periodChangePercent = metrics.periodChangePercent;
-		const displayPercent = periodChangePercent ?? metrics.dayChangePercent ?? 0;
-		const displayChange =
-			periodChangePercent !== null
-				? metrics.currentPrice - metrics.currentPrice / (1 + periodChangePercent / 100)
-				: (metrics.dayChange ?? 0);
+		this.stocks = this.stocks.map((stock) => {
+			if (stock.ticker !== ticker) {
+				return stock;
+			}
 
-		this.stocks = this.stocks.map((stock) =>
-			stock.ticker === ticker
-				? {
-						...stock,
-						currentPrice: metrics.currentPrice,
-						dayChange: displayChange,
-						dayChangePercent: displayPercent,
-						periodChangePercent
-					}
-				: stock
-		);
+			const next = { ...stock, currentPrice: metrics.currentPrice };
+			if (metrics.periodChangePercent != null) {
+				return withPerformanceMetrics(next, metrics.periodChangePercent);
+			}
+
+			return {
+				...next,
+				dayChange: metrics.dayChange ?? 0,
+				dayChangePercent: metrics.dayChangePercent ?? 0
+			};
+		});
 	}
 }
 
