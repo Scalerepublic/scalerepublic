@@ -4,6 +4,7 @@ import {
     boolean,
     timestamp,
     index,
+    numeric,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -35,6 +36,18 @@ export const stock = pgTable(
         description: text("description"),
 
         isAccumulating: boolean("is_accumulating"),
+
+        periodChangePercent: numeric("period_change_percent", {
+            precision: 10,
+            scale: 4,
+        }),
+
+        dayChangePercent: numeric("day_change_percent", {
+            precision: 10,
+            scale: 4,
+        }),
+
+        metricsUpdatedAt: timestamp("metrics_updated_at", { withTimezone: true }),
 
         isActive: boolean("is_active")
             .default(true)

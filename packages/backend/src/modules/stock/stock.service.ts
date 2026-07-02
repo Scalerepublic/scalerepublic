@@ -10,6 +10,8 @@ import {
 
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
+const DETAIL_DAILY_BAR_FETCHES = 30
+const MIN_BARS_FOR_METRICS = 2
 
 export type StockSummary = {
     id: string
@@ -163,6 +165,81 @@ export class StockService {
         return histories
     }
 
+    private parsePersistedMetric(value: string | null | undefined): number | null {
+        if (value === null || value === undefined) return null
+        const parsed = parseFloat(value)
+        return Number.isFinite(parsed) ? parsed : null
+    }
+
+    private async persistStockMetrics(
+        stockId: string,
+        performance: StockDetailPerformance,
+    ): Promise<void> {
+        await this.ctx.db.update(stock).set({
+            periodChangePercent:
+                performance.periodChangePercent !== null
+                    ? performance.periodChangePercent.toString()
+                    : null,
+            dayChangePercent:
+                performance.dayChangePercent !== null
+                    ? performance.dayChangePercent.toString()
+                    : null,
+            metricsUpdatedAt: new Date(),
+        }).where(eq(stock.id, stockId))
+    }
+
+    private buildSummaryPerformance(
+        latestPrice: number | null,
+        priceTablePreviousClose: number | null,
+        priceHistory: Array<{ date: string; close: number }>,
+        persisted: {
+            periodChangePercent: string | null
+            dayChangePercent: string | null
+        },
+    ): Pick<
+        StockSummary,
+        'latestPrice' | 'previousClose' | 'dayChange' | 'dayChangePercent' | 'periodChangePercent'
+    > {
+        const computed = this.computePerformanceMetrics(
+            latestPrice,
+            priceHistory,
+            priceTablePreviousClose,
+        )
+        const persistedPeriod = this.parsePersistedMetric(persisted.periodChangePercent)
+        const persistedDay = this.parsePersistedMetric(persisted.dayChangePercent)
+
+        return {
+            latestPrice: computed.latestPrice,
+            previousClose: computed.previousClose,
+            dayChange: computed.dayChange,
+            dayChangePercent: persistedDay ?? computed.dayChangePercent,
+            periodChangePercent: persistedPeriod ?? computed.periodChangePercent,
+        }
+    }
+
+    async refreshStockMetrics(stockId: string): Promise<void> {
+        const latestPrice = await this.getLatestPriceByStockId(stockId)
+        const priceTablePreviousClose = await this.getLatestPriceByStockId(
+            stockId,
+            this.previousDayEnd(),
+        )
+        const priceHistory = await this.getCachedDailyBarHistory(stockId, HISTORY_DAYS)
+        const performance = this.computePerformanceMetrics(
+            latestPrice,
+            priceHistory,
+            priceTablePreviousClose,
+        )
+
+        if (
+            performance.periodChangePercent === null
+            && performance.dayChangePercent === null
+        ) {
+            return
+        }
+
+        await this.persistStockMetrics(stockId, performance)
+    }
+
     async getAll(): Promise<StockSummary[]> {
         const filters = this.priceFilters()
         const latestPricePerStock = this.ctx.db
@@ -183,43 +260,63 @@ export class StockService {
                 exchange: stock.exchange,
                 currency: stock.currency,
                 latestPrice: latestPricePerStock.price,
+                periodChangePercent: stock.periodChangePercent,
+                dayChangePercent: stock.dayChangePercent,
             })
             .from(stock)
             .leftJoin(latestPricePerStock, eq(stock.id, latestPricePerStock.stockId))
             .where(eq(stock.isActive, true))
 
+        const rowsNeedingFallback = rows.filter((row) => {
+            const persistedPeriod = this.parsePersistedMetric(row.periodChangePercent)
+            const persistedDay = this.parsePersistedMetric(row.dayChangePercent)
+            return persistedPeriod === null && persistedDay === null
+        })
+
+        const fallbackIds = rowsNeedingFallback.map((row) => row.id)
         const previousDayEnd = this.previousDayEnd()
 
-        for (const row of rows) {
-            await this.ensureDailyBarHistory(row.id, row.ticker, HISTORY_DAYS)
-        }
+        const [dailyBarHistories, previousCloses] = await Promise.all([
+            fallbackIds.length > 0
+                ? this.getDailyBarHistoriesByStockIds(fallbackIds, HISTORY_DAYS)
+                : Promise.resolve(new Map<string, Array<{ date: string; close: number }>>()),
+            fallbackIds.length > 0
+                ? this.getLatestPricesByStockIds(fallbackIds, previousDayEnd)
+                : Promise.resolve(new Map<string, number>()),
+        ])
 
-        const refreshedDailyBarHistories = await this.getDailyBarHistoriesByStockIds(
-            rows.map((row) => row.id),
-            HISTORY_DAYS,
-        )
+        return rows.map((r) => {
+            const latestPrice = r.latestPrice !== null ? parseFloat(r.latestPrice) : null
+            const persistedPeriod = this.parsePersistedMetric(r.periodChangePercent)
+            const persistedDay = this.parsePersistedMetric(r.dayChangePercent)
+            const priceTablePreviousClose = previousCloses.get(r.id) ?? null
+            const priceHistory =
+                persistedPeriod === null && persistedDay === null
+                    ? dailyBarHistories.get(r.id) ?? []
+                    : []
+            const performance = this.buildSummaryPerformance(
+                latestPrice,
+                priceTablePreviousClose,
+                priceHistory,
+                {
+                    periodChangePercent: r.periodChangePercent,
+                    dayChangePercent: r.dayChangePercent,
+                },
+            )
 
-        return Promise.all(
-            rows.map(async (r) => {
-                const latestPrice = r.latestPrice !== null ? parseFloat(r.latestPrice) : null
-                const priceTablePreviousClose = await this.getLatestPriceByStockId(r.id, previousDayEnd)
-                const priceHistory = refreshedDailyBarHistories.get(r.id) ?? []
-                const performance = this.computePerformanceMetrics(
-                    latestPrice,
-                    priceHistory,
-                    priceTablePreviousClose,
-                )
-
-                return {
-                    ...r,
-                    latestPrice: performance.latestPrice,
-                    previousClose: performance.previousClose,
-                    dayChange: performance.dayChange,
-                    dayChangePercent: performance.dayChangePercent,
-                    periodChangePercent: performance.periodChangePercent,
-                }
-            }),
-        )
+            return {
+                id: r.id,
+                ticker: r.ticker,
+                companyName: r.companyName,
+                exchange: r.exchange,
+                currency: r.currency,
+                latestPrice: performance.latestPrice,
+                previousClose: performance.previousClose,
+                dayChange: performance.dayChange,
+                dayChangePercent: performance.dayChangePercent,
+                periodChangePercent: performance.periodChangePercent,
+            }
+        })
     }
 
     async getPriceHistory(
@@ -275,16 +372,65 @@ export class StockService {
     }
 
     async getLatestPriceByStockId(stockId: string, asOf?: Date): Promise<number | null> {
-        const conditions = [eq(stockPrice.stockId, stockId), ...this.priceFilters(asOf)]
+        const prices = await this.getLatestPricesByStockIds([stockId], asOf)
+        return prices.get(stockId) ?? null
+    }
 
-        const [row] = await this.ctx.db
-            .select({ price: stockPrice.price })
+    async getLatestPricesByStockIds(
+        stockIds: string[],
+        asOf?: Date,
+    ): Promise<Map<string, number>> {
+        if (stockIds.length === 0) {
+            return new Map()
+        }
+
+        const rows = await this.ctx.db
+            .selectDistinctOn([stockPrice.stockId], {
+                stockId: stockPrice.stockId,
+                price: stockPrice.price,
+            })
             .from(stockPrice)
-            .where(and(...conditions))
-            .orderBy(desc(stockPrice.recordedAt))
-            .limit(1)
+            .where(and(inArray(stockPrice.stockId, stockIds), ...this.priceFilters(asOf)))
+            .orderBy(stockPrice.stockId, desc(stockPrice.recordedAt))
 
-        return row ? parseFloat(row.price) : null
+        return new Map(rows.map((row) => [row.stockId, parseFloat(row.price)]))
+    }
+
+    async getPriceSnapshotsByStockIds(
+        stockIds: string[],
+        from: Date,
+        to: Date,
+    ): Promise<Map<string, Array<{ recordedAt: Date; price: number }>>> {
+        if (stockIds.length === 0) {
+            return new Map()
+        }
+
+        const rows = await this.ctx.db
+            .select({
+                stockId: stockPrice.stockId,
+                recordedAt: stockPrice.recordedAt,
+                price: stockPrice.price,
+            })
+            .from(stockPrice)
+            .where(and(
+                inArray(stockPrice.stockId, stockIds),
+                gte(stockPrice.recordedAt, from),
+                lte(stockPrice.recordedAt, to),
+                ...this.priceFilters(),
+            ))
+            .orderBy(asc(stockPrice.recordedAt))
+
+        const snapshots = new Map<string, Array<{ recordedAt: Date; price: number }>>()
+        for (const row of rows) {
+            const series = snapshots.get(row.stockId) ?? []
+            series.push({
+                recordedAt: row.recordedAt,
+                price: parseFloat(row.price),
+            })
+            snapshots.set(row.stockId, series)
+        }
+
+        return snapshots
     }
 
     async insertPrice(stockId: string, price: number, source: string, recordedAt: Date): Promise<void> {
@@ -347,12 +493,17 @@ export class StockService {
         }
     }
 
-    private async cacheMissingDailyBars(stockId: string, ticker: string, days: number): Promise<void> {
+    private async cacheMissingDailyBars(
+        stockId: string,
+        ticker: string,
+        days: number,
+        maxFetches = MAX_DAILY_BAR_FETCHES,
+    ): Promise<void> {
         const today = new Date()
         today.setUTCHours(0, 0, 0, 0)
 
         let attempts = 0
-        for (let offset = 0; offset < days && attempts < MAX_DAILY_BAR_FETCHES; offset += 1) {
+        for (let offset = 0; offset < days && attempts < maxFetches; offset += 1) {
             const tradingDate = this.formatUtcDate(this.addUtcDays(today, -offset))
 
             const [existing] = await this.ctx.db
@@ -406,11 +557,24 @@ export class StockService {
         }))
     }
 
-    async ensureDailyBarHistory(stockId: string, ticker: string, days = HISTORY_DAYS): Promise<void> {
-        const history = await this.getCachedDailyBarHistory(stockId, days)
-        if (history.length < days) {
-            await this.cacheMissingDailyBars(stockId, ticker, days)
+    async ensureDailyBarHistory(
+        stockId: string,
+        ticker: string,
+        days = HISTORY_DAYS,
+        maxFetchesPerCall = MAX_DAILY_BAR_FETCHES,
+    ): Promise<void> {
+        let history = await this.getCachedDailyBarHistory(stockId, days)
+        let passes = 0
+
+        while (history.length < days && passes < 4) {
+            await this.cacheMissingDailyBars(stockId, ticker, days, maxFetchesPerCall)
+            history = await this.getCachedDailyBarHistory(stockId, days)
+            passes += 1
         }
+    }
+
+    private async ensureDetailDailyBarHistory(stockId: string, ticker: string, days: number): Promise<void> {
+        await this.ensureDailyBarHistory(stockId, ticker, days, DETAIL_DAILY_BAR_FETCHES)
     }
 
     async getStockDetail(ticker: string, historyDays = HISTORY_DAYS): Promise<StockDetail | null> {
@@ -424,7 +588,7 @@ export class StockService {
 
         const enrichedStock = await this.ensureStockMetadata(stockRow)
 
-        await this.ensureDailyBarHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
+        await this.ensureDetailDailyBarHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
         let priceHistory = await this.getCachedDailyBarHistory(enrichedStock.id, historyDays)
 
         const latestPrice = await this.getLatestPriceByStockId(enrichedStock.id)
@@ -447,6 +611,10 @@ export class StockService {
             priceHistory,
             priceTablePreviousClose,
         )
+
+        if (priceHistory.length >= MIN_BARS_FOR_METRICS) {
+            await this.persistStockMetrics(enrichedStock.id, performance)
+        }
 
         return {
             stock: {

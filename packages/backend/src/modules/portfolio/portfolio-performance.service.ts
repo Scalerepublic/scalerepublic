@@ -49,8 +49,31 @@ const filterToWindow = (
     return points.filter((p) => p.date >= cutoffIso);
 };
 
+type PriceTracker = {
+    pointer: number;
+    latestPrice: number | null;
+};
+
 export class PortfolioPerformanceService {
     constructor(private readonly ctx: AppVars) {}
+
+    private priceAt(
+        stockId: string,
+        dayEnd: Date,
+        priceSeries: Map<string, Array<{ recordedAt: Date; price: number }>>,
+        trackers: Map<string, PriceTracker>,
+    ): number | null {
+        const series = priceSeries.get(stockId) ?? [];
+        const tracker = trackers.get(stockId) ?? { pointer: 0, latestPrice: null };
+
+        while (tracker.pointer < series.length && series[tracker.pointer]!.recordedAt <= dayEnd) {
+            tracker.latestPrice = series[tracker.pointer]!.price;
+            tracker.pointer += 1;
+        }
+
+        trackers.set(stockId, tracker);
+        return tracker.latestPrice;
+    }
 
     async getPerformance(
         portfolioId: string,
@@ -69,6 +92,12 @@ export class PortfolioPerformanceService {
         const end = isMarketDebugEnabled()
             ? startOfUtcDay(this.ctx.marketDebugService.getMarketDate())
             : startOfUtcDay(new Date());
+
+        const stockIds = [...new Set(trades.map((row) => row.stockId))];
+        const priceSeries = stockIds.length > 0
+            ? await this.ctx.stockService.getPriceSnapshotsByStockIds(stockIds, start, endOfUtcDay(toUtcDateIso(end)))
+            : new Map<string, Array<{ recordedAt: Date; price: number }>>();
+        const priceTrackers = new Map<string, PriceTracker>();
 
         const daily: PerformancePoint[] = [];
         let tradeIdx = 0;
@@ -101,7 +130,7 @@ export class PortfolioPerformanceService {
             let holdingsValue = 0;
             for (const [stockId, quantity] of holdings) {
                 if (quantity <= 0) continue;
-                const price = await this.ctx.stockService.getLatestPriceByStockId(stockId, dayEnd);
+                const price = this.priceAt(stockId, dayEnd, priceSeries, priceTrackers);
                 if (price !== null) holdingsValue += quantity * price;
             }
 

@@ -42,10 +42,31 @@ export class LeaderboardService {
     }
 
     const entries: Omit<LeaderboardEntry, 'rank'>[] = [];
+    const portfolioRows = [...latestByUser.values()];
+    const portfolioIds = portfolioRows.map((row) => row.portfolioId);
+    const holdingsByPortfolio = await this.ctx.tradesService.getHoldingsByPortfolioIds(portfolioIds);
+    const stockIds = new Set<string>();
 
-    for (const row of latestByUser.values()) {
-      const [portfolioValue, penaltyCounter, lastDefaultedAt] = await Promise.all([
-        this.ctx.portfolioService.getPortfolioValue(row.portfolioId),
+    for (const holdings of holdingsByPortfolio.values()) {
+      for (const holding of holdings) {
+        stockIds.add(holding.stockId);
+      }
+    }
+
+    const latestPrices = await this.ctx.stockService.getLatestPricesByStockIds([...stockIds]);
+
+    for (const row of portfolioRows) {
+      const holdings = holdingsByPortfolio.get(row.portfolioId) ?? [];
+      let portfolioValue = 0;
+
+      for (const holding of holdings) {
+        const price = latestPrices.get(holding.stockId);
+        if (price !== undefined) {
+          portfolioValue += holding.quantity * price;
+        }
+      }
+
+      const [penaltyCounter, lastDefaultedAt] = await Promise.all([
         this.ctx.portfolioService.getDefaultCount(row.userId),
         this.ctx.portfolioService.getLastDefaultedAt(row.userId),
       ]);

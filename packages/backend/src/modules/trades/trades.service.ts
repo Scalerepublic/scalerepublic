@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';
 import type { DbOrTx } from '../../db/index.ts';
@@ -32,6 +32,42 @@ export class TradesService {
             .groupBy(trade.stockId);
 
         return rows.filter((r) => r.quantity > 0);
+    }
+
+    async getHoldingsByPortfolioIds(portfolioIds: string[]): Promise<Map<string, Holding[]>> {
+        if (portfolioIds.length === 0) {
+            return new Map();
+        }
+
+        const rows = await this.ctx.db
+            .select({
+                portfolioId: trade.portfolioId,
+                stockId: trade.stockId,
+                quantity: sql<number>`
+                    sum(case when ${trade.tradeType} = 'BUY' then ${trade.quantity} else -${trade.quantity} end)
+                `.as('quantity'),
+                avgCost: sql<number>`
+                    sum(case when ${trade.tradeType} = 'BUY' then ${trade.quantity} * ${trade.executedPrice}::numeric else 0 end)
+                    / nullif(sum(case when ${trade.tradeType} = 'BUY' then ${trade.quantity} else 0 end), 0)
+                `.as('avg_cost'),
+            })
+            .from(trade)
+            .where(and(inArray(trade.portfolioId, portfolioIds), eq(trade.status, 'EXECUTED')))
+            .groupBy(trade.portfolioId, trade.stockId);
+
+        const holdingsByPortfolio = new Map<string, Holding[]>();
+        for (const row of rows) {
+            if (row.quantity <= 0) continue;
+            const holdings = holdingsByPortfolio.get(row.portfolioId) ?? [];
+            holdings.push({
+                stockId: row.stockId,
+                quantity: row.quantity,
+                avgCost: row.avgCost,
+            });
+            holdingsByPortfolio.set(row.portfolioId, holdings);
+        }
+
+        return holdingsByPortfolio;
     }
 
     async executeBuy(
