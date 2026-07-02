@@ -37,9 +37,11 @@ export class UserService {
 
     if (!authUser) return null;
 
-    const activePortfolio = await this.ctx.portfolioService.getActiveForUser(userId);
-    const penaltyCounter = await this.ctx.portfolioService.getDefaultCount(userId);
-    const rank = await this.ctx.leaderboardService.getRankForUser(userId);
+    const [activePortfolio, penaltyCounter, rank] = await Promise.all([
+      this.ctx.portfolioService.getActiveForUser(userId),
+      this.ctx.portfolioService.getDefaultCount(userId),
+      this.ctx.leaderboardService.getRankForUser(userId),
+    ]);
 
     if (!activePortfolio) {
       return {
@@ -54,9 +56,7 @@ export class UserService {
       };
     }
 
-    const [netWorth] = await Promise.all([
-      this.ctx.portfolioService.getNetWorth(activePortfolio.id),
-    ]);
+    const netWorth = await this.ctx.portfolioService.getNetWorth(activePortfolio.id);
 
     return {
       userId,
@@ -84,18 +84,20 @@ export class UserService {
       .where(or(ilike(user.name, pattern), ilike(user.email, pattern)))
       .limit(limit);
 
-    const results: UserSearchResult[] = [];
-    for (const match of matches) {
-      const profile = await this.getUserProfile(match.id);
-      results.push({
-        userId: match.id,
-        name: match.name,
-        rank: profile?.rank ?? null,
-        netWorth: profile !== null && !profile.isDefaulted ? profile.netWorth : null,
-      });
+    if (matches.length === 0) {
+      return [];
     }
 
-    return results;
+    const leaderboard = await this.ctx.leaderboardService.getLeaderboard();
+    const rankByUser = new Map(leaderboard.map((entry) => [entry.userId, entry.rank]));
+    const netWorthByUser = new Map(leaderboard.map((entry) => [entry.userId, entry.netWorth]));
+
+    return matches.map((match) => ({
+      userId: match.id,
+      name: match.name,
+      rank: rankByUser.get(match.id) ?? null,
+      netWorth: netWorthByUser.get(match.id) ?? null,
+    }));
   }
 
   async getUserPerformance(

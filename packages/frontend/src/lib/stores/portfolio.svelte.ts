@@ -13,18 +13,18 @@ class PortfolioStore {
 	private trackedPortfolioId: string | null = null;
 	private loadInFlight: Promise<void> | null = null;
 
-	async load() {
+	async load(options?: { silent?: boolean }) {
 		if (this.loadInFlight) {
 			return this.loadInFlight;
 		}
 
-		this.loadInFlight = this.fetchPortfolio().finally(() => {
+		this.loadInFlight = this.fetchPortfolio(options?.silent ?? false).finally(() => {
 			this.loadInFlight = null;
 		});
 		return this.loadInFlight;
 	}
 
-	private async fetchPortfolio() {
+	private async fetchPortfolio(silent: boolean) {
 		const userId = authStore.user?.id;
 		if (!userId) {
 			this._data = null;
@@ -32,7 +32,9 @@ class PortfolioStore {
 			return;
 		}
 
-		this.loading = true;
+		if (!silent) {
+			this.loading = true;
+		}
 		this.error = null;
 		try {
 			const res = await api.api.v1.users[':id'].portfolio.$get({
@@ -52,7 +54,9 @@ class PortfolioStore {
 				return;
 			}
 		} finally {
-			this.loading = false;
+			if (!silent) {
+				this.loading = false;
+			}
 		}
 	}
 

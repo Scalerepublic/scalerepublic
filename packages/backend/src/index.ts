@@ -32,7 +32,6 @@ export default {
         ctx.waitUntil(
             appCtx.syncService
                 .runDueTick(parseTrackedTickers())
-                .then(() => appCtx.portfolioDefaultService.checkAllActivePortfolios())
                 .finally(() => client.end()),
         );
     },

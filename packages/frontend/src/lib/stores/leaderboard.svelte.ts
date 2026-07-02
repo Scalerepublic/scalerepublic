@@ -7,9 +7,21 @@ class LeaderboardStore {
 	entries = $state<ApiLeaderboardEntry[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);
+	private loadInFlight: Promise<void> | null = null;
 
 	async load(options?: { silent?: boolean }) {
+		if (this.loadInFlight) {
+			return this.loadInFlight;
+		}
+
 		const silent = options?.silent ?? false;
+		this.loadInFlight = this.fetchLeaderboard(silent).finally(() => {
+			this.loadInFlight = null;
+		});
+		return this.loadInFlight;
+	}
+
+	private async fetchLeaderboard(silent: boolean) {
 		if (!silent) {
 			this.loading = true;
 		}

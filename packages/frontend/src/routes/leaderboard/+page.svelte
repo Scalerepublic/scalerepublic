@@ -6,6 +6,7 @@
 	import { demoMarketStore } from '$lib/stores/demo-market.svelte';
 	import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
 	import { marketRevisionStore } from '$lib/stores/market-revision.svelte';
+	import { startLeaderboardPolling } from '$lib/live-quotes-polling';
 	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendUserSearchResult } from '$lib/api/backend-types';
 	import { Trophy, Search } from '@lucide/svelte';
@@ -29,9 +30,13 @@
 	);
 
 	$effect(() => {
-		void marketRevisionStore.revision;
-		void demoMarketStore.revision;
+		const rev = marketRevisionStore.revision + demoMarketStore.revision;
+		if (rev === 0) return;
 		void leaderboardStore.load({ silent: true });
+	});
+
+	$effect(() => {
+		return startLeaderboardPolling();
 	});
 
 	function formatDefaultDate(iso: string | null): string {

@@ -98,20 +98,33 @@ export class PortfolioService {
         return this.ctx.tradesService.getHoldingsByPortfolioId(portfolioId);
     }
 
-    async getPortfolioValue(portfolioId: string): Promise<number> {
-        const holdings = await this.getHoldings(portfolioId);
+    async getPortfolioValue(portfolioId: string, holdings?: Holding[]): Promise<number> {
+        const resolvedHoldings = holdings ?? await this.getHoldings(portfolioId);
+        if (resolvedHoldings.length === 0) {
+            return 0;
+        }
+
+        const prices = await this.ctx.stockService.getLatestPricesByStockIds(
+            resolvedHoldings.map((holding) => holding.stockId),
+        );
+
         let total = 0;
-        for (const h of holdings) {
-            const price = await this.ctx.stockService.getLatestPriceByStockId(h.stockId);
-            if (price !== null) total += h.quantity * price;
+        for (const holding of resolvedHoldings) {
+            const price = prices.get(holding.stockId);
+            if (price !== undefined) {
+                total += holding.quantity * price;
+            }
         }
         return total;
     }
 
     async getNetWorth(portfolioId: string): Promise<number> {
-        const p = await this.getById(portfolioId);
-        const portfolioValue = await this.getPortfolioValue(portfolioId);
-        return parseFloat(p.cashBalance) + portfolioValue;
+        const [portfolioRow, holdings] = await Promise.all([
+            this.getById(portfolioId),
+            this.getHoldings(portfolioId),
+        ]);
+        const portfolioValue = await this.getPortfolioValue(portfolioId, holdings);
+        return parseFloat(portfolioRow.cashBalance) + portfolioValue;
     }
 
     private async verifyExpectedPrice(stockId: string, expectedPrice: number): Promise<number> {

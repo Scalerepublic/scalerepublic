@@ -356,12 +356,21 @@ export class StockService {
     }
 
     async getTicker(stockId: string): Promise<string | null> {
-        const [row] = await this.ctx.db
-            .select({ ticker: stock.ticker })
+        const tickers = await this.getTickersByStockIds([stockId])
+        return tickers.get(stockId) ?? null
+    }
+
+    async getTickersByStockIds(stockIds: string[]): Promise<Map<string, string>> {
+        if (stockIds.length === 0) {
+            return new Map()
+        }
+
+        const rows = await this.ctx.db
+            .select({ id: stock.id, ticker: stock.ticker })
             .from(stock)
-            .where(eq(stock.id, stockId))
-            .limit(1)
-        return row?.ticker ?? null
+            .where(inArray(stock.id, stockIds))
+
+        return new Map(rows.map((row) => [row.id, row.ticker]))
     }
 
     async createStock(ticker: string, companyName: string, exchange: string, currency: string): Promise<string> {
@@ -501,21 +510,23 @@ export class StockService {
     ): Promise<void> {
         const today = new Date()
         today.setUTCHours(0, 0, 0, 0)
+        const fromDate = this.formatUtcDate(this.addUtcDays(today, -(days - 1)))
+
+        const existingRows = await this.ctx.db
+            .select({ tradingDate: stockDailyBar.tradingDate })
+            .from(stockDailyBar)
+            .where(and(
+                eq(stockDailyBar.stockId, stockId),
+                gte(stockDailyBar.tradingDate, fromDate),
+            ))
+
+        const existingDates = new Set(existingRows.map((row) => row.tradingDate))
 
         let attempts = 0
         for (let offset = 0; offset < days && attempts < maxFetches; offset += 1) {
             const tradingDate = this.formatUtcDate(this.addUtcDays(today, -offset))
 
-            const [existing] = await this.ctx.db
-                .select({ id: stockDailyBar.id })
-                .from(stockDailyBar)
-                .where(and(
-                    eq(stockDailyBar.stockId, stockId),
-                    eq(stockDailyBar.tradingDate, tradingDate),
-                ))
-                .limit(1)
-
-            if (existing) continue
+            if (existingDates.has(tradingDate)) continue
 
             attempts += 1
             const bar = await this.ctx.stockDataClient.getDailyBar(ticker, this.addUtcDays(today, -offset))
@@ -530,6 +541,7 @@ export class StockService {
                 close: bar.close.toString(),
                 source: this.ctx.stockDataClient.source,
             }).onConflictDoNothing()
+            existingDates.add(tradingDate)
         }
     }
 

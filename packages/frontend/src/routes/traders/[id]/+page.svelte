@@ -60,12 +60,13 @@
 	}
 
 	$effect(() => {
-		const rev = marketRevisionStore.revision;
-		const debugRev = demoMarketStore.revision;
-		const g = granularity;
-		void rev;
-		void debugRev;
-		void g;
+		void granularity;
+		void loadPerformance();
+	});
+
+	$effect(() => {
+		const rev = marketRevisionStore.revision + demoMarketStore.revision;
+		if (rev === 0) return;
 		void reloadTraderView();
 	});
 </script>
