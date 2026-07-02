@@ -33,6 +33,24 @@ db-push:
 db-seed:
     bun run db:seed
 
+# --- Remote Neon (staging / production) -------------------------------------
+# Run from your host straight against Neon (drizzle-kit / the seed script talk to
+# the DB directly; Hyperdrive is only used by the deployed Worker). DATABASE_URL
+# is read from .env.staging / .env.production (gitignored via the root .env.*
+# rule). Values in those files MUST be single-quoted because the Neon URL
+# contains '&' and '?'. Exporting before bun runs means they win over .env.
+db-migrate-staging:
+    set -a && . ./.env.staging && set +a && bun run db:migrate
+
+db-migrate-prod:
+    set -a && . ./.env.production && set +a && bun run db:migrate
+
+db-seed-staging:
+    set -a && . ./.env.staging && set +a && bun run db:seed
+
+db-seed-prod:
+    set -a && . ./.env.production && set +a && bun run db:seed
+
 db-studio:
     bun run db:studio
 

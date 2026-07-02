@@ -137,9 +137,12 @@ export class SyncService {
     async runDueTick(tickers: string[]): Promise<void> {
         const syncIntervalMs = Number(process.env['SYNC_INTERVAL_MS'] ?? DEFAULT_SYNC_INTERVAL_MS)
 
-        await this.ctx.db.insert(syncJob).values({ id: JOB_ID }).onConflictDoNothing()
-
         try {
+            // Keep this inside the try: a transient DB/connection failure here
+            // (e.g. Neon cold start via Hyperdrive) must be logged, not rethrown
+            // into the Cron Trigger's waitUntil where it surfaces as a failed run.
+            await this.ctx.db.insert(syncJob).values({ id: JOB_ID }).onConflictDoNothing()
+
             const staleThreshold = new Date(Date.now() - STALE_LOCK_MS)
             const syncDueThreshold = new Date(Date.now() - syncIntervalMs)
 
