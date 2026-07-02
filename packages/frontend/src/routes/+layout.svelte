@@ -62,7 +62,7 @@
 	});
 
 	$effect(() => {
-		if (!authStore.isAuthenticated) {
+		if (!authStore.isAuthenticated || isPublicRoute) {
 			return;
 		}
 

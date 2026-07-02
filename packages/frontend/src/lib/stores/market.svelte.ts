@@ -8,6 +8,7 @@ class MarketStore {
 	stocks = $state<Stock[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);
+	private loadInFlight: Promise<void> | null = null;
 
 	trending = $derived(
 		[...this.stocks]
@@ -16,6 +17,17 @@ class MarketStore {
 	);
 
 	async load(options?: { silent?: boolean }) {
+		if (this.loadInFlight) {
+			return this.loadInFlight;
+		}
+
+		this.loadInFlight = this.fetchStocks(options).finally(() => {
+			this.loadInFlight = null;
+		});
+		return this.loadInFlight;
+	}
+
+	private async fetchStocks(options?: { silent?: boolean }) {
 		const silent = options?.silent ?? false;
 		if (!silent) {
 			this.loading = true;

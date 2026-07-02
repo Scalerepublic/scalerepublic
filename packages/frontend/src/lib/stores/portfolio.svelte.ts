@@ -11,8 +11,20 @@ class PortfolioStore {
 	loading = $state(false);
 	error = $state<string | null>(null);
 	private trackedPortfolioId: string | null = null;
+	private loadInFlight: Promise<void> | null = null;
 
 	async load() {
+		if (this.loadInFlight) {
+			return this.loadInFlight;
+		}
+
+		this.loadInFlight = this.fetchPortfolio().finally(() => {
+			this.loadInFlight = null;
+		});
+		return this.loadInFlight;
+	}
+
+	private async fetchPortfolio() {
 		const userId = authStore.user?.id;
 		if (!userId) {
 			this._data = null;

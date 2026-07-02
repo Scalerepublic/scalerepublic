@@ -6,21 +6,33 @@ type MarketClock = {
 	simulated: boolean;
 };
 
+let syncInFlight: Promise<void> | null = null;
+
 export async function syncMarketClock(): Promise<void> {
-	try {
-		const res = await fetch('/api/v1/market/clock', { credentials: 'include' });
-		if (!res.ok) {
-			setDemoMarketDate(null);
-			return;
-		}
-		const json = (await res.json()) as { data?: MarketClock };
-		const clock = json.data;
-		if (!clock?.simulated) {
-			setDemoMarketDate(null);
-			return;
-		}
-		setDemoMarketDate(clock.marketDate);
-	} catch {
-		setDemoMarketDate(null);
+	if (syncInFlight) {
+		return syncInFlight;
 	}
+
+	syncInFlight = (async () => {
+		try {
+			const res = await fetch('/api/v1/market/clock', { credentials: 'include' });
+			if (!res.ok) {
+				setDemoMarketDate(null);
+				return;
+			}
+			const json = (await res.json()) as { data?: MarketClock };
+			const clock = json.data;
+			if (!clock?.simulated) {
+				setDemoMarketDate(null);
+				return;
+			}
+			setDemoMarketDate(clock.marketDate);
+		} catch {
+			setDemoMarketDate(null);
+		}
+	})().finally(() => {
+		syncInFlight = null;
+	});
+
+	return syncInFlight;
 }

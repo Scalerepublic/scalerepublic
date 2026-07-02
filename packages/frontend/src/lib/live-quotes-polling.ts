@@ -48,7 +48,6 @@ export function startLiveQuotesPolling(): () => void {
 		}
 	};
 
-	refreshQuotes();
 	startTimer();
 
 	if (typeof document !== 'undefined') {
