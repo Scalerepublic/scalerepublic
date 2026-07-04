@@ -48,18 +48,20 @@ export class UniStockClient implements StockDataClient {
     }
 
     async getQuote(symbol: string): Promise<StockQuote> {
-        // The /price endpoint is rate-limited to 1 request per hor per symbol which is
-        // atrocious for testing. Since it just returns a random number between that days
-        // high and low, we just replicate it here.
         const raw = await this.get(`/stocks/${symbol}`)
         const data = DailyResponseSchema.parse(raw)
-        const price = data.stock_low + Math.random() * (data.stock_high - data.stock_low)
-        return { symbol: data.stock_symbol, price, tradingDay: new Date(data.date) }
-
-        // Original price endpoint. We may want to enable this in production
-        // const raw = await this.get(`/stocks/${symbol}/price`)
-        // const data = PriceResponseSchema.parse(raw)
-        // return { symbol: data.stock_symbol, price: data.stock_price, tradingDay: new Date() }
+        return {
+            symbol: data.stock_symbol,
+            price: data.stock_close,
+            tradingDay: new Date(data.date),
+            dailyBar: {
+                tradingDate: data.date,
+                open: data.stock_open,
+                high: data.stock_high,
+                low: data.stock_low,
+                close: data.stock_close,
+            },
+        }
     }
 
     private formatDateParam(date: Date): string {

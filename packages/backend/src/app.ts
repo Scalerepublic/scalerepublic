@@ -16,6 +16,7 @@ import { registerUserRoutes } from "./modules/user/user.routes.ts";
  */
 export type WorkerBindings = {
     HYPERDRIVE: { connectionString: string };
+    MARKET_HYPERDRIVE?: { connectionString: string };
     BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_URL?: string;
 };
@@ -31,15 +32,28 @@ const hasConnectionString = (env: unknown): env is WorkerBindings =>
  * requests, and Hyperdrive pools the underlying connections so this is cheap.
  * The caller is responsible for closing the returned `client`.
  */
-export const createWorkerContext = (env: WorkerBindings): { ctx: AppVars; client: DbClient } => {
+export const createWorkerContext = (env: WorkerBindings): { ctx: AppVars; clients: DbClient[] } => {
     const { db, client } = createDb(env.HYPERDRIVE.connectionString);
+    const clients: DbClient[] = [client];
+    let marketDb: ReturnType<typeof createDb>["db"] | undefined;
+
+    if (
+        typeof env.MARKET_HYPERDRIVE?.connectionString === "string"
+        && env.MARKET_HYPERDRIVE.connectionString !== ""
+    ) {
+        const market = createDb(env.MARKET_HYPERDRIVE.connectionString);
+        marketDb = market.db;
+        clients.push(market.client);
+    }
+
     const ctx = createAppContext(db, {
+        marketDb,
         auth: {
             secret: env.BETTER_AUTH_SECRET,
             baseURL: env.BETTER_AUTH_URL,
         },
     });
-    return { ctx, client };
+    return { ctx, clients };
 };
 
 // Singleton context for the local Bun runtime (DATABASE_URL). Reusing a
@@ -51,30 +65,28 @@ export const createApp = (staticCtx?: AppVars): App => {
 
     app.use(async (c, next) => {
         let ctx: AppVars;
-        let client: DbClient | undefined;
+        let clients: DbClient[] | undefined;
 
         if (staticCtx) {
             ctx = staticCtx;
         } else if (hasConnectionString(c.env)) {
-            // Cloudflare Workers: one DB connection per request, closed after.
-            ({ ctx, client } = createWorkerContext(c.env));
+            ({ ctx, clients } = createWorkerContext(c.env));
         } else {
-            // Local Bun runtime: reuse a singleton ctx.
             ctx = bunCtx ??= createAppContext();
         }
 
         c.set("ctx", ctx);
 
         try {
-            // Load the persisted simulated-market clock before handling the
-            // request (the service instance is per-request on Workers).
             if (isMarketDebugEnabled()) {
                 await ctx.marketDebugService.loadState();
             }
             await next();
         } finally {
-            if (client) {
-                c.executionCtx.waitUntil(client.end());
+            if (clients) {
+                for (const client of clients) {
+                    c.executionCtx.waitUntil(client.end());
+                }
             }
         }
     });

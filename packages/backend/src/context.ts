@@ -18,6 +18,7 @@ import { UserService } from './modules/user/user.service.ts'
 
 export type AppVars = {
     db: DbConnection
+    marketDb?: DbConnection
     auth: Auth
     stockDataClient: StockDataClient
     stockService: StockService
@@ -44,15 +45,14 @@ export const useCtx = (c: AppContext): AppVars => c.get('ctx')
 
 export type AppContextOptions = {
     auth?: AuthOptions
+    marketDb?: DbConnection
 }
 
 export const createAppContext = (
     db: DbConnection = defaultDb,
     options: AppContextOptions = {},
 ): AppVars => {
-    // Services receive ctx by reference. ctx.xService properties are populated
-    // before any method can be called, so cross-service access is always safe.
-    const ctx = { db } as AppVars
+    const ctx = { db, marketDb: options.marketDb } as AppVars
     ctx.auth = createAuth(db, options.auth)
     if (process.env.NODE_ENV === 'test') {
         ctx.stockDataClient = new MockStockDataClient()

@@ -2,6 +2,13 @@ export type StockQuote = {
     symbol: string
     price: number
     tradingDay: Date
+    dailyBar?: {
+        tradingDate: string
+        open: number
+        high: number
+        low: number
+        close: number
+    }
 }
 
 export type StockMeta = {

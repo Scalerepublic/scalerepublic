@@ -69,7 +69,14 @@ export class SyncService {
 
         const quote = await this.ctx.stockDataClient.getQuote(ticker)
         await this.ctx.stockService.insertPrice(stockId, quote.price, this.ctx.stockDataClient.source, new Date())
-        await this.ctx.stockService.ensureDailyBarHistory(stockId, ticker)
+        if (quote.dailyBar) {
+            await this.ctx.stockService.upsertDailyBar(
+                stockId,
+                quote.dailyBar,
+                this.ctx.stockDataClient.source,
+            )
+        }
+        await this.ctx.stockService.ensureDailyBarHistory(stockId, ticker, 30, 30)
         await this.ctx.stockService.refreshStockMetrics(stockId)
 
         console.log(`[sync] ${ticker}: ${quote.price} (${quote.tradingDay.toISOString().slice(0, 10)})`)
@@ -137,6 +144,11 @@ export class SyncService {
      * guards against overlapping runs.
      */
     async runDueTick(tickers: string[]): Promise<void> {
+        if (this.ctx.marketDb !== undefined) {
+            console.log('[sync] Skipping sync — market data is read from prod')
+            return
+        }
+
         const syncIntervalMs = Number(process.env['SYNC_INTERVAL_MS'] ?? DEFAULT_SYNC_INTERVAL_MS)
 
         try {

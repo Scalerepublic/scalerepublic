@@ -51,6 +51,11 @@
 					"binding": "HYPERDRIVE",
 					"id": "6029c73c4e91463c94f87d129be4e47e",
 					"localConnectionString": "postgres://postgres:postgres@localhost:50025/scalerepublic"
+				},
+				{
+					"binding": "MARKET_HYPERDRIVE",
+					"id": "8f842c6819e2483c92cdccf52f62ab11",
+					"localConnectionString": "postgres://postgres:postgres@localhost:50025/scalerepublic"
 				}
 			],
 			"triggers": {

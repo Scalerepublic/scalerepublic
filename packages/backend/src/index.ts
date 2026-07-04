@@ -28,11 +28,11 @@ export default {
         env: WorkerBindings,
         ctx: CronExecutionContext,
     ): Promise<void> => {
-        const { ctx: appCtx, client } = createWorkerContext(env);
+        const { ctx: appCtx, clients } = createWorkerContext(env);
         ctx.waitUntil(
             appCtx.syncService
                 .runDueTick(parseTrackedTickers())
-                .finally(() => client.end()),
+                .finally(() => Promise.all(clients.map((client) => client.end()))),
         );
     },
 };
