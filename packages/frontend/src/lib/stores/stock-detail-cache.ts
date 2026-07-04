@@ -9,3 +9,11 @@ export function getCachedStockDetail(ticker: string): BackendStockDetail | undef
 export function setCachedStockDetail(ticker: string, detail: BackendStockDetail): void {
 	cache.set(ticker, detail);
 }
+
+export function clearCachedStockDetail(ticker?: string): void {
+	if (ticker) {
+		cache.delete(ticker);
+		return;
+	}
+	cache.clear();
+}

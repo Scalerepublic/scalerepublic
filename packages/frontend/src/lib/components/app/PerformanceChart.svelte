@@ -2,6 +2,7 @@
 	import { cn, formatCurrency, formatPercent } from '$lib/utils';
 	import {
 		filterPerformanceByGranularity,
+		type PerformanceChartMode,
 		type PerformanceGranularity,
 		type PerformancePoint
 	} from '$lib/performance-history';
@@ -10,13 +11,21 @@
 		data,
 		granularity = $bindable<PerformanceGranularity>('daily'),
 		loading = false,
+		mode = 'portfolio',
+		subtitle,
 		onGranularityChange
 	}: {
 		data: PerformancePoint[];
 		granularity?: PerformanceGranularity;
 		loading?: boolean;
+		mode?: PerformanceChartMode;
+		subtitle?: string;
 		onGranularityChange?: (granularity: PerformanceGranularity) => void;
 	} = $props();
+
+	const chartSubtitle = $derived(
+		subtitle ?? (mode === 'stock' ? 'Closing price' : 'Mark-to-market portfolio value')
+	);
 
 	const granularityOptions: { value: PerformanceGranularity; label: string }[] = [
 		{ value: 'daily', label: 'Daily' },
@@ -52,7 +61,8 @@
 							p != null && typeof p.date === 'string' && Number.isFinite(p.value)
 					)
 				: [],
-			granularity
+			granularity,
+			mode
 		)
 	);
 
@@ -135,6 +145,19 @@
 	});
 
 	const periodLabel = $derived.by(() => {
+		if (mode === 'stock') {
+			switch (granularity) {
+				case 'weekly':
+					return 'past 7 days';
+				case 'monthly':
+					return 'past 30 days';
+				case 'yearly':
+					return 'past 90 days';
+				default:
+					return 'past 30 days';
+			}
+		}
+
 		switch (granularity) {
 			case 'weekly':
 				return 'past 7 days';
@@ -204,7 +227,7 @@
 			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
 				Performance
 			</h2>
-			<p class="mt-0.5 text-xs text-muted-foreground">Mark-to-market portfolio value</p>
+			<p class="mt-0.5 text-xs text-muted-foreground">{chartSubtitle}</p>
 		</div>
 		<div class="text-right">
 			{#if activePoint}

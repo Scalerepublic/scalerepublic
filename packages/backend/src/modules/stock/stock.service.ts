@@ -589,6 +589,29 @@ export class StockService {
         await this.ensureDailyBarHistory(stockId, ticker, days, DETAIL_DAILY_BAR_FETCHES)
     }
 
+    private async getChartPriceHistory(
+        stockId: string,
+        ticker: string,
+        days: number,
+    ): Promise<Array<{ date: string; close: number }>> {
+        const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
+        const dailyBars = await this.getCachedDailyBarHistory(stockId, days)
+        const closeByDate = new Map(dailyBars.map((bar) => [bar.date, bar.close]))
+
+        const from = this.addUtcDays(new Date(), -(days - 1))
+        const priceRows = await this.getPriceHistory(ticker, from, new Date()) ?? []
+
+        for (const row of priceRows) {
+            const date = this.formatUtcDate(row.recordedAt)
+            if (date < fromDate) continue
+            closeByDate.set(date, row.price)
+        }
+
+        return [...closeByDate.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([date, close]) => ({ date, close }))
+    }
+
     async getStockDetail(ticker: string, historyDays = HISTORY_DAYS): Promise<StockDetail | null> {
         const [stockRow] = await this.ctx.db
             .select()
@@ -601,7 +624,11 @@ export class StockService {
         const enrichedStock = await this.ensureStockMetadata(stockRow)
 
         await this.ensureDetailDailyBarHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
-        let priceHistory = await this.getCachedDailyBarHistory(enrichedStock.id, historyDays)
+        const priceHistory = await this.getChartPriceHistory(
+            enrichedStock.id,
+            enrichedStock.ticker,
+            historyDays,
+        )
 
         const latestPrice = await this.getLatestPriceByStockId(enrichedStock.id)
         const priceTablePreviousClose = await this.getLatestPriceByStockId(
@@ -609,22 +636,14 @@ export class StockService {
             this.previousDayEnd(),
         )
 
-        if (priceHistory.length === 0) {
-            const from = this.addUtcDays(new Date(), -(historyDays - 1))
-            const fallback = await this.getPriceHistory(ticker, from, new Date())
-            priceHistory = (fallback ?? []).map((point) => ({
-                date: this.formatUtcDate(point.recordedAt),
-                close: point.price,
-            }))
-        }
-
+        const metricsHistory = priceHistory.slice(-HISTORY_DAYS)
         const performance = this.computePerformanceMetrics(
             latestPrice,
-            priceHistory,
+            metricsHistory,
             priceTablePreviousClose,
         )
 
-        if (priceHistory.length >= MIN_BARS_FOR_METRICS) {
+        if (metricsHistory.length >= MIN_BARS_FOR_METRICS) {
             await this.persistStockMetrics(enrichedStock.id, performance)
         }
 

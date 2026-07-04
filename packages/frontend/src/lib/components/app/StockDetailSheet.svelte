@@ -5,7 +5,7 @@
 	import TradeSheet from './TradeSheet.svelte';
 	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendStockDetail } from '$lib/api/backend-types';
-	import type { PerformancePoint } from '$lib/performance-history';
+	import type { PerformanceGranularity, PerformancePoint } from '$lib/performance-history';
 	import { getCachedStockDetail, setCachedStockDetail } from '$lib/stores/stock-detail-cache';
 	import { marketStore } from '$lib/stores/market.svelte';
 	import { formatCurrency } from '$lib/utils';
@@ -33,6 +33,9 @@
 	let error = $state<string | null>(null);
 	let tradeOpen = $state(false);
 	let activeTicker = $state<string | null>(null);
+	let chartGranularity = $state<PerformanceGranularity>('daily');
+
+	const STOCK_CHART_HISTORY_DAYS = 90;
 
 	const displayPrice = $derived(detail?.performance.latestPrice ?? stock.currentPrice);
 	const periodChangePercent = $derived(
@@ -71,10 +74,11 @@
 		if (activeTicker === ticker) return;
 
 		activeTicker = ticker;
+		chartGranularity = 'daily';
 		error = null;
 
 		const cached = getCachedStockDetail(ticker);
-		if (cached) {
+		if (cached && cached.priceHistory.length >= 14) {
 			detail = cached;
 			loading = false;
 			marketStore.applyDetailMetrics(ticker, {
@@ -95,7 +99,7 @@
 		try {
 			const res = await api.api.v1.stocks[':ticker'].detail.$get({
 				param: { ticker },
-				query: {}
+				query: { historyDays: String(STOCK_CHART_HISTORY_DAYS) }
 			});
 			const loaded = await parseApiData<BackendStockDetail>(res);
 			if (activeTicker !== ticker) return;
@@ -208,7 +212,11 @@
 									Recent performance
 								</p>
 								<div class="border border-border bg-muted/30 p-3">
-									<PerformanceChart data={chartData} />
+									<PerformanceChart
+										data={chartData}
+										mode="stock"
+										bind:granularity={chartGranularity}
+									/>
 								</div>
 							</div>
 						{/if}

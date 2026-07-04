@@ -5,12 +5,23 @@ export interface PerformancePoint {
 
 export type PerformanceGranularity = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
-const windowDays: Record<PerformanceGranularity, number | null> = {
+export type PerformanceChartMode = 'portfolio' | 'stock';
+
+export const portfolioWindowDays: Record<PerformanceGranularity, number | null> = {
 	daily: null,
 	weekly: 7,
 	monthly: 30,
 	yearly: 365
 };
+
+export const stockWindowDays: Record<PerformanceGranularity, number> = {
+	daily: 30,
+	weekly: 7,
+	monthly: 30,
+	yearly: 90
+};
+
+const windowDays: Record<PerformanceGranularity, number | null> = portfolioWindowDays;
 
 const startOfUtcDay = (date: Date): Date => {
 	const d = new Date(date);
@@ -26,9 +37,11 @@ const addUtcDays = (date: Date, days: number): Date => {
 
 export function filterPerformanceByGranularity(
 	points: PerformancePoint[],
-	granularity: PerformanceGranularity
+	granularity: PerformanceGranularity,
+	mode: PerformanceChartMode = 'portfolio'
 ): PerformancePoint[] {
-	const days = windowDays[granularity];
+	const days =
+		mode === 'stock' ? stockWindowDays[granularity] : windowDays[granularity];
 	if (days === null || points.length === 0) {
 		return points;
 	}
