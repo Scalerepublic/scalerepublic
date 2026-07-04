@@ -76,6 +76,7 @@ class MarketStore {
 	private trendingInFlight: Promise<void> | null = null;
 	private sectorsInFlight: Promise<void> | null = null;
 	private browseInFlight: Promise<void> | null = null;
+	private browseRequestId = 0;
 
 	private rememberStocks(stocks: Stock[]) {
 		for (const stock of stocks) {
@@ -122,14 +123,14 @@ class MarketStore {
 		silent?: boolean;
 		force?: boolean;
 	}) {
-		if (this.browseInFlight) {
-			return this.browseInFlight;
-		}
-
-		this.browseInFlight = this.fetchBrowse(options).finally(() => {
-			this.browseInFlight = null;
+		const requestId = ++this.browseRequestId;
+		const run = this.fetchBrowse(options, requestId).finally(() => {
+			if (this.browseRequestId === requestId) {
+				this.browseInFlight = null;
+			}
 		});
-		return this.browseInFlight;
+		this.browseInFlight = run;
+		return run;
 	}
 
 	async load(options?: { silent?: boolean; force?: boolean }) {
@@ -208,14 +209,17 @@ class MarketStore {
 		}
 	}
 
-	private async fetchBrowse(options: {
-		sector?: string;
-		q?: string;
-		page?: number;
-		limit?: number;
-		silent?: boolean;
-		force?: boolean;
-	}) {
+	private async fetchBrowse(
+		options: {
+			sector?: string;
+			q?: string;
+			page?: number;
+			limit?: number;
+			silent?: boolean;
+			force?: boolean;
+		},
+		requestId: number,
+	) {
 		const silent = options.silent ?? false;
 		const force = options.force ?? false;
 		const page = options.page ?? 1;
@@ -230,6 +234,9 @@ class MarketStore {
 				API_CACHE_TTL_MS.stocksList
 			);
 			if (cached !== null) {
+				if (requestId !== this.browseRequestId) {
+					return;
+				}
 				const items = this.mapRows(cached.items);
 				this.browse = { items, total: cached.total, page: cached.page, limit: cached.limit, sector, q };
 				this.rememberStocks(items);
@@ -250,6 +257,9 @@ class MarketStore {
 					...(sector ? { sector } : {})
 				}
 			});
+			if (requestId !== this.browseRequestId) {
+				return;
+			}
 			const payload = await parseApiData<BackendStockListResponse>(res);
 			setApiCache(cacheKey, payload);
 			const items = this.mapRows(payload.items);
@@ -263,8 +273,14 @@ class MarketStore {
 			};
 			this.rememberStocks(items);
 		} catch (e) {
+			if (requestId !== this.browseRequestId) {
+				return;
+			}
 			this.error = e instanceof Error ? e.message : 'Failed to load stocks';
 		} finally {
+			if (requestId !== this.browseRequestId) {
+				return;
+			}
 			if (!silent) {
 				this.loadingBrowse = false;
 			}

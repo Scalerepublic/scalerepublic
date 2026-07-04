@@ -11,7 +11,7 @@ import { getSectorTickers, MARKET_SECTORS, type MarketSectorId } from './market-
 
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
-const DETAIL_DAILY_BAR_FETCHES = 30
+const ON_DEMAND_DETAIL_BAR_FETCHES = 12
 const MIN_BARS_FOR_METRICS = 2
 
 export { HISTORY_DAYS, MAX_DAILY_BAR_FETCHES }
@@ -772,7 +772,7 @@ export class StockService {
         }
 
         const companyName = stockRow.companyName
-        const description = this.buildPlaceholderDescription(companyName) // TODO, GET REAL DESCRIPTION
+        const description = this.buildPlaceholderDescription(companyName)
 
         if (stockRow.companyName !== stockRow.ticker) {
             await this.ctx.db
@@ -784,7 +784,7 @@ export class StockService {
 
         const meta = await this.ctx.stockDataClient.getStockMeta(stockRow.ticker)
         const resolvedName = meta?.name ?? companyName
-        const resolvedDescription = this.buildPlaceholderDescription(resolvedName) // TODO, GET REAL DESCRIPTION
+        const resolvedDescription = this.buildPlaceholderDescription(resolvedName)
         await this.ctx.db
             .update(stock)
             .set({
@@ -923,8 +923,55 @@ export class StockService {
         }
     }
 
-    private async ensureDetailDailyBarHistory(stockId: string, ticker: string, days: number): Promise<void> {
-        await this.ensureDailyBarHistory(stockId, ticker, days, DETAIL_DAILY_BAR_FETCHES)
+    private async seedLatestPriceFromHistory(
+        stockId: string,
+        priceHistory: Array<{ date: string; close: number }>,
+    ): Promise<number | null> {
+        const existing = await this.getLatestPriceByStockId(stockId)
+        if (existing !== null) {
+            return existing
+        }
+
+        const lastClose = priceHistory.at(-1)?.close ?? null
+        if (lastClose === null) {
+            return null
+        }
+
+        await this.insertPrice(
+            stockId,
+            lastClose,
+            this.ctx.stockDataClient.source,
+            new Date(),
+        )
+        return lastClose
+    }
+
+    private async prefetchDetailHistory(
+        stockId: string,
+        ticker: string,
+        days: number,
+    ): Promise<void> {
+        await this.cacheMissingDailyBars(stockId, ticker, days, ON_DEMAND_DETAIL_BAR_FETCHES)
+
+        const history = await this.getCachedDailyBarHistory(stockId, days)
+        if (history.length >= Math.min(days, MIN_BARS_FOR_METRICS)) {
+            return
+        }
+
+        await this.cacheMissingDailyBars(stockId, ticker, days, ON_DEMAND_DETAIL_BAR_FETCHES)
+    }
+
+    private async detailCacheIsWarm(
+        stockId: string,
+        days: number,
+    ): Promise<{ warm: boolean; history: Array<{ date: string; close: number }> }> {
+        const history = await this.getCachedDailyBarHistory(stockId, days)
+        if (history.length < MIN_BARS_FOR_METRICS) {
+            return { warm: false, history }
+        }
+
+        const latestPrice = await this.getLatestPriceByStockId(stockId)
+        return { warm: latestPrice !== null, history }
     }
 
     private async getChartPriceHistory(
@@ -961,14 +1008,19 @@ export class StockService {
 
         const enrichedStock = await this.ensureStockMetadata(stockRow)
 
-        await this.ensureDetailDailyBarHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
+        const cache = await this.detailCacheIsWarm(enrichedStock.id, historyDays)
+        if (!cache.warm) {
+            await this.prefetchDetailHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
+        }
+
         const priceHistory = await this.getChartPriceHistory(
             enrichedStock.id,
             enrichedStock.ticker,
             historyDays,
         )
 
-        const latestPrice = await this.getLatestPriceByStockId(enrichedStock.id)
+        const latestPrice = await this.seedLatestPriceFromHistory(enrichedStock.id, priceHistory)
+            ?? await this.getLatestPriceByStockId(enrichedStock.id)
         const priceTablePreviousClose = await this.getLatestPriceByStockId(
             enrichedStock.id,
             this.previousDayEnd(),

@@ -22,6 +22,7 @@
 	let view = $state<MarketView>('home');
 	let activeSector = $state<string | null>(null);
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
+	let lastSearchQuery = $state('');
 
 	const browse = $derived(marketStore.browse);
 	const totalPages = $derived(
@@ -48,19 +49,73 @@
 	});
 
 	function openBrowse(sector?: string) {
+		if (searchTimer) {
+			clearTimeout(searchTimer);
+			searchTimer = null;
+		}
+		lastSearchQuery = '';
+		query = '';
 		view = 'browse';
 		activeSector = sector ?? null;
 		void marketStore.browseStocks({
 			sector: sector,
 			page: 1,
-			limit: MARKET_PAGE_SIZE
+			limit: MARKET_PAGE_SIZE,
+			force: true
 		});
 	}
 
 	function goHome() {
+		if (searchTimer) {
+			clearTimeout(searchTimer);
+			searchTimer = null;
+		}
 		view = 'home';
 		activeSector = null;
+		lastSearchQuery = '';
 		query = '';
+	}
+
+	function handleQueryInput(event: Event) {
+		const value = (event.currentTarget as HTMLInputElement).value;
+		const previousQuery = query.trim();
+		query = value;
+
+		if (searchTimer) {
+			clearTimeout(searchTimer);
+			searchTimer = null;
+		}
+
+		const trimmed = value.trim();
+		if (trimmed.length === 0) {
+			if (previousQuery.length > 0 || lastSearchQuery.length > 0) {
+				lastSearchQuery = '';
+				if (activeSector) {
+					view = 'browse';
+					void marketStore.browseStocks({
+						sector: activeSector,
+						page: 1,
+						limit: MARKET_PAGE_SIZE,
+						force: true
+					});
+				} else {
+					goHome();
+				}
+			}
+			return;
+		}
+
+		searchTimer = setTimeout(() => {
+			lastSearchQuery = trimmed;
+			view = 'browse';
+			activeSector = null;
+			void marketStore.browseStocks({
+				q: trimmed,
+				page: 1,
+				limit: MARKET_PAGE_SIZE,
+				force: true
+			});
+		}, 320);
 	}
 
 	function loadPage(nextPage: number) {
@@ -72,39 +127,10 @@
 			q: query.trim() || undefined,
 			page: nextPage,
 			limit: MARKET_PAGE_SIZE,
-			silent: true
+			silent: true,
+			force: true
 		});
 	}
-
-	function scheduleSearch(value: string) {
-		if (searchTimer) {
-			clearTimeout(searchTimer);
-		}
-
-		const trimmed = value.trim();
-		if (trimmed.length === 0) {
-			if (activeSector) {
-				return;
-			}
-			if (view === 'browse') {
-				goHome();
-			}
-			return;
-		}
-
-		searchTimer = setTimeout(() => {
-			view = 'browse';
-			void marketStore.browseStocks({
-				q: trimmed,
-				page: 1,
-				limit: MARKET_PAGE_SIZE
-			});
-		}, 320);
-	}
-
-	$effect(() => {
-		scheduleSearch(query);
-	});
 
 	onMount(() => {
 		void marketStore.loadSectors();
@@ -122,7 +148,8 @@
 		/>
 		<input
 			type="text"
-			bind:value={query}
+			value={query}
+			oninput={handleQueryInput}
 			placeholder="Search by ticker or company name…"
 			class="h-11 w-full border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
 		/>

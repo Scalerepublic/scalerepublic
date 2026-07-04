@@ -35,9 +35,23 @@
 	let activeTicker = $state<string | null>(null);
 	let chartGranularity = $state<PerformanceGranularity>('daily');
 
-	const STOCK_CHART_HISTORY_DAYS = 90;
+	const STOCK_CHART_HISTORY_DAYS = 30;
 
-	const displayPrice = $derived(detail?.performance.latestPrice ?? stock.currentPrice);
+	function resolveDetailPrice(
+		loaded: BackendStockDetail | null,
+		fallbackPrice: number
+	): number {
+		if (loaded?.performance.latestPrice != null) {
+			return loaded.performance.latestPrice;
+		}
+		const lastBar = loaded?.priceHistory.at(-1)?.close;
+		if (lastBar != null) {
+			return lastBar;
+		}
+		return fallbackPrice;
+	}
+
+	const displayPrice = $derived(resolveDetailPrice(detail, stock.currentPrice));
 	const periodChangePercent = $derived(
 		detail?.performance.periodChangePercent ?? stock.periodChangePercent ?? null
 	);
@@ -74,15 +88,16 @@
 		if (activeTicker === ticker) return;
 
 		activeTicker = ticker;
+		detail = null;
 		chartGranularity = 'daily';
 		error = null;
 
 		const cached = getCachedStockDetail(ticker);
-		if (cached && cached.priceHistory.length >= 14) {
+		if (cached && cached.priceHistory.length >= 2) {
 			detail = cached;
 			loading = false;
 			marketStore.applyDetailMetrics(ticker, {
-				currentPrice: cached.performance.latestPrice ?? stock.currentPrice,
+				currentPrice: resolveDetailPrice(cached, stock.currentPrice),
 				dayChange: cached.performance.dayChange,
 				dayChangePercent: cached.performance.dayChangePercent,
 				periodChangePercent: cached.performance.periodChangePercent
@@ -105,8 +120,9 @@
 			if (activeTicker !== ticker) return;
 			detail = loaded;
 			setCachedStockDetail(ticker, loaded);
+			const resolvedPrice = resolveDetailPrice(loaded, stock.currentPrice);
 			marketStore.applyDetailMetrics(ticker, {
-				currentPrice: loaded.performance.latestPrice ?? stock.currentPrice,
+				currentPrice: resolvedPrice,
 				dayChange: loaded.performance.dayChange,
 				dayChangePercent: loaded.performance.dayChangePercent,
 				periodChangePercent: loaded.performance.periodChangePercent
