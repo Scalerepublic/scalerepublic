@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 
 import { createApp } from '../../src/app.ts'
 import { createAppContext } from '../../src/context.ts'
@@ -93,5 +93,28 @@ describe('catalog backfill helpers', () => {
         const pending = await ctx.stockService.listStocksNeedingHistory(2)
         expect(pending[0]?.id).toBe(emptyId)
         expect(pending[1]?.id).toBe(partialId)
+    })
+
+    test('backfillStockHistory stores bars on requested calendar dates', async () => {
+        const stockId = await seedImportedStock('GME')
+        mockClient.setMockStocks([{ symbol: 'GME', name: 'GameStop Corporation Common Stock', price: 27 }])
+        const originalGetDailyBar = mockClient.getDailyBar.bind(mockClient)
+        mockClient.getDailyBar = async (symbol, date) => {
+            const bar = await originalGetDailyBar(symbol, date)
+            return bar ? { ...bar, tradingDate: '2020-01-01' } : null
+        }
+
+        await ctx.stockService.backfillStockHistory(stockId, 'GME', { maxFetches: 5 })
+
+        const bars = await db
+            .select({ tradingDate: stockDailyBar.tradingDate })
+            .from(stockDailyBar)
+            .where(eq(stockDailyBar.stockId, stockId))
+            .orderBy(asc(stockDailyBar.tradingDate))
+
+        expect(bars.length).toBe(5)
+        for (const bar of bars) {
+            expect(String(bar.tradingDate)).not.toBe('2020-01-01')
+        }
     })
 })

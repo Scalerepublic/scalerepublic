@@ -11,7 +11,7 @@ import { getSectorTickers, MARKET_SECTORS, type MarketSectorId } from './market-
 
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
-const ON_DEMAND_DETAIL_BAR_FETCHES = 12
+const ON_DEMAND_DETAIL_BAR_FETCHES = HISTORY_DAYS
 const MIN_BARS_FOR_METRICS = 2
 
 export { HISTORY_DAYS, MAX_DAILY_BAR_FETCHES }
@@ -867,7 +867,7 @@ export class StockService {
             const bar = await this.ctx.stockDataClient.getDailyBar(ticker, this.addUtcDays(today, -offset))
             if (bar === null) continue
 
-            const barDate = this.normalizeTradingDate(bar.tradingDate)
+            const barDate = tradingDate
 
             if (
                 resolvedName === null

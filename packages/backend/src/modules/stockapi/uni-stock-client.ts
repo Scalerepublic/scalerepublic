@@ -89,7 +89,7 @@ export class UniStockClient implements StockDataClient {
             return {
                 symbol: data.stock_symbol,
                 name: data.stock_name,
-                tradingDate: data.date,
+                tradingDate: date !== undefined ? this.formatDateParam(date) : data.date,
                 open: data.stock_open,
                 high: data.stock_high,
                 low: data.stock_low,
