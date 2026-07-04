@@ -31,7 +31,8 @@ export function bootstrapAppData() {
 		syncMarketClock(),
 		portfolioStore.load(),
 		performanceStore.load(userId),
-		marketStore.load(),
+		marketStore.loadTrending(),
+		marketStore.loadSectors(),
 		userStore.load()
 	]).then(() => {
 		if (generation !== loadGeneration || authStore.user?.id !== userId) {

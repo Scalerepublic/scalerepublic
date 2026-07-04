@@ -3,12 +3,28 @@ import { Hono } from 'hono'
 
 import { useCtx, type App, type AppEnv } from '../../context.ts'
 
-import { calculateStockBodySchema, priceHistoryQuerySchema, stockDetailQuerySchema } from './stock.schema.ts'
+import {
+    calculateStockBodySchema,
+    priceHistoryQuerySchema,
+    stockDetailQuerySchema,
+    stockListQuerySchema,
+    stockTrendingQuerySchema,
+} from './stock.schema.ts'
 
 export const stockRoutes = new Hono<AppEnv>()
-    .get('/api/v1/stocks', async (c) => {
+    .get('/api/v1/stocks/trending', zValidator('query', stockTrendingQuerySchema), async (c) => {
+        const { limit } = c.req.valid('query')
         const { stockService } = useCtx(c)
-        return c.json({ data: await stockService.getAll() })
+        return c.json({ data: await stockService.getTrending(limit) })
+    })
+    .get('/api/v1/stocks/sectors', async (c) => {
+        const { stockService } = useCtx(c)
+        return c.json({ data: await stockService.getSectorCatalog() })
+    })
+    .get('/api/v1/stocks', zValidator('query', stockListQuerySchema), async (c) => {
+        const query = c.req.valid('query')
+        const { stockService } = useCtx(c)
+        return c.json({ data: await stockService.listStocks(query) })
     })
     .get('/api/v1/stocks/:ticker/price-history', zValidator('query', priceHistoryQuerySchema), async (c) => {
         const { ticker } = c.req.param()

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte, ne, or, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, ne, or, sql, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockDailyBar, stockPrice } from '../../db/schema/stock/index.ts'
@@ -7,11 +7,33 @@ import {
     DEBUG_MARKET_PRICE_SOURCE,
     isMarketDebugEnabled,
 } from '../../lib/market-debug.ts'
+import { getSectorTickers, MARKET_SECTORS, type MarketSectorId } from './market-sectors.ts'
 
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
 const DETAIL_DAILY_BAR_FETCHES = 30
 const MIN_BARS_FOR_METRICS = 2
+
+export { HISTORY_DAYS, MAX_DAILY_BAR_FETCHES }
+
+export type StockListResult = {
+    items: StockSummary[]
+    total: number
+    page: number
+    limit: number
+}
+
+export type MarketSectorSummary = {
+    id: MarketSectorId
+    label: string
+    description: string
+    count: number
+}
+
+export type MarketSectorCatalog = {
+    sectors: MarketSectorSummary[]
+    totalListings: number
+}
 
 export type StockSummary = {
     id: string
@@ -139,30 +161,34 @@ export class StockService {
 
         const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
 
-        const rows = await this.ctx.db
-            .select({
-                stockId: stockDailyBar.stockId,
-                tradingDate: stockDailyBar.tradingDate,
-                close: stockDailyBar.close,
-            })
-            .from(stockDailyBar)
-            .where(and(
-                inArray(stockDailyBar.stockId, stockIds),
-                gte(stockDailyBar.tradingDate, fromDate),
-            ))
-            .orderBy(asc(stockDailyBar.tradingDate))
+        try {
+            const rows = await this.ctx.db
+                .select({
+                    stockId: stockDailyBar.stockId,
+                    tradingDate: stockDailyBar.tradingDate,
+                    close: stockDailyBar.close,
+                })
+                .from(stockDailyBar)
+                .where(and(
+                    inArray(stockDailyBar.stockId, stockIds),
+                    gte(stockDailyBar.tradingDate, fromDate),
+                ))
+                .orderBy(asc(stockDailyBar.tradingDate))
 
-        const histories = new Map<string, Array<{ date: string; close: number }>>()
-        for (const row of rows) {
-            const history = histories.get(row.stockId) ?? []
-            history.push({
-                date: row.tradingDate,
-                close: parseFloat(row.close),
-            })
-            histories.set(row.stockId, history)
+            const histories = new Map<string, Array<{ date: string; close: number }>>()
+            for (const row of rows) {
+                const history = histories.get(row.stockId) ?? []
+                history.push({
+                    date: row.tradingDate,
+                    close: parseFloat(row.close),
+                })
+                histories.set(row.stockId, history)
+            }
+
+            return histories
+        } catch {
+            return new Map()
         }
-
-        return histories
     }
 
     private parsePersistedMetric(value: string | null | undefined): number | null {
@@ -240,6 +266,188 @@ export class StockService {
         await this.persistStockMetrics(stockId, performance)
     }
 
+    private buildLatestPriceSubquery() {
+        const filters = this.priceFilters()
+        return this.ctx.db
+            .selectDistinctOn([stockPrice.stockId], {
+                stockId: stockPrice.stockId,
+                price: stockPrice.price,
+            })
+            .from(stockPrice)
+            .where(and(...filters))
+            .orderBy(stockPrice.stockId, desc(stockPrice.recordedAt))
+            .as('latest_price')
+    }
+
+    private mapListRowToSummary(row: {
+        id: string
+        ticker: string
+        companyName: string
+        exchange: string
+        currency: string
+        latestPrice: string | null
+        periodChangePercent: string | null
+        dayChangePercent: string | null
+    }): StockSummary {
+        const latestPrice = row.latestPrice !== null ? parseFloat(row.latestPrice) : null
+        const persistedPeriod = this.parsePersistedMetric(row.periodChangePercent)
+        const persistedDay = this.parsePersistedMetric(row.dayChangePercent)
+        let dayChange: number | null = null
+
+        if (persistedDay !== null && latestPrice !== null) {
+            dayChange = latestPrice - latestPrice / (1 + persistedDay / 100)
+        }
+
+        return {
+            id: row.id,
+            ticker: row.ticker,
+            companyName: row.companyName,
+            exchange: row.exchange,
+            currency: row.currency,
+            latestPrice,
+            previousClose: null,
+            dayChange,
+            dayChangePercent: persistedDay,
+            periodChangePercent: persistedPeriod,
+        }
+    }
+
+    private buildListWhereClause(options: {
+        q?: string
+        sector?: string
+    }): SQL | undefined {
+        const clauses: SQL[] = [eq(stock.isActive, true)]
+
+        const query = options.q?.trim()
+        if (query !== undefined && query.length > 0) {
+            const pattern = `%${query}%`
+            clauses.push(or(
+                ilike(stock.ticker, pattern),
+                ilike(stock.companyName, pattern),
+            )!)
+        }
+
+        const sector = options.sector?.trim()
+        if (sector !== undefined && sector.length > 0 && sector !== 'all') {
+            const tickers = getSectorTickers(sector)
+            if (tickers.length === 0) {
+                return sql`false`
+            }
+            clauses.push(inArray(stock.ticker, tickers))
+        }
+
+        return and(...clauses)
+    }
+
+    async listStocks(options: {
+        q?: string
+        sector?: string
+        page: number
+        limit: number
+    }): Promise<StockListResult> {
+        const page = Math.max(1, options.page)
+        const limit = Math.min(48, Math.max(1, options.limit))
+        const where = this.buildListWhereClause(options)
+
+        const [countRow] = await this.ctx.db
+            .select({ total: count() })
+            .from(stock)
+            .where(where)
+
+        const totalCount = Number(countRow?.total ?? 0)
+        if (totalCount === 0) {
+            return { items: [], total: 0, page, limit }
+        }
+
+        const latestPricePerStock = this.buildLatestPriceSubquery()
+        const offset = (page - 1) * limit
+
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                companyName: stock.companyName,
+                exchange: stock.exchange,
+                currency: stock.currency,
+                latestPrice: latestPricePerStock.price,
+                periodChangePercent: stock.periodChangePercent,
+                dayChangePercent: stock.dayChangePercent,
+            })
+            .from(stock)
+            .leftJoin(latestPricePerStock, eq(stock.id, latestPricePerStock.stockId))
+            .where(where)
+            .orderBy(asc(stock.ticker))
+            .limit(limit)
+            .offset(offset)
+
+        return {
+            items: rows.map((row) => this.mapListRowToSummary(row)),
+            total: totalCount,
+            page,
+            limit,
+        }
+    }
+
+    async getTrending(limit = 6): Promise<StockSummary[]> {
+        const latestPricePerStock = this.buildLatestPriceSubquery()
+
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                companyName: stock.companyName,
+                exchange: stock.exchange,
+                currency: stock.currency,
+                latestPrice: latestPricePerStock.price,
+                periodChangePercent: stock.periodChangePercent,
+                dayChangePercent: stock.dayChangePercent,
+            })
+            .from(stock)
+            .innerJoin(latestPricePerStock, eq(stock.id, latestPricePerStock.stockId))
+            .where(eq(stock.isActive, true))
+            .limit(Math.max(limit, 1) * 8)
+
+        return rows
+            .map((row) => this.mapListRowToSummary(row))
+            .sort((left, right) => {
+                const leftMove = Math.abs(left.dayChangePercent ?? left.periodChangePercent ?? 0)
+                const rightMove = Math.abs(right.dayChangePercent ?? right.periodChangePercent ?? 0)
+                return rightMove - leftMove
+            })
+            .slice(0, limit)
+    }
+
+    async getSectorCatalog(): Promise<MarketSectorCatalog> {
+        const summaries: MarketSectorSummary[] = []
+
+        for (const sector of MARKET_SECTORS) {
+            const [countRow] = await this.ctx.db
+                .select({ total: count() })
+                .from(stock)
+                .where(and(
+                    eq(stock.isActive, true),
+                    inArray(stock.ticker, [...sector.tickers]),
+                ))
+
+            summaries.push({
+                id: sector.id,
+                label: sector.label,
+                description: sector.description,
+                count: Number(countRow?.total ?? 0),
+            })
+        }
+
+        const [listingsRow] = await this.ctx.db
+            .select({ totalListings: count() })
+            .from(stock)
+            .where(eq(stock.isActive, true))
+
+        return {
+            sectors: summaries,
+            totalListings: Number(listingsRow?.totalListings ?? 0),
+        }
+    }
+
     async getAll(): Promise<StockSummary[]> {
         const filters = this.priceFilters()
         const latestPricePerStock = this.ctx.db
@@ -268,12 +476,17 @@ export class StockService {
             .where(eq(stock.isActive, true))
 
         const rowsNeedingFallback = rows.filter((row) => {
+            if (row.latestPrice === null) {
+                return false
+            }
             const persistedPeriod = this.parsePersistedMetric(row.periodChangePercent)
             const persistedDay = this.parsePersistedMetric(row.dayChangePercent)
             return persistedPeriod === null && persistedDay === null
         })
 
-        const fallbackIds = rowsNeedingFallback.map((row) => row.id)
+        const fallbackIds = rowsNeedingFallback
+            .slice(0, MAX_DAILY_BAR_FETCHES)
+            .map((row) => row.id)
         const previousDayEnd = this.previousDayEnd()
 
         const [dailyBarHistories, previousCloses] = await Promise.all([
@@ -353,6 +566,91 @@ export class StockService {
     async getStockId(ticker: string): Promise<string | null> {
         const row = await this.ctx.db.select({ id: stock.id }).from(stock).where(eq(stock.ticker, ticker)).limit(1)
         return row[0]?.id ?? null
+    }
+
+    async listStocksNeedingNames(limit: number): Promise<Array<{ id: string; ticker: string }>> {
+        return this.ctx.db
+            .select({ id: stock.id, ticker: stock.ticker })
+            .from(stock)
+            .where(and(
+                eq(stock.isActive, true),
+                sql`${stock.companyName} = ${stock.ticker}`,
+            ))
+            .orderBy(asc(stock.ticker))
+            .limit(limit)
+    }
+
+    async listStocksNeedingHistory(
+        limit: number,
+        days = HISTORY_DAYS,
+    ): Promise<Array<{ id: string; ticker: string }>> {
+        const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
+
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                barCount: count(stockDailyBar.id),
+            })
+            .from(stock)
+            .leftJoin(stockDailyBar, and(
+                eq(stockDailyBar.stockId, stock.id),
+                gte(stockDailyBar.tradingDate, fromDate),
+            ))
+            .where(eq(stock.isActive, true))
+            .groupBy(stock.id, stock.ticker)
+            .having(sql`count(${stockDailyBar.id}) < ${days}`)
+            .orderBy(sql`count(${stockDailyBar.id}) desc`, asc(stock.ticker))
+            .limit(limit)
+
+        return rows.map(({ id, ticker }) => ({ id, ticker }))
+    }
+
+    async applyStockNameFromApi(stockId: string, ticker: string): Promise<boolean> {
+        const meta = await this.ctx.stockDataClient.getStockMeta(ticker)
+        if (meta === null || meta.name === '' || meta.name === ticker) {
+            return false
+        }
+        await this.applyResolvedName(stockId, ticker, meta.name)
+        return true
+    }
+
+    async backfillStockHistory(
+        stockId: string,
+        ticker: string,
+        options?: { days?: number; maxFetches?: number },
+    ): Promise<void> {
+        const days = options?.days ?? HISTORY_DAYS
+        const maxFetches = options?.maxFetches ?? MAX_DAILY_BAR_FETCHES
+        const beforeCount = (await this.getCachedDailyBarHistory(stockId, days)).length
+        const { resolvedName } = await this.cacheMissingDailyBars(stockId, ticker, days, maxFetches)
+
+        if (resolvedName !== null && resolvedName !== '') {
+            await this.applyResolvedName(stockId, ticker, resolvedName)
+        }
+
+        const history = await this.getCachedDailyBarHistory(stockId, days)
+        if (history.length <= beforeCount) {
+            return
+        }
+
+        const todayStr = this.formatUtcDate(new Date())
+        const todayBar = history.find((bar) => bar.date === todayStr)
+        if (todayBar) {
+            const latestPrice = await this.getLatestPriceByStockId(stockId)
+            if (latestPrice === null) {
+                await this.insertPrice(
+                    stockId,
+                    todayBar.close,
+                    this.ctx.stockDataClient.source,
+                    new Date(),
+                )
+            }
+        }
+
+        if (history.length >= MIN_BARS_FOR_METRICS) {
+            await this.refreshStockMetrics(stockId)
+        }
     }
 
     async getTicker(stockId: string): Promise<string | null> {
@@ -502,12 +800,36 @@ export class StockService {
         }
     }
 
+    private async applyResolvedName(stockId: string, ticker: string, name: string): Promise<void> {
+        if (!name || name === ticker) {
+            return
+        }
+
+        const [row] = await this.ctx.db
+            .select({ companyName: stock.companyName })
+            .from(stock)
+            .where(eq(stock.id, stockId))
+            .limit(1)
+
+        if (!row || row.companyName !== ticker) {
+            return
+        }
+
+        await this.ctx.db
+            .update(stock)
+            .set({
+                companyName: name,
+                description: this.buildPlaceholderDescription(name),
+            })
+            .where(eq(stock.id, stockId))
+    }
+
     private async cacheMissingDailyBars(
         stockId: string,
         ticker: string,
         days: number,
         maxFetches = MAX_DAILY_BAR_FETCHES,
-    ): Promise<void> {
+    ): Promise<{ resolvedName: string | null }> {
         const today = new Date()
         today.setUTCHours(0, 0, 0, 0)
         const fromDate = this.formatUtcDate(this.addUtcDays(today, -(days - 1)))
@@ -521,6 +843,7 @@ export class StockService {
             ))
 
         const existingDates = new Set(existingRows.map((row) => row.tradingDate))
+        let resolvedName: string | null = null
 
         let attempts = 0
         for (let offset = 0; offset < days && attempts < maxFetches; offset += 1) {
@@ -531,6 +854,15 @@ export class StockService {
             attempts += 1
             const bar = await this.ctx.stockDataClient.getDailyBar(ticker, this.addUtcDays(today, -offset))
             if (bar === null) continue
+
+            if (
+                resolvedName === null
+                && bar.name !== ''
+                && bar.name !== ticker
+            ) {
+                resolvedName = bar.name
+            }
+
             await this.ctx.db.insert(stockDailyBar).values({
                 id: crypto.randomUUID(),
                 stockId,
@@ -543,6 +875,8 @@ export class StockService {
             }).onConflictDoNothing()
             existingDates.add(tradingDate)
         }
+
+        return { resolvedName }
     }
 
     private async getCachedDailyBarHistory(
@@ -551,22 +885,26 @@ export class StockService {
     ): Promise<Array<{ date: string; close: number }>> {
         const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
 
-        const rows = await this.ctx.db
-            .select({
-                tradingDate: stockDailyBar.tradingDate,
-                close: stockDailyBar.close,
-            })
-            .from(stockDailyBar)
-            .where(and(
-                eq(stockDailyBar.stockId, stockId),
-                gte(stockDailyBar.tradingDate, fromDate),
-            ))
-            .orderBy(asc(stockDailyBar.tradingDate))
+        try {
+            const rows = await this.ctx.db
+                .select({
+                    tradingDate: stockDailyBar.tradingDate,
+                    close: stockDailyBar.close,
+                })
+                .from(stockDailyBar)
+                .where(and(
+                    eq(stockDailyBar.stockId, stockId),
+                    gte(stockDailyBar.tradingDate, fromDate),
+                ))
+                .orderBy(asc(stockDailyBar.tradingDate))
 
-        return rows.map((row) => ({
-            date: row.tradingDate,
-            close: parseFloat(row.close),
-        }))
+            return rows.map((row) => ({
+                date: row.tradingDate,
+                close: parseFloat(row.close),
+            }))
+        } catch {
+            return []
+        }
     }
 
     async ensureDailyBarHistory(

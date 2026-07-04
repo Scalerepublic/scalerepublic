@@ -1,4 +1,5 @@
 import { ApiError } from '$lib/api';
+import { API_CACHE_TTL_MS, getApiCache, setApiCache } from '$lib/api-cache';
 import { api, parseApiData } from '$lib/api/client';
 import type { BackendPortfolioPayload } from '$lib/api/backend-types';
 import { mapPortfolioPayload } from '$lib/api/mappers';
@@ -13,23 +14,40 @@ class PortfolioStore {
 	private trackedPortfolioId: string | null = null;
 	private loadInFlight: Promise<void> | null = null;
 
-	async load(options?: { silent?: boolean }) {
+	async load(options?: { silent?: boolean; force?: boolean }) {
 		if (this.loadInFlight) {
 			return this.loadInFlight;
 		}
 
-		this.loadInFlight = this.fetchPortfolio(options?.silent ?? false).finally(() => {
+		this.loadInFlight = this.fetchPortfolio(options).finally(() => {
 			this.loadInFlight = null;
 		});
 		return this.loadInFlight;
 	}
 
-	private async fetchPortfolio(silent: boolean) {
+	private portfolioCacheKey(userId: string): string {
+		return `v1/users/${userId}/portfolio`;
+	}
+
+	private async fetchPortfolio(options?: { silent?: boolean; force?: boolean }) {
+		const silent = options?.silent ?? false;
+		const force = options?.force ?? false;
 		const userId = authStore.user?.id;
 		if (!userId) {
 			this._data = null;
 			this.trackedPortfolioId = null;
 			return;
+		}
+
+		const cacheKey = this.portfolioCacheKey(userId);
+		if (!force) {
+			const cached = getApiCache<ApiPortfolio>(cacheKey, API_CACHE_TTL_MS.portfolio);
+			if (cached !== null) {
+				this._data = cached;
+				this.trackedPortfolioId = cached.portfolioId;
+				this.error = null;
+				return;
+			}
 		}
 
 		if (!silent) {
@@ -45,6 +63,7 @@ class PortfolioStore {
 			if (mapped.portfolioId !== this.trackedPortfolioId) {
 				this.trackedPortfolioId = mapped.portfolioId;
 			}
+			setApiCache(cacheKey, mapped);
 			this._data = mapped;
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Failed to load portfolio';
@@ -71,7 +90,7 @@ class PortfolioStore {
 			isSuspended: boolean;
 			activePortfolioId: string | null;
 		}>(res);
-		await this.load();
+		await this.load({ force: true });
 		return data;
 	}
 
@@ -82,9 +101,7 @@ class PortfolioStore {
 		const portfolioId = this._data?.portfolioId;
 		if (!portfolioId) throw new Error(this.error ?? 'Portfolio not loaded');
 
-		const stock =
-			marketStore.stocks.find((s) => s.id === stockId) ??
-			marketStore.stocks.find((s) => s.ticker === stockId);
+		const stock = marketStore.findStock(stockId);
 		const price = stock?.currentPrice;
 		if (!price || price <= 0) throw new Error('Price unavailable');
 
@@ -92,7 +109,7 @@ class PortfolioStore {
 			json: { portfolioId, stockId, quantity, price }
 		});
 		await parseApiData(res);
-		await this.load();
+		await this.load({ force: true });
 	}
 
 	async sell(stockId: string, quantity: number) {
@@ -110,14 +127,14 @@ class PortfolioStore {
 			json: { portfolioId, stockId: holding?.stockId ?? stockId, quantity, price }
 		});
 		await parseApiData(res);
-		await this.load();
+		await this.load({ force: true });
 	}
 
 	private resolvePrice(stockId: string, fallback: number | null): number {
 		if (fallback !== null && fallback > 0) {
 			return fallback;
 		}
-		const fromMarket = marketStore.stocks.find((s) => s.id === stockId);
+		const fromMarket = marketStore.findStock(stockId);
 		return fromMarket?.currentPrice ?? 0;
 	}
 

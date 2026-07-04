@@ -12,6 +12,9 @@ const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 1000
 const RATE_LIMIT_BATCH_SIZE = 5
 const RATE_LIMIT_WINDOW_MS = 1000
+const DEFAULT_NAMES_BACKFILL_BATCH = 40
+const DEFAULT_HISTORY_BACKFILL_STOCKS = 20
+const DEFAULT_HISTORY_BARS_PER_STOCK = 10
 // Time after which a new instance is allowed to retake a taken lock
 // Essentially the maximum time the sync should take. Longer and we
 // assume another instance crashed while holding the lock
@@ -93,6 +96,77 @@ export class SyncService {
         }
     }
 
+    private readBackfillConfig(): {
+        namesPerTick: number
+        historyStocksPerTick: number
+        barsPerStock: number
+    } {
+        return {
+            namesPerTick: Number(process.env['CATALOG_BACKFILL_NAMES_PER_TICK'] ?? DEFAULT_NAMES_BACKFILL_BATCH),
+            historyStocksPerTick: Number(process.env['CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK'] ?? DEFAULT_HISTORY_BACKFILL_STOCKS),
+            barsPerStock: Number(process.env['CATALOG_BACKFILL_BARS_PER_STOCK'] ?? DEFAULT_HISTORY_BARS_PER_STOCK),
+        }
+    }
+
+    private async runRateLimitedStockJobs<T extends { ticker: string }>(
+        label: string,
+        stocks: T[],
+        job: (stock: T) => Promise<void>,
+    ): Promise<void> {
+        const batches = chunk(stocks, RATE_LIMIT_BATCH_SIZE)
+        for (let i = 0; i < batches.length; i++) {
+            if (i > 0) await sleep(RATE_LIMIT_WINDOW_MS)
+            const results = await Promise.allSettled(batches[i]!.map((stock) => job(stock)))
+            results.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                    const ticker = batches[i]![index]!.ticker
+                    console.error(
+                        `[sync/${label}] ${ticker} failed: ${result.reason instanceof Error ? result.reason.message : result.reason}`,
+                    )
+                }
+            })
+        }
+    }
+
+    private async backfillCatalogNames(batchSize: number): Promise<void> {
+        const stocks = await this.ctx.stockService.listStocksNeedingNames(batchSize)
+        if (stocks.length === 0) {
+            return
+        }
+
+        console.log(`[sync/backfill] Resolving names for ${stocks.length} stocks`)
+        await this.runRateLimitedStockJobs('names', stocks, async ({ id, ticker }) => {
+            const updated = await this.ctx.stockService.applyStockNameFromApi(id, ticker)
+            if (updated) {
+                console.log(`[sync/backfill] ${ticker}: name resolved`)
+            }
+        })
+    }
+
+    private async backfillCatalogHistory(stocksPerTick: number, barsPerStock: number): Promise<void> {
+        const stocks = await this.ctx.stockService.listStocksNeedingHistory(stocksPerTick)
+        if (stocks.length === 0) {
+            return
+        }
+
+        console.log(`[sync/backfill] Backfilling history for ${stocks.length} stocks (max ${barsPerStock} bars each)`)
+        await this.runRateLimitedStockJobs('history', stocks, async ({ id, ticker }) => {
+            await this.ctx.stockService.backfillStockHistory(id, ticker, { maxFetches: barsPerStock })
+            console.log(`[sync/backfill] ${ticker}: history chunk stored`)
+        })
+    }
+
+    private async runCatalogBackfill(): Promise<void> {
+        if (isMarketDebugEnabled()) {
+            console.log('[sync/backfill] Skipping catalog backfill while STOCK_DEBUG=true')
+            return
+        }
+
+        const config = this.readBackfillConfig()
+        await this.backfillCatalogNames(config.namesPerTick)
+        await this.backfillCatalogHistory(config.historyStocksPerTick, config.barsPerStock)
+    }
+
     private async isSyncDue(syncDueThreshold: Date): Promise<boolean> {
         console.log('[sync] Checking if sync is due')
         const row = await this.ctx.db
@@ -157,6 +231,12 @@ export class SyncService {
 
             try {
                 await this.runSync(tickers)
+                try {
+                    await this.runCatalogBackfill()
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err)
+                    console.error(`[sync/backfill] Failed: ${message}`)
+                }
                 await this.ctx.db.update(syncJob).set({
                     status: 'idle',
                     lastSuccessAt: new Date(),

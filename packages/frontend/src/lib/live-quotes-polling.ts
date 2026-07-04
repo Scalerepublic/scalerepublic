@@ -11,9 +11,11 @@ function refreshQuotes() {
 	if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
 		return;
 	}
-	void syncMarketClock();
-	void marketStore.load({ silent: true });
-	void portfolioStore.load({ silent: true });
+	void Promise.all([
+		syncMarketClock(),
+		marketStore.loadTrending({ silent: true }),
+		portfolioStore.load({ silent: true })
+	]);
 }
 
 function refreshLeaderboard() {
