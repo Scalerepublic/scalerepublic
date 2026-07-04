@@ -32,7 +32,22 @@ export class UniStockClient implements StockDataClient {
 
         const u = baseUrl ?? process.env['UNI_API_BASE_URL']
         if (u === undefined || u === '') throw new Error('UNI_API_BASE_URL env var is required')
-        this.baseUrl = u
+        this.baseUrl = this.normalizeBaseUrl(u)
+    }
+
+    private normalizeBaseUrl(url: string): string {
+        const trimmed = url.replace(/\/$/, '')
+        try {
+            const parsed = new URL(trimmed)
+            const isIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname)
+            if (isIpv4 && parsed.protocol === 'https:') {
+                parsed.protocol = 'http:'
+                return parsed.toString().replace(/\/$/, '')
+            }
+        } catch {
+            return trimmed
+        }
+        return trimmed
     }
 
     private async get(path: string, query: Record<string, string> = {}): Promise<unknown> {

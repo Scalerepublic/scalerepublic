@@ -754,6 +754,13 @@ export class StockService {
         return date.toISOString().slice(0, 10)
     }
 
+    private normalizeTradingDate(value: string | Date): string {
+        if (value instanceof Date) {
+            return this.formatUtcDate(value)
+        }
+        return value.slice(0, 10)
+    }
+
     private buildPlaceholderDescription(companyName: string): string {
         return `this stock (${companyName}) is good because i like it`
     }
@@ -842,7 +849,9 @@ export class StockService {
                 gte(stockDailyBar.tradingDate, fromDate),
             ))
 
-        const existingDates = new Set(existingRows.map((row) => row.tradingDate))
+        const existingDates = new Set(
+            existingRows.map((row) => this.normalizeTradingDate(row.tradingDate)),
+        )
         let resolvedName: string | null = null
 
         let attempts = 0
@@ -855,6 +864,8 @@ export class StockService {
             const bar = await this.ctx.stockDataClient.getDailyBar(ticker, this.addUtcDays(today, -offset))
             if (bar === null) continue
 
+            const barDate = this.normalizeTradingDate(bar.tradingDate)
+
             if (
                 resolvedName === null
                 && bar.name !== ''
@@ -866,14 +877,14 @@ export class StockService {
             await this.ctx.db.insert(stockDailyBar).values({
                 id: crypto.randomUUID(),
                 stockId,
-                tradingDate,
+                tradingDate: barDate,
                 open: bar.open.toString(),
                 high: bar.high.toString(),
                 low: bar.low.toString(),
                 close: bar.close.toString(),
                 source: this.ctx.stockDataClient.source,
             }).onConflictDoNothing()
-            existingDates.add(tradingDate)
+            existingDates.add(barDate)
         }
 
         return { resolvedName }
@@ -885,26 +896,22 @@ export class StockService {
     ): Promise<Array<{ date: string; close: number }>> {
         const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
 
-        try {
-            const rows = await this.ctx.db
-                .select({
-                    tradingDate: stockDailyBar.tradingDate,
-                    close: stockDailyBar.close,
-                })
-                .from(stockDailyBar)
-                .where(and(
-                    eq(stockDailyBar.stockId, stockId),
-                    gte(stockDailyBar.tradingDate, fromDate),
-                ))
-                .orderBy(asc(stockDailyBar.tradingDate))
+        const rows = await this.ctx.db
+            .select({
+                tradingDate: stockDailyBar.tradingDate,
+                close: stockDailyBar.close,
+            })
+            .from(stockDailyBar)
+            .where(and(
+                eq(stockDailyBar.stockId, stockId),
+                gte(stockDailyBar.tradingDate, fromDate),
+            ))
+            .orderBy(asc(stockDailyBar.tradingDate))
 
-            return rows.map((row) => ({
-                date: row.tradingDate,
-                close: parseFloat(row.close),
-            }))
-        } catch {
-            return []
-        }
+        return rows.map((row) => ({
+            date: this.normalizeTradingDate(row.tradingDate),
+            close: parseFloat(row.close),
+        }))
     }
 
     async ensureDailyBarHistory(
@@ -946,19 +953,34 @@ export class StockService {
         return lastClose
     }
 
-    private async prefetchDetailHistory(
+    private async prefetchDetailHistoryReturningName(
         stockId: string,
         ticker: string,
         days: number,
-    ): Promise<void> {
-        await this.cacheMissingDailyBars(stockId, ticker, days, ON_DEMAND_DETAIL_BAR_FETCHES)
+    ): Promise<string | null> {
+        const first = await this.cacheMissingDailyBars(
+            stockId,
+            ticker,
+            days,
+            ON_DEMAND_DETAIL_BAR_FETCHES,
+        )
+        let resolvedName = first.resolvedName
 
         const history = await this.getCachedDailyBarHistory(stockId, days)
         if (history.length >= Math.min(days, MIN_BARS_FOR_METRICS)) {
-            return
+            return resolvedName
         }
 
-        await this.cacheMissingDailyBars(stockId, ticker, days, ON_DEMAND_DETAIL_BAR_FETCHES)
+        const second = await this.cacheMissingDailyBars(
+            stockId,
+            ticker,
+            days,
+            ON_DEMAND_DETAIL_BAR_FETCHES,
+        )
+        if (second.resolvedName !== null) {
+            resolvedName = second.resolvedName
+        }
+        return resolvedName
     }
 
     private async detailCacheIsWarm(
@@ -1006,11 +1028,31 @@ export class StockService {
 
         if (!stockRow) return null
 
-        const enrichedStock = await this.ensureStockMetadata(stockRow)
-
-        const cache = await this.detailCacheIsWarm(enrichedStock.id, historyDays)
+        const cache = await this.detailCacheIsWarm(stockRow.id, historyDays)
         if (!cache.warm) {
-            await this.prefetchDetailHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
+            const resolvedName = await this.prefetchDetailHistoryReturningName(
+                stockRow.id,
+                stockRow.ticker,
+                historyDays,
+            )
+            if (resolvedName !== null && resolvedName !== '') {
+                await this.applyResolvedName(stockRow.id, stockRow.ticker, resolvedName)
+            }
+        }
+
+        const [reloadedStock] = await this.ctx.db
+            .select()
+            .from(stock)
+            .where(eq(stock.id, stockRow.id))
+            .limit(1)
+
+        let enrichedStock = reloadedStock ?? stockRow
+        if (
+            enrichedStock.companyName === enrichedStock.ticker
+            || enrichedStock.description === null
+            || enrichedStock.description === ''
+        ) {
+            enrichedStock = await this.ensureStockMetadata(enrichedStock)
         }
 
         const priceHistory = await this.getChartPriceHistory(
