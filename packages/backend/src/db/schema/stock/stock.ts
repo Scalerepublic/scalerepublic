@@ -49,6 +49,8 @@ export const stock = pgTable(
 
         metricsUpdatedAt: timestamp("metrics_updated_at", { withTimezone: true }),
 
+        backfillRequestedAt: timestamp("backfill_requested_at", { withTimezone: true }),
+
         isActive: boolean("is_active")
             .default(true)
             .notNull(),

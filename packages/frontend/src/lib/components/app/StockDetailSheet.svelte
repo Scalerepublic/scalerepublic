@@ -77,6 +77,26 @@
 
 	const showChart = $derived(chartData.length >= 2);
 	const missingMarketData = $derived(!loading && !error && (detail?.priceHistory.length ?? 0) < 2);
+	let pollAttempts = $state(0);
+
+	$effect(() => {
+		if (!open || !missingMarketData) {
+			pollAttempts = 0;
+			return;
+		}
+
+		if (pollAttempts >= 24) {
+			return;
+		}
+
+		const ticker = stock.ticker;
+		const timeout = window.setTimeout(() => {
+			pollAttempts += 1;
+			void loadDetail(ticker, { silent: true });
+		}, 5000);
+
+		return () => window.clearTimeout(timeout);
+	});
 
 	$effect(() => {
 		if (!open) {
@@ -110,9 +130,11 @@
 		void loadDetail(ticker);
 	});
 
-	async function loadDetail(ticker: string) {
-		loading = true;
-		error = null;
+	async function loadDetail(ticker: string, options?: { silent?: boolean }) {
+		if (!options?.silent) {
+			loading = true;
+			error = null;
+		}
 		try {
 			const res = await api.api.v1.stocks[':ticker'].detail.$get({
 				param: { ticker },
@@ -240,8 +262,12 @@
 							</div>
 						{:else if missingMarketData}
 							<p class="text-sm text-muted-foreground">
-								Price history is not cached yet. It will appear after the next market data
-								backfill.
+								{#if pollAttempts < 24}
+									Loading market data from backfill queue…
+								{:else}
+									Market data is not cached yet. Open again later or run a catalog
+									backfill for this ticker.
+								{/if}
 							</p>
 						{/if}
 

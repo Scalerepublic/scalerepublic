@@ -25,19 +25,18 @@ const resolveDatabaseUrl = (): string => {
     }
 }
 
+const ticker = process.argv[2]?.trim().toUpperCase()
+if (!ticker) {
+    throw new Error('Usage: bun scripts/backfill-ticker.ts TICKER')
+}
+
 const { db, client } = createDb(resolveDatabaseUrl())
 const appCtx = createAppContext(db)
 appCtx.stockDataClient = new UniStockClient()
 
-const ticker = process.env['BACKFILL_TICKER']?.trim().toUpperCase()
-
 try {
-    if (ticker) {
-        await appCtx.stockService.backfillTickerFully(ticker)
-        console.log(`[backfill] ${ticker}: done`)
-    } else {
-        await appCtx.syncService.runCatalogBackfillOnce()
-    }
+    await appCtx.stockService.backfillTickerFully(ticker)
+    console.log(`[backfill] ${ticker}: done`)
 } finally {
     await client.end()
 }

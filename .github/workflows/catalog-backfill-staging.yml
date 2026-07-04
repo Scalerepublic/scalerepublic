@@ -2,8 +2,13 @@ name: Catalog backfill (staging)
 
 on:
   schedule:
-    - cron: '20 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
+    inputs:
+      ticker:
+        description: Backfill a single ticker immediately (e.g. COIN)
+        required: false
+        type: string
 
 jobs:
   backfill:
@@ -26,6 +31,7 @@ jobs:
           UNI_API_BASE_URL: ${{ secrets.UNI_API_BASE_URL }}
           STOCK_API_PROVIDER: uni
           STOCK_DEBUG: "false"
+          BACKFILL_TICKER: ${{ inputs.ticker }}
           CATALOG_BACKFILL_NAMES_PER_TICK: "40"
           CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK: "12"
           CATALOG_BACKFILL_BARS_PER_STOCK: "30"

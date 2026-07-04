@@ -576,7 +576,7 @@ export class StockService {
                 eq(stock.isActive, true),
                 sql`${stock.companyName} = ${stock.ticker}`,
             ))
-            .orderBy(asc(stock.ticker))
+            .orderBy(desc(stock.backfillRequestedAt), asc(stock.ticker))
             .limit(limit)
     }
 
@@ -598,12 +598,32 @@ export class StockService {
                 gte(stockDailyBar.tradingDate, fromDate),
             ))
             .where(eq(stock.isActive, true))
-            .groupBy(stock.id, stock.ticker)
+            .groupBy(stock.id, stock.ticker, stock.backfillRequestedAt)
             .having(sql`count(${stockDailyBar.id}) < ${days}`)
-            .orderBy(sql`count(${stockDailyBar.id}) asc`, asc(stock.ticker))
+            .orderBy(desc(stock.backfillRequestedAt), sql`count(${stockDailyBar.id}) asc`, asc(stock.ticker))
             .limit(limit)
 
         return rows.map(({ id, ticker }) => ({ id, ticker }))
+    }
+
+    async requestBackfillPriority(stockId: string): Promise<void> {
+        await this.ctx.db
+            .update(stock)
+            .set({ backfillRequestedAt: new Date() })
+            .where(eq(stock.id, stockId))
+    }
+
+    async backfillTickerFully(ticker: string): Promise<void> {
+        const stockId = await this.getStockId(ticker)
+        if (stockId === null) {
+            throw new Error(`Unknown ticker: ${ticker}`)
+        }
+
+        await this.applyStockNameFromApi(stockId, ticker)
+        await this.backfillStockHistory(stockId, ticker, {
+            days: HISTORY_DAYS,
+            maxFetches: HISTORY_DAYS,
+        })
     }
 
     async applyStockNameFromApi(stockId: string, ticker: string): Promise<boolean> {
@@ -1031,6 +1051,7 @@ export class StockService {
 
         const cache = await this.detailCacheIsWarm(stockRow.id, historyDays)
         if (!cache.warm) {
+            await this.requestBackfillPriority(stockRow.id)
             const resolvedName = await this.prefetchDetailHistoryReturningName(
                 stockRow.id,
                 stockRow.ticker,
