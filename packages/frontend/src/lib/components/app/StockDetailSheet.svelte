@@ -76,6 +76,7 @@
 	});
 
 	const showChart = $derived(chartData.length >= 2);
+	const missingMarketData = $derived(!loading && !error && (detail?.priceHistory.length ?? 0) < 2);
 
 	$effect(() => {
 		if (!open) {
@@ -237,6 +238,11 @@
 									/>
 								</div>
 							</div>
+						{:else if missingMarketData}
+							<p class="text-sm text-muted-foreground">
+								Price history is not cached yet. It will appear after the next market data
+								backfill.
+							</p>
 						{/if}
 
 						<div>

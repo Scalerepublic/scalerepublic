@@ -188,6 +188,10 @@ export class SyncService {
         console.log(`[sync/backfill] Finished with ${apiBudget.remaining} API calls remaining`)
     }
 
+    async runCatalogBackfillOnce(): Promise<void> {
+        await this.runCatalogBackfill()
+    }
+
     private async isSyncDue(syncDueThreshold: Date): Promise<boolean> {
         console.log('[sync] Checking if sync is due')
         const row = await this.ctx.db

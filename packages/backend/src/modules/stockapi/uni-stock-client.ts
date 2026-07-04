@@ -95,7 +95,9 @@ export class UniStockClient implements StockDataClient {
                 low: data.stock_low,
                 close: data.stock_close,
             }
-        } catch {
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.warn(`[uniapi] getDailyBar ${symbol} failed: ${message}`)
             return null
         }
     }

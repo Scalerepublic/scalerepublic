@@ -29,6 +29,8 @@
     "db:import-tickers": "bun scripts/import-tickers.ts",
     "db:import-tickers:staging": "sh -c 'set -a && . ./.env.staging && set +a && bun run db:import-tickers'",
     "db:import-tickers:prod": "sh -c 'set -a && . ./.env.production && set +a && bun run db:import-tickers'",
+    "backfill:catalog": "bun scripts/run-catalog-backfill.ts",
+    "backfill:catalog:staging": "sh -c 'set -a && . ./.env.staging && set +a && bun run backfill:catalog'",
     "db:baseline": "bun scripts/baseline-migrations.ts",
     "db:push": "bunx drizzle-kit push",
     "db:studio": "bunx drizzle-kit studio --host 0.0.0.0",

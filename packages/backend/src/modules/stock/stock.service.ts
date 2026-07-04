@@ -991,12 +991,10 @@ export class StockService {
         days: number,
     ): Promise<{ warm: boolean; history: Array<{ date: string; close: number }> }> {
         const history = await this.getCachedDailyBarHistory(stockId, days)
-        if (history.length < MIN_BARS_FOR_METRICS) {
-            return { warm: false, history }
+        return {
+            warm: history.length >= Math.min(days, MIN_BARS_FOR_METRICS),
+            history,
         }
-
-        const latestPrice = await this.getLatestPriceByStockId(stockId)
-        return { warm: latestPrice !== null, history }
     }
 
     private async getChartPriceHistory(
