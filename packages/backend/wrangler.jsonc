@@ -4,8 +4,7 @@
 	"main": "src/index.ts",
 	"compatibility_date": "2026-06-12",
 	"compatibility_flags": [
-		"nodejs_compat",
-		"allow_custom_ports"
+		"nodejs_compat"
 	],
 	"env": {
 		"production": {
@@ -19,7 +18,11 @@
 				"STOCK_API_PROVIDER": "uni",
 				"BETTER_AUTH_URL": "https://scalerepublic-frontend.tu-projects.workers.dev",
 				"SYNC_INTERVAL_MS": "3600000",
-				"MIN_NET_WORTH_THRESHOLD": "1.00"
+				"MIN_NET_WORTH_THRESHOLD": "1.00",
+				"CATALOG_BACKFILL_NAMES_PER_TICK": "20",
+				"CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK": "8",
+				"CATALOG_BACKFILL_BARS_PER_STOCK": "10",
+				"CATALOG_BACKFILL_MAX_API_CALLS": "55"
 			},
 			"hyperdrive": [
 				{
@@ -45,7 +48,11 @@
 				"STOCK_API_PROVIDER": "uni",
 				"BETTER_AUTH_URL": "https://scalerepublic-frontend-staging.tu-projects.workers.dev",
 				"SYNC_INTERVAL_MS": "3600000",
-				"MIN_NET_WORTH_THRESHOLD": "1.00"
+				"MIN_NET_WORTH_THRESHOLD": "1.00",
+				"CATALOG_BACKFILL_NAMES_PER_TICK": "20",
+				"CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK": "8",
+				"CATALOG_BACKFILL_BARS_PER_STOCK": "10",
+				"CATALOG_BACKFILL_MAX_API_CALLS": "55"
 			},
 			"hyperdrive": [
 				{

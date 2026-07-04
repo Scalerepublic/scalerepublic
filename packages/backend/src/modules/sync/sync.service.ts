@@ -12,9 +12,12 @@ const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 1000
 const RATE_LIMIT_BATCH_SIZE = 5
 const RATE_LIMIT_WINDOW_MS = 1000
-const DEFAULT_NAMES_BACKFILL_BATCH = 40
-const DEFAULT_HISTORY_BACKFILL_STOCKS = 20
+const CATALOG_BACKFILL_BATCH_SIZE = 5
+const CATALOG_BACKFILL_BATCH_INTERVAL_MS = 5000
+const DEFAULT_NAMES_BACKFILL_BATCH = 20
+const DEFAULT_HISTORY_BACKFILL_STOCKS = 8
 const DEFAULT_HISTORY_BARS_PER_STOCK = 10
+const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 55
 // Time after which a new instance is allowed to retake a taken lock
 // Essentially the maximum time the sync should take. Longer and we
 // assume another instance crashed while holding the lock
@@ -100,60 +103,76 @@ export class SyncService {
         namesPerTick: number
         historyStocksPerTick: number
         barsPerStock: number
+        maxApiCallsPerTick: number
     } {
         return {
             namesPerTick: Number(process.env['CATALOG_BACKFILL_NAMES_PER_TICK'] ?? DEFAULT_NAMES_BACKFILL_BATCH),
             historyStocksPerTick: Number(process.env['CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK'] ?? DEFAULT_HISTORY_BACKFILL_STOCKS),
             barsPerStock: Number(process.env['CATALOG_BACKFILL_BARS_PER_STOCK'] ?? DEFAULT_HISTORY_BARS_PER_STOCK),
+            maxApiCallsPerTick: Number(process.env['CATALOG_BACKFILL_MAX_API_CALLS'] ?? DEFAULT_MAX_UNI_API_CALLS_PER_TICK),
         }
     }
 
-    private async runRateLimitedStockJobs<T extends { ticker: string }>(
-        label: string,
-        stocks: T[],
-        job: (stock: T) => Promise<void>,
-    ): Promise<void> {
-        const batches = chunk(stocks, RATE_LIMIT_BATCH_SIZE)
-        for (let i = 0; i < batches.length; i++) {
-            if (i > 0) await sleep(RATE_LIMIT_WINDOW_MS)
-            const results = await Promise.allSettled(batches[i]!.map((stock) => job(stock)))
-            results.forEach((result, index) => {
-                if (result.status === 'rejected') {
-                    const ticker = batches[i]![index]!.ticker
-                    console.error(
-                        `[sync/${label}] ${ticker} failed: ${result.reason instanceof Error ? result.reason.message : result.reason}`,
-                    )
-                }
-            })
+    private async backfillCatalogNames(batchSize: number, apiBudget: { remaining: number }): Promise<void> {
+        if (apiBudget.remaining <= 0) {
+            return
         }
-    }
 
-    private async backfillCatalogNames(batchSize: number): Promise<void> {
-        const stocks = await this.ctx.stockService.listStocksNeedingNames(batchSize)
+        const stocks = await this.ctx.stockService.listStocksNeedingNames(Math.min(batchSize, apiBudget.remaining))
         if (stocks.length === 0) {
             return
         }
 
-        console.log(`[sync/backfill] Resolving names for ${stocks.length} stocks`)
-        await this.runRateLimitedStockJobs('names', stocks, async ({ id, ticker }) => {
-            const updated = await this.ctx.stockService.applyStockNameFromApi(id, ticker)
-            if (updated) {
-                console.log(`[sync/backfill] ${ticker}: name resolved`)
+        console.log(`[sync/backfill] Resolving names for ${stocks.length} stocks (budget ${apiBudget.remaining})`)
+        for (const { id, ticker } of stocks) {
+            if (apiBudget.remaining <= 0) {
+                break
             }
-        })
+
+            apiBudget.remaining -= 1
+            try {
+                const updated = await this.ctx.stockService.applyStockNameFromApi(id, ticker)
+                if (updated) {
+                    console.log(`[sync/backfill] ${ticker}: name resolved`)
+                }
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err)
+                console.error(`[sync/names] ${ticker} failed: ${message}`)
+            }
+
+            await sleep(CATALOG_BACKFILL_BATCH_INTERVAL_MS / CATALOG_BACKFILL_BATCH_SIZE)
+        }
     }
 
-    private async backfillCatalogHistory(stocksPerTick: number, barsPerStock: number): Promise<void> {
+    private async backfillCatalogHistory(
+        stocksPerTick: number,
+        barsPerStock: number,
+        apiBudget: { remaining: number },
+    ): Promise<void> {
+        if (apiBudget.remaining <= 0) {
+            return
+        }
+
         const stocks = await this.ctx.stockService.listStocksNeedingHistory(stocksPerTick)
         if (stocks.length === 0) {
             return
         }
 
-        console.log(`[sync/backfill] Backfilling history for ${stocks.length} stocks (max ${barsPerStock} bars each)`)
-        await this.runRateLimitedStockJobs('history', stocks, async ({ id, ticker }) => {
-            await this.ctx.stockService.backfillStockHistory(id, ticker, { maxFetches: barsPerStock })
-            console.log(`[sync/backfill] ${ticker}: history chunk stored`)
-        })
+        console.log(`[sync/backfill] Backfilling history for up to ${stocks.length} stocks (budget ${apiBudget.remaining})`)
+        for (const { id, ticker } of stocks) {
+            if (apiBudget.remaining <= 0) {
+                break
+            }
+
+            const maxFetches = Math.min(barsPerStock, apiBudget.remaining)
+            const { fetchesUsed } = await this.ctx.stockService.backfillStockHistory(id, ticker, { maxFetches })
+            apiBudget.remaining -= fetchesUsed
+            if (fetchesUsed > 0) {
+                console.log(`[sync/backfill] ${ticker}: stored ${fetchesUsed} daily bars`)
+            }
+
+            await sleep(CATALOG_BACKFILL_BATCH_INTERVAL_MS / CATALOG_BACKFILL_BATCH_SIZE)
+        }
     }
 
     private async runCatalogBackfill(): Promise<void> {
@@ -163,8 +182,10 @@ export class SyncService {
         }
 
         const config = this.readBackfillConfig()
-        await this.backfillCatalogNames(config.namesPerTick)
-        await this.backfillCatalogHistory(config.historyStocksPerTick, config.barsPerStock)
+        const apiBudget = { remaining: config.maxApiCallsPerTick }
+        await this.backfillCatalogNames(config.namesPerTick, apiBudget)
+        await this.backfillCatalogHistory(config.historyStocksPerTick, config.barsPerStock, apiBudget)
+        console.log(`[sync/backfill] Finished with ${apiBudget.remaining} API calls remaining`)
     }
 
     private async isSyncDue(syncDueThreshold: Date): Promise<boolean> {
@@ -230,13 +251,31 @@ export class SyncService {
             console.log(`[sync] Lock acquired by ${this.lockId}`)
 
             try {
-                await this.runSync(tickers)
+                let syncError: string | null = null
+                try {
+                    await this.runSync(tickers)
+                } catch (err) {
+                    syncError = err instanceof Error ? err.message : String(err)
+                    console.error(`[sync] Price sync failed: ${syncError}`)
+                }
+
                 try {
                     await this.runCatalogBackfill()
                 } catch (err) {
                     const message = err instanceof Error ? err.message : String(err)
                     console.error(`[sync/backfill] Failed: ${message}`)
                 }
+
+                if (syncError !== null) {
+                    await this.ctx.db.update(syncJob).set({
+                        status: 'failed',
+                        lastError: syncError,
+                        lockedAt: null,
+                        lockedBy: null,
+                    }).where(eq(syncJob.id, JOB_ID))
+                    return
+                }
+
                 await this.ctx.db.update(syncJob).set({
                     status: 'idle',
                     lastSuccessAt: new Date(),

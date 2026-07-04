@@ -77,6 +77,17 @@ just db-migrate-staging
 just db-migrate-prod
 ```
 
+## Catalog backfill (hourly cron)
+
+Imported tickers start with `company_name = ticker` and no cached daily bars. Each cron tick runs a bounded backfill against the uni API (`GET /stocks/{symbol}`) so names and 30-day chart history fill in gradually without manual market-tab visits.
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `CATALOG_BACKFILL_NAMES_PER_TICK` | 20 | Max tickers to resolve names for per tick |
+| `CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK` | 8 | Max tickers to backfill history for per tick |
+| `CATALOG_BACKFILL_BARS_PER_STOCK` | 10 | Max missing daily bars to fetch per ticker per tick |
+| `CATALOG_BACKFILL_MAX_API_CALLS` | 55 | Hard cap on uni API calls per tick (under 60/min) |
+
 ## Tests
 
 ```bash

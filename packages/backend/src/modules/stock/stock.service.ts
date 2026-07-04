@@ -600,18 +600,18 @@ export class StockService {
             .where(eq(stock.isActive, true))
             .groupBy(stock.id, stock.ticker)
             .having(sql`count(${stockDailyBar.id}) < ${days}`)
-            .orderBy(sql`count(${stockDailyBar.id}) desc`, asc(stock.ticker))
+            .orderBy(sql`count(${stockDailyBar.id}) asc`, asc(stock.ticker))
             .limit(limit)
 
         return rows.map(({ id, ticker }) => ({ id, ticker }))
     }
 
     async applyStockNameFromApi(stockId: string, ticker: string): Promise<boolean> {
-        const meta = await this.ctx.stockDataClient.getStockMeta(ticker)
-        if (meta === null || meta.name === '' || meta.name === ticker) {
+        const bar = await this.ctx.stockDataClient.getDailyBar(ticker)
+        if (bar === null || bar.name === '' || bar.name === ticker) {
             return false
         }
-        await this.applyResolvedName(stockId, ticker, meta.name)
+        await this.applyResolvedName(stockId, ticker, bar.name)
         return true
     }
 
@@ -619,11 +619,11 @@ export class StockService {
         stockId: string,
         ticker: string,
         options?: { days?: number; maxFetches?: number },
-    ): Promise<void> {
+    ): Promise<{ fetchesUsed: number }> {
         const days = options?.days ?? HISTORY_DAYS
         const maxFetches = options?.maxFetches ?? MAX_DAILY_BAR_FETCHES
         const beforeCount = (await this.getCachedDailyBarHistory(stockId, days)).length
-        const { resolvedName } = await this.cacheMissingDailyBars(stockId, ticker, days, maxFetches)
+        const { resolvedName, fetchesUsed } = await this.cacheMissingDailyBars(stockId, ticker, days, maxFetches)
 
         if (resolvedName !== null && resolvedName !== '') {
             await this.applyResolvedName(stockId, ticker, resolvedName)
@@ -631,7 +631,7 @@ export class StockService {
 
         const history = await this.getCachedDailyBarHistory(stockId, days)
         if (history.length <= beforeCount) {
-            return
+            return { fetchesUsed }
         }
 
         const todayStr = this.formatUtcDate(new Date())
@@ -651,6 +651,8 @@ export class StockService {
         if (history.length >= MIN_BARS_FOR_METRICS) {
             await this.refreshStockMetrics(stockId)
         }
+
+        return { fetchesUsed }
     }
 
     async getTicker(stockId: string): Promise<string | null> {
@@ -837,7 +839,7 @@ export class StockService {
         ticker: string,
         days: number,
         maxFetches = MAX_DAILY_BAR_FETCHES,
-    ): Promise<{ resolvedName: string | null }> {
+    ): Promise<{ resolvedName: string | null; fetchesUsed: number }> {
         const today = new Date()
         today.setUTCHours(0, 0, 0, 0)
         const fromDate = this.formatUtcDate(this.addUtcDays(today, -(days - 1)))
@@ -888,7 +890,7 @@ export class StockService {
             existingDates.add(barDate)
         }
 
-        return { resolvedName }
+        return { resolvedName, fetchesUsed: attempts }
     }
 
     private async getCachedDailyBarHistory(
