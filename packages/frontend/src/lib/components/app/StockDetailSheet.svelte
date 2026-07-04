@@ -38,10 +38,7 @@
 
 	const STOCK_CHART_HISTORY_DAYS = 30;
 
-	function resolveDetailPrice(
-		loaded: BackendStockDetail | null,
-		fallbackPrice: number
-	): number {
+	function resolveDetailPrice(loaded: BackendStockDetail | null, fallbackPrice: number): number {
 		if (loaded?.performance.latestPrice != null) {
 			return loaded.performance.latestPrice;
 		}
@@ -240,10 +237,7 @@
 								<p class="font-mono text-3xl font-bold text-foreground">
 									{formatCurrency(displayPrice)}
 								</p>
-								<ChangeIndicator
-									amount={displayChangeAmount}
-									percent={displayChangePercent}
-								/>
+								<ChangeIndicator amount={displayChangeAmount} percent={displayChangePercent} />
 							</div>
 						</div>
 
@@ -265,8 +259,8 @@
 								{#if pollAttempts < 24}
 									Loading market data from backfill queue…
 								{:else}
-									Market data is not cached yet. Open again later or run a catalog
-									backfill for this ticker.
+									Market data is not cached yet. Open again later or run a catalog backfill for this
+									ticker.
 								{/if}
 							</p>
 						{/if}

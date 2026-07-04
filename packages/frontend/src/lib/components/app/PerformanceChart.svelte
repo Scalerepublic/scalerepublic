@@ -178,8 +178,8 @@
 	let activeIndex = $state<number | null>(null);
 
 	$effect(() => {
-		granularity;
-		points.length;
+		void granularity;
+		void points.length;
 		activeIndex = null;
 	});
 

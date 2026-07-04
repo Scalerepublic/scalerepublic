@@ -28,7 +28,10 @@ export type MarketBrowseState = {
 	q?: string;
 };
 
-function withPerformanceMetrics(stock: Stock, periodChangePercent: number | null | undefined): Stock {
+function withPerformanceMetrics(
+	stock: Stock,
+	periodChangePercent: number | null | undefined
+): Stock {
 	if (periodChangePercent == null) {
 		return stock;
 	}
@@ -134,10 +137,7 @@ class MarketStore {
 	}
 
 	async load(options?: { silent?: boolean; force?: boolean }) {
-		await Promise.all([
-			this.loadTrending(options),
-			this.loadSectors({ force: options?.force })
-		]);
+		await Promise.all([this.loadTrending(options), this.loadSectors({ force: options?.force })]);
 	}
 
 	private async fetchTrending(options?: { silent?: boolean; force?: boolean }) {
@@ -218,7 +218,7 @@ class MarketStore {
 			silent?: boolean;
 			force?: boolean;
 		},
-		requestId: number,
+		requestId: number
 	) {
 		const silent = options.silent ?? false;
 		const force = options.force ?? false;
@@ -229,16 +229,20 @@ class MarketStore {
 		const cacheKey = buildStocksListCacheKey({ q, sector, page, limit });
 
 		if (!force) {
-			const cached = getApiCache<BackendStockListResponse>(
-				cacheKey,
-				API_CACHE_TTL_MS.stocksList
-			);
+			const cached = getApiCache<BackendStockListResponse>(cacheKey, API_CACHE_TTL_MS.stocksList);
 			if (cached !== null) {
 				if (requestId !== this.browseRequestId) {
 					return;
 				}
 				const items = this.mapRows(cached.items);
-				this.browse = { items, total: cached.total, page: cached.page, limit: cached.limit, sector, q };
+				this.browse = {
+					items,
+					total: cached.total,
+					page: cached.page,
+					limit: cached.limit,
+					sector,
+					q
+				};
 				this.rememberStocks(items);
 				return;
 			}
@@ -278,10 +282,7 @@ class MarketStore {
 			}
 			this.error = e instanceof Error ? e.message : 'Failed to load stocks';
 		} finally {
-			if (requestId !== this.browseRequestId) {
-				return;
-			}
-			if (!silent) {
+			if (requestId === this.browseRequestId && !silent) {
 				this.loadingBrowse = false;
 			}
 		}

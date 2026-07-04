@@ -25,9 +25,7 @@
 	let lastSearchQuery = $state('');
 
 	const browse = $derived(marketStore.browse);
-	const totalPages = $derived(
-		browse ? Math.max(1, Math.ceil(browse.total / browse.limit)) : 1
-	);
+	const totalPages = $derived(browse ? Math.max(1, Math.ceil(browse.total / browse.limit)) : 1);
 	const isSearchMode = $derived(query.trim().length > 0);
 	const browseTitle = $derived.by(() => {
 		if (isSearchMode) {
@@ -206,13 +204,19 @@
 						class="pointer-events-none absolute inset-y-0 left-0 w-1 bg-foreground transition-[width] duration-200 group-hover:w-1.5"
 						aria-hidden="true"
 					></span>
-					<div class="flex flex-col gap-4 pl-2 min-[720px]:flex-row min-[720px]:items-end min-[720px]:justify-between">
+					<div
+						class="flex flex-col gap-4 pl-2 min-[720px]:flex-row min-[720px]:items-end min-[720px]:justify-between"
+					>
 						<div>
-							<div class="mb-2 inline-flex items-center gap-2 text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+							<div
+								class="mb-2 inline-flex items-center gap-2 text-[11px] tracking-[0.2em] text-muted-foreground uppercase"
+							>
 								<Layers class="size-3.5" />
 								Full catalog
 							</div>
-							<p class="font-serif text-2xl font-semibold tracking-tight text-foreground">All Listings</p>
+							<p class="font-serif text-2xl font-semibold tracking-tight text-foreground">
+								All Listings
+							</p>
 							<p class="mt-1.5 max-w-xl text-xs leading-relaxed text-muted-foreground">
 								Browse the entire market alphabetically, 24 tickers per page.
 							</p>
@@ -285,7 +289,9 @@
 				</div>
 
 				{#if totalPages > 1}
-					<div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+					<div
+						class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5"
+					>
 						<p class="text-xs text-muted-foreground">
 							Page {browse.page} of {totalPages}
 						</p>

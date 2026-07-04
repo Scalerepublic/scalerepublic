@@ -83,11 +83,10 @@ export const MARKET_SECTORS: readonly MarketSectorDefinition[] = [
 
 const sectorById = new Map(MARKET_SECTORS.map((sector) => [sector.id, sector]))
 
-export function getMarketSector(id: string): MarketSectorDefinition | undefined {
-    return sectorById.get(id as MarketSectorId)
-}
+export const getMarketSector = (id: string): MarketSectorDefinition | undefined =>
+    sectorById.get(id as MarketSectorId)
 
-export function getSectorTickers(id: string): string[] {
+export const getSectorTickers = (id: string): string[] => {
     const sector = getMarketSector(id)
     if (sector === undefined) {
         return []

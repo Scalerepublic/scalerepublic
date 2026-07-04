@@ -7,6 +7,7 @@ import {
     DEBUG_MARKET_PRICE_SOURCE,
     isMarketDebugEnabled,
 } from '../../lib/market-debug.ts'
+
 import { getSectorTickers, MARKET_SECTORS, type MarketSectorId } from './market-sectors.ts'
 
 const HISTORY_DAYS = 30

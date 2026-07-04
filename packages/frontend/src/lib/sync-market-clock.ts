@@ -18,10 +18,7 @@ export async function syncMarketClock(options?: { force?: boolean }): Promise<vo
 
 	syncInFlight = (async () => {
 		if (!options?.force) {
-			const cached = getApiCache<MarketClock>(
-				MARKET_CLOCK_CACHE_KEY,
-				API_CACHE_TTL_MS.marketClock
-			);
+			const cached = getApiCache<MarketClock>(MARKET_CLOCK_CACHE_KEY, API_CACHE_TTL_MS.marketClock);
 			if (cached !== null) {
 				if (!cached.simulated) {
 					setDemoMarketDate(null);

@@ -40,15 +40,16 @@ export function filterPerformanceByGranularity(
 	granularity: PerformanceGranularity,
 	mode: PerformanceChartMode = 'portfolio'
 ): PerformancePoint[] {
-	const days =
-		mode === 'stock' ? stockWindowDays[granularity] : windowDays[granularity];
+	const days = mode === 'stock' ? stockWindowDays[granularity] : windowDays[granularity];
 	if (days === null || points.length === 0) {
 		return points;
 	}
 
 	const endDate = points[points.length - 1]!.date;
 	const end = startOfUtcDay(new Date(`${endDate}T12:00:00.000Z`));
-	const cutoffIso = addUtcDays(end, -(days - 1)).toISOString().slice(0, 10);
+	const cutoffIso = addUtcDays(end, -(days - 1))
+		.toISOString()
+		.slice(0, 10);
 
 	return points.filter((point) => point.date >= cutoffIso);
 }

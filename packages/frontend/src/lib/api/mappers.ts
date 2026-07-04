@@ -27,9 +27,7 @@ export function mapStockSummary(row: BackendStockSummary): Stock {
 	const periodChangePercent = row.periodChangePercent ?? null;
 	const displayPercent = periodChangePercent ?? dayChangePercent;
 	const displayChange =
-		periodChangePercent !== null
-			? price - price / (1 + periodChangePercent / 100)
-			: dayChange;
+		periodChangePercent !== null ? price - price / (1 + periodChangePercent / 100) : dayChange;
 
 	return {
 		id: row.id,

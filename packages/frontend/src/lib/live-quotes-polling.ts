@@ -2,7 +2,6 @@ import { syncMarketClock } from '$lib/sync-market-clock';
 import { marketStore } from '$lib/stores/market.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
 import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
-import { authStore } from '$lib/stores/auth.svelte';
 
 const POLL_MS = Number(import.meta.env.VITE_LIVE_QUOTES_POLL_MS ?? 15_000);
 const LEADERBOARD_POLL_MS = Number(import.meta.env.VITE_LEADERBOARD_POLL_MS ?? 30_000);
