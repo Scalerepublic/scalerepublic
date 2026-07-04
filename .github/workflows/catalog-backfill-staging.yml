@@ -1,6 +1,9 @@
 name: Catalog backfill (staging)
 
 on:
+  push:
+    branches:
+      - dev
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
@@ -9,6 +12,10 @@ on:
         description: Backfill a single ticker immediately (e.g. COIN)
         required: false
         type: string
+
+concurrency:
+  group: catalog-backfill-staging
+  cancel-in-progress: false
 
 jobs:
   backfill:
