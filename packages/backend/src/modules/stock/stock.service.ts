@@ -808,7 +808,8 @@ export class StockService {
     }
 
     private async applyResolvedName(stockId: string, ticker: string, name: string): Promise<void> {
-        if (!name || name === ticker) {
+        const trimmedName = name.trim()
+        if (!trimmedName || trimmedName === ticker) {
             return
         }
 
@@ -825,8 +826,8 @@ export class StockService {
         await this.ctx.db
             .update(stock)
             .set({
-                companyName: name,
-                description: this.buildPlaceholderDescription(name),
+                companyName: trimmedName,
+                description: this.buildPlaceholderDescription(trimmedName),
             })
             .where(eq(stock.id, stockId))
     }

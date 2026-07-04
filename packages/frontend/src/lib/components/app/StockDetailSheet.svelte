@@ -10,6 +10,7 @@
 	import { marketStore } from '$lib/stores/market.svelte';
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
+	import { portal } from '$lib/actions/portal';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { Loader2, X } from '@lucide/svelte';
@@ -151,6 +152,7 @@
 
 {#if open}
 	<div
+		use:portal
 		class="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
 		role="presentation"
 		transition:fade={{ duration: 150 }}

@@ -12,11 +12,11 @@ import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from './st
 
 const DailyResponseSchema = z.object({
     stock_symbol: z.string(),
-    stock_name: z.string(),
-    stock_open: z.number(),
-    stock_low: z.number(),
-    stock_high: z.number(),
-    stock_close: z.number(),
+    stock_name: z.string().transform((value) => value.trim()),
+    stock_open: z.coerce.number(),
+    stock_low: z.coerce.number(),
+    stock_high: z.coerce.number(),
+    stock_close: z.coerce.number(),
     date: z.string(),
 })
 

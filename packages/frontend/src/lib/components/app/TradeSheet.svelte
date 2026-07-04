@@ -4,6 +4,7 @@
 	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import type { Stock } from '$lib/types';
 	import { toast } from 'svelte-sonner';
+	import { portal } from '$lib/actions/portal';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
@@ -104,6 +105,7 @@
 
 {#if open}
 	<div
+		use:portal
 		transition:fade={{ duration: 200 }}
 		class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-0 pb-0 sm:items-center sm:p-4"
 		role="presentation"
