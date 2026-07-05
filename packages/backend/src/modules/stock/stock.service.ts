@@ -1015,7 +1015,11 @@ export class StockService {
             priceTablePreviousClose,
         )
 
-        const description = stockRow.description?.trim() || null
+        const trimmedDescription = stockRow.description?.trim()
+        const description =
+            trimmedDescription === undefined || trimmedDescription === ''
+                ? null
+                : trimmedDescription
 
         return {
             stock: {
