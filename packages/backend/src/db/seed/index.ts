@@ -6,6 +6,7 @@ import { client, db } from '../index.ts';
 import { stockPrice } from '../schema/stock/market.ts';
 import { stock } from '../schema/stock/stock.ts';
 
+import { DEBUG_MARKET_PRICE_SOURCE } from '../../lib/market-debug.ts';
 import { generateGBM } from './gbm.ts';
 import { ARCHETYPES, SEED_STOCKS } from './stocks.ts';
 
