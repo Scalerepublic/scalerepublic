@@ -5,7 +5,7 @@
 	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
 	type Props = {
-		href?: Parameters<typeof resolve>[0];
+		href?: string;
 		class?: string;
 		variant?: 'primary' | 'secondary';
 		children?: import('svelte').Snippet;
@@ -30,7 +30,7 @@
 </script>
 
 {#if href}
-	<a href={resolve(href)} class={classes} {...rest as HTMLAnchorAttributes}>
+	<a href={resolve(href as '/')} class={classes} {...rest as HTMLAnchorAttributes}>
 		{@render children?.()}
 	</a>
 {:else}

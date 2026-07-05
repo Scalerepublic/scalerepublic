@@ -1,9 +1,7 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import NobleButton from './NobleButton.svelte';
-	import { formatCurrency } from '$lib/utils';
-	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import type { Stock } from '$lib/types';
-	import { toast } from 'svelte-sonner';
 	import { portal } from '$lib/actions/portal';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -16,17 +14,32 @@
 
 	let {
 		open = $bindable(false),
+		quantity = $bindable(1),
+		title,
 		stock,
-		mode = 'buy',
-		maxQuantity = 999_999
+		maxQuantity = 999_999,
+		confirmLabel,
+		headerExtra,
+		marketPrice,
+		summary,
+		submitDisabled = false,
+		getQuantityError,
+		onsubmit
 	}: {
 		open?: boolean;
+		quantity?: number;
+		title: string;
 		stock: Stock;
-		mode?: 'buy' | 'sell';
 		maxQuantity?: number;
+		confirmLabel: string;
+		headerExtra?: Snippet;
+		marketPrice: Snippet;
+		summary?: Snippet;
+		submitDisabled?: boolean;
+		getQuantityError?: (quantity: number) => string | null;
+		onsubmit: (quantity: number) => Promise<void>;
 	} = $props();
 
-	let quantity = $state(1);
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
@@ -59,9 +72,6 @@
 		if (offset >= DISMISS_THRESHOLD) close();
 	}
 
-	const total = $derived(stock.currentPrice * quantity);
-	const title = $derived(mode === 'buy' ? `Buy ${stock.ticker}` : `Sell ${stock.ticker}`);
-
 	$effect(() => {
 		if (open) {
 			quantity = 1;
@@ -78,25 +88,22 @@
 	}
 
 	async function submit() {
-		if (quantity < 1 || quantity > maxQuantity) {
-			error = `Enter 1–${maxQuantity} shares`;
+		const quantityError =
+			getQuantityError?.(quantity) ??
+			(quantity < 1 || quantity > maxQuantity ? `Enter 1–${maxQuantity} shares` : null);
+
+		if (quantityError) {
+			error = quantityError;
 			return;
 		}
 
 		submitting = true;
 		error = null;
 		try {
-			if (mode === 'buy') {
-				await portfolioStore.buy(stock.id, quantity);
-			} else {
-				await portfolioStore.sell(stock.id, quantity);
-			}
+			await onsubmit(quantity);
 			close();
-			const action = mode === 'buy' ? 'Bought' : 'Sold';
-			toast.success(`${action} ${quantity} × ${stock.ticker}`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Trade failed';
-			toast.error(error);
 		} finally {
 			submitting = false;
 		}
@@ -131,6 +138,9 @@
 					<div>
 						<h2 id="trade-title" class="font-serif text-lg font-semibold">{title}</h2>
 						<p class="mt-0.5 text-sm text-muted-foreground">{stock.name}</p>
+						{#if headerExtra}
+							{@render headerExtra()}
+						{/if}
 					</div>
 					<button
 						type="button"
@@ -142,41 +152,44 @@
 					</button>
 				</div>
 
-				<p class="mb-4 font-mono text-xl font-bold">{formatCurrency(stock.currentPrice)}</p>
+				<div class="mb-4 space-y-3">
+					{@render marketPrice()}
 
-				<label
-					for="trade-quantity"
-					class="mb-1 block text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-				>
-					Shares
-				</label>
-				<div class="mb-1 flex items-stretch gap-2">
-					<button
-						type="button"
-						class="flex h-10 w-12 items-center justify-center border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
-						onclick={() => (quantity = Math.max(1, quantity - 1))}
-						aria-label="Decrease quantity">−</button
-					>
-					<input
-						id="trade-quantity"
-						type="number"
-						min="1"
-						max={maxQuantity}
-						bind:value={quantity}
-						class="h-10 min-w-0 flex-1 border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
-					/>
-					<button
-						type="button"
-						class="flex h-10 w-12 items-center justify-center border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
-						onclick={() => (quantity = Math.min(maxQuantity, quantity + 1))}
-						aria-label="Increase quantity">+</button
-					>
+					<div>
+						<label
+							for="trade-quantity"
+							class="mb-1 block text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+						>
+							Shares
+						</label>
+						<div class="flex items-stretch gap-2">
+							<button
+								type="button"
+								class="flex h-10 w-12 items-center justify-center border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
+								onclick={() => (quantity = Math.max(1, quantity - 1))}
+								aria-label="Decrease quantity">−</button
+							>
+							<input
+								id="trade-quantity"
+								type="number"
+								min="1"
+								max={maxQuantity}
+								bind:value={quantity}
+								class="h-10 min-w-0 flex-1 border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
+							/>
+							<button
+								type="button"
+								class="flex h-10 w-12 items-center justify-center border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
+								onclick={() => (quantity = Math.min(maxQuantity, quantity + 1))}
+								aria-label="Increase quantity">+</button
+							>
+						</div>
+					</div>
+
+					{#if summary}
+						{@render summary()}
+					{/if}
 				</div>
-				<p class="mb-4 text-xs text-muted-foreground">
-					{mode === 'sell'
-						? `You own up to ${maxQuantity} shares`
-						: `Estimated total: ${formatCurrency(total)}`}
-				</p>
 
 				{#if error}
 					<p class="mb-3 text-sm text-negative">{error}</p>
@@ -186,8 +199,13 @@
 					<NobleButton variant="secondary" type="button" class="flex-1" onclick={close}>
 						Cancel
 					</NobleButton>
-					<NobleButton type="button" class="flex-1" disabled={submitting} onclick={submit}>
-						{submitting ? '…' : mode === 'buy' ? 'Confirm buy' : 'Confirm sell'}
+					<NobleButton
+						type="button"
+						class="flex-1"
+						disabled={submitting || submitDisabled}
+						onclick={submit}
+					>
+						{submitting ? '…' : confirmLabel}
 					</NobleButton>
 				</div>
 			</div>

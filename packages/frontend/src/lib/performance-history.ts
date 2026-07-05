@@ -30,18 +30,6 @@ export const granularityPeriodLabels: Record<PerformanceGranularity, string> = {
 	yearly: 'past year'
 };
 
-const startOfUtcDay = (date: Date): Date => {
-	const d = new Date(date);
-	d.setUTCHours(0, 0, 0, 0);
-	return d;
-};
-
-const addUtcDays = (date: Date, days: number): Date => {
-	const d = new Date(date);
-	d.setUTCDate(d.getUTCDate() + days);
-	return d;
-};
-
 export function getPerformanceWindowEndIso(): string {
 	return getEffectiveMarketDate();
 }
@@ -73,8 +61,7 @@ export function parsePerformancePointMs(date: string): number {
 
 export function filterPerformanceByGranularity(
 	points: PerformancePoint[],
-	granularity: PerformanceGranularity,
-	_mode: PerformanceChartMode = 'portfolio'
+	granularity: PerformanceGranularity
 ): PerformancePoint[] {
 	if (points.length === 0) {
 		return points;
@@ -87,7 +74,9 @@ export function filterPerformanceByGranularity(
 			const ms = parsePerformancePointMs(point.date);
 			return ms >= startMs && ms <= endMs;
 		})
-		.sort((left, right) => parsePerformancePointMs(left.date) - parsePerformancePointMs(right.date));
+		.sort(
+			(left, right) => parsePerformancePointMs(left.date) - parsePerformancePointMs(right.date)
+		);
 }
 
 export function initialPerformanceHistory(

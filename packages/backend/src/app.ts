@@ -4,12 +4,12 @@ import { Hono } from "hono";
 import { type App, type AppEnv, type AppVars, createAppContext, useCtx } from "./context.ts";
 import { createDb, type DbClient } from "./db/index.ts";
 import { isMarketDebugEnabled } from "./lib/market-debug.ts";
+import { UNI_API_PROXY_BASE_URL } from "./lib/uni-api-proxy.ts";
 import { registerAuthRoutes } from "./modules/auth/auth.routes.ts";
 import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.routes.ts";
 import { registerMarketDebugRoutes } from "./modules/market-debug/index.ts";
 import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
 import { registerStockRoutes } from "./modules/stock/stock.routes.ts";
-import { UNI_API_PROXY_BASE_URL } from "./lib/uni-api-proxy.ts";
 import type { UniApiSubfetch } from "./modules/stockapi/uni-stock-client.ts";
 import { registerUserRoutes } from "./modules/user/user.routes.ts";
 

@@ -11,7 +11,7 @@
 		mobile = false,
 		collapsed = false
 	}: {
-		href: Parameters<typeof resolve>[0];
+		href: string;
 		label: string;
 		icon: Component<{ class?: string; style?: string }>;
 		mobile?: boolean;
@@ -23,7 +23,7 @@
 
 {#if mobile}
 	<a
-		href={resolve(href)}
+		href={resolve(href as '/')}
 		class={cn(
 			'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-semibold tracking-widest uppercase transition-colors',
 			isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
@@ -36,7 +36,7 @@
 	</a>
 {:else}
 	<a
-		href={resolve(href)}
+		href={resolve(href as '/')}
 		title={collapsed ? label : undefined}
 		class={cn(
 			'group flex items-center py-2 text-sm transition-colors duration-100',

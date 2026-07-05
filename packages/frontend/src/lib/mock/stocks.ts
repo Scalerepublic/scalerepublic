@@ -1,6 +1,8 @@
 import type { Stock } from '$lib/types';
 
-export const mockStocks: Stock[] = [
+type MockStock = Omit<Stock, 'id'>;
+
+const baseMockStocks: MockStock[] = [
 	{
 		ticker: 'AAPL',
 		name: 'Apple Inc.',
@@ -167,3 +169,8 @@ export const mockStocks: Stock[] = [
 		volume: 3_200_000
 	}
 ];
+
+export const mockStocks: Stock[] = baseMockStocks.map((stock) => ({
+	...stock,
+	id: stock.ticker
+}));
