@@ -70,7 +70,11 @@
 			await goto(resolve('/login'), { replaceState: true, invalidateAll: true });
 		} catch (e) {
 			const message =
-				e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Account deletion failed';
+				e instanceof ApiError
+					? e.message
+					: e instanceof Error
+						? e.message
+						: 'Account deletion failed';
 			toast.error(message);
 		} finally {
 			deletingAccount = false;
@@ -193,14 +197,12 @@
 	confirmDisabled={deletePassword.length === 0}
 	onConfirm={handleDeleteAccount}
 >
-	{#snippet children()}
-		<FormField
-			id="delete-account-password"
-			label="Password"
-			type="password"
-			autocomplete="current-password"
-			bind:value={deletePassword}
-			disabled={deletingAccount}
-		/>
-	{/snippet}
+	<FormField
+		id="delete-account-password"
+		label="Password"
+		type="password"
+		autocomplete="current-password"
+		bind:value={deletePassword}
+		disabled={deletingAccount}
+	/>
 </ConfirmDialog>

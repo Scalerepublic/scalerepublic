@@ -158,8 +158,9 @@ export class UserService {
     const authCtx = await this.ctx.auth.$context;
     const accounts = await authCtx.internalAdapter.findAccounts(userId);
     const credential = accounts.find((account) => account.providerId === 'credential');
-    if (!credential?.password) return false;
-    return authCtx.password.verify({ hash: credential.password, password });
+    const passwordHash = credential?.password;
+    if (passwordHash === undefined || passwordHash === null || passwordHash === '') return false;
+    return authCtx.password.verify({ hash: passwordHash, password });
   }
 
   async deleteAccount(userId: string): Promise<boolean> {
