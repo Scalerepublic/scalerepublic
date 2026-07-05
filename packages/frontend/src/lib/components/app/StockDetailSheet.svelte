@@ -12,15 +12,9 @@
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
 	import { portal } from '$lib/actions/portal';
-	import { fade, fly, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { fade } from 'svelte/transition';
+	import { panelTransition } from '$lib/transitions';
 	import { Loader2, X } from '@lucide/svelte';
-
-	function panelTransition(node: HTMLElement) {
-		return window.innerWidth < 640
-			? fly(node, { y: 500, duration: 300, easing: cubicOut })
-			: scale(node, { start: 0.95, duration: 200, easing: cubicOut });
-	}
 
 	let {
 		open = $bindable(false),

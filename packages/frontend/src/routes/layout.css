@@ -216,6 +216,9 @@
 	.section-heading {
 		@apply mb-2 flex items-center justify-between border-b border-border pb-2;
 	}
+	.table-th {
+		@apply px-4 py-2.5 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase;
+	}
 	.section-divider {
 		@apply mb-6 h-px w-full bg-border;
 	}

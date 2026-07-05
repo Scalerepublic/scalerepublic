@@ -3,14 +3,8 @@
 	import NobleButton from './NobleButton.svelte';
 	import type { Stock } from '$lib/types';
 	import { portal } from '$lib/actions/portal';
-	import { fly, fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-
-	function panelTransition(node: HTMLElement) {
-		return window.innerWidth < 640
-			? fly(node, { y: 500, duration: 300, easing: cubicOut })
-			: scale(node, { start: 0.95, duration: 200, easing: cubicOut });
-	}
+	import { fade } from 'svelte/transition';
+	import { panelTransition } from '$lib/transitions';
 
 	let {
 		open = $bindable(false),

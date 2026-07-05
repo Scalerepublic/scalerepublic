@@ -150,34 +150,13 @@
 		<table class="w-full border-collapse text-sm">
 			<thead>
 				<tr class="border-b border-border bg-muted">
-					<th
-						class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Rank</th
-					>
-					<th
-						class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Trader</th
-					>
-					<th
-						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Net Worth</th
-					>
-					<th
-						class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase sm:table-cell"
-						>Holdings</th
-					>
-					<th
-						class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase md:table-cell"
-						>Cash</th
-					>
-					<th
-						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Defaults</th
-					>
-					<th
-						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Return</th
-					>
+					<th class="table-th text-left">Rank</th>
+					<th class="table-th text-left">Trader</th>
+					<th class="table-th text-right">Net Worth</th>
+					<th class="table-th hidden text-right sm:table-cell">Holdings</th>
+					<th class="table-th hidden text-right md:table-cell">Cash</th>
+					<th class="table-th text-right">Defaults</th>
+					<th class="table-th text-right">Return</th>
 				</tr>
 			</thead>
 			<tbody>
