@@ -16,6 +16,12 @@ From the repository root:
 just dev
 ```
 
+On first run, seed stock prices (required for trading and non-null quotes):
+
+```bash
+just db-seed
+```
+
 This will:
 
 1. Create `packages/backend/.env` and `packages/frontend/.env` from the examples (if missing)
@@ -25,7 +31,9 @@ This will:
 5. Start the backend on **http://localhost:50030** (live Bun process — always current code)
 6. Start the frontend on **http://localhost:5173**
 
-Open **http://localhost:5173** in your browser.
+Open **http://localhost:5173** in your browser. Sign up at `/signup` for a portfolio — users are not seeded.
+
+With `STOCK_DEBUG=true` (default in `.env.example`), no external stock API credentials are required.
 
 Press `Ctrl+C` to stop backend and frontend. Postgres keeps running until you run `just down`.
 
@@ -38,6 +46,7 @@ Press `Ctrl+C` to stop backend and frontend. Postgres keeps running until you ru
 | `just up` | Start Postgres + run migrations only |
 | `just down` | Stop Docker services |
 | `just db-migrate` | Apply pending migrations |
+| `just db-seed` | Seed stocks and historical prices |
 | `just db-studio` | Open Drizzle Studio |
 | `just up-docker` | Run backend **in Docker** (rebuilds image) |
 | `just test` | Backend integration tests |

@@ -1,19 +1,31 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import SettingsRow from './SettingsRow.svelte';
 	import ConfirmDialog from '$lib/components/app/ConfirmDialog.svelte';
+	import FormField from '$lib/components/app/FormField.svelte';
 	import { userStore } from '$lib/stores/user.svelte';
 	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import { performanceStore } from '$lib/stores/performance.svelte';
 	import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
+	import { signOut } from '$lib/auth-client';
 	import { ApiError } from '$lib/api';
 	import { formatCurrency } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
 	import { Wallet, Shield, TrendingUp, Trophy, AlertTriangle } from '@lucide/svelte';
 
 	let defaultDialogOpen = $state(false);
+	let deleteDialogOpen = $state(false);
+	let deletePassword = $state('');
 	let forcingDefault = $state(false);
+	let deletingAccount = $state(false);
+
+	$effect(() => {
+		if (!deleteDialogOpen) {
+			deletePassword = '';
+		}
+	});
 
 	const canForceDefault = $derived(
 		userStore.profile.accountStatus === 'active' &&
@@ -44,6 +56,24 @@
 			toast.error(message);
 		} finally {
 			forcingDefault = false;
+		}
+	}
+
+	async function handleDeleteAccount() {
+		if (deletingAccount || deletePassword.length === 0) return;
+		deletingAccount = true;
+		try {
+			await userStore.deleteAccount(deletePassword);
+			deleteDialogOpen = false;
+			await signOut().catch(() => undefined);
+			toast.success('Your account has been deleted.');
+			await goto(resolve('/login'), { replaceState: true, invalidateAll: true });
+		} catch (e) {
+			const message =
+				e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Account deletion failed';
+			toast.error(message);
+		} finally {
+			deletingAccount = false;
 		}
 	}
 </script>
@@ -104,24 +134,42 @@
 			<h2 class="text-sm font-semibold text-foreground">Danger Zone</h2>
 		</div>
 		<p class="mt-1 text-xs text-muted-foreground">
-			Force-default your active portfolio. This counts as one strike toward suspension.
+			Irreversible actions for your account and portfolio.
 		</p>
 	</div>
-	<div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-		<div>
-			<p class="text-sm font-medium text-foreground">Force portfolio default</p>
-			<p class="mt-0.5 text-xs text-muted-foreground">
-				Closes your current portfolio and starts a new one with $1,000 unless you are suspended.
-			</p>
+	<div class="divide-y divide-destructive/20">
+		<div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<p class="text-sm font-medium text-foreground">Force portfolio default</p>
+				<p class="mt-0.5 text-xs text-muted-foreground">
+					Closes your current portfolio and starts a new one with $1,000 unless you are suspended.
+				</p>
+			</div>
+			<button
+				type="button"
+				onclick={() => (defaultDialogOpen = true)}
+				disabled={!canForceDefault || forcingDefault || deletingAccount}
+				class="shrink-0 border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				Force default
+			</button>
 		</div>
-		<button
-			type="button"
-			onclick={() => (defaultDialogOpen = true)}
-			disabled={!canForceDefault || forcingDefault}
-			class="shrink-0 border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-50"
-		>
-			Force default
-		</button>
+		<div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<p class="text-sm font-medium text-foreground">Delete account</p>
+				<p class="mt-0.5 text-xs text-muted-foreground">
+					Permanently removes your account, portfolio, trades, and session. This cannot be undone.
+				</p>
+			</div>
+			<button
+				type="button"
+				onclick={() => (deleteDialogOpen = true)}
+				disabled={deletingAccount || forcingDefault}
+				class="shrink-0 border border-destructive/40 bg-destructive px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				Delete account
+			</button>
+		</div>
 	</div>
 </section>
 
@@ -134,3 +182,25 @@
 	confirming={forcingDefault}
 	onConfirm={handleForceDefault}
 />
+
+<ConfirmDialog
+	bind:open={deleteDialogOpen}
+	title="Delete your account?"
+	message="This permanently deletes your account and all associated data, including your portfolio and trade history. You will be signed out immediately."
+	confirmLabel="Yes, delete account"
+	cancelLabel="Cancel"
+	confirming={deletingAccount}
+	confirmDisabled={deletePassword.length === 0}
+	onConfirm={handleDeleteAccount}
+>
+	{#snippet children()}
+		<FormField
+			id="delete-account-password"
+			label="Password"
+			type="password"
+			autocomplete="current-password"
+			bind:value={deletePassword}
+			disabled={deletingAccount}
+		/>
+	{/snippet}
+</ConfirmDialog>

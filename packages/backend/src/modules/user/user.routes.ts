@@ -2,8 +2,9 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 
 import { useCtx, type App, type AppEnv } from "../../context.ts";
+import { requireAuth } from "../../lib/require-auth.ts";
 
-import { searchQuerySchema, userIdParamSchema, performanceQuerySchema } from "./user.schema.ts";
+import { searchQuerySchema, userIdParamSchema, performanceQuerySchema, deleteAccountBodySchema } from "./user.schema.ts";
 
 export const userRoutes = new Hono<AppEnv>()
   .get("/api/v1/users/search", zValidator("query", searchQuerySchema), async (c) => {
@@ -42,6 +43,28 @@ export const userRoutes = new Hono<AppEnv>()
     }
     const performance = await userService.getUserPerformance(id, granularity);
     return c.json({ data: performance });
+  })
+  .delete("/api/v1/users/:id", zValidator("param", userIdParamSchema), zValidator("json", deleteAccountBodySchema), async (c) => {
+    const authResult = await requireAuth(c);
+    if (authResult instanceof Response) return authResult;
+
+    const { id } = c.req.valid("param");
+    const { password } = c.req.valid("json");
+    if (authResult.user.id !== id) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const { userService } = useCtx(c);
+    const passwordValid = await userService.verifyPassword(id, password);
+    if (!passwordValid) {
+      return c.json({ error: "Incorrect password" }, 401);
+    }
+
+    const success = await userService.deleteAccount(id);
+    if (!success) {
+      return c.json({ error: "Failed to delete account" }, 500);
+    }
+    return c.json({ data: { userId: id, deleted: true } });
   });
 
 export const registerUserRoutes = (app: App) => {

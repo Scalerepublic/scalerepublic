@@ -1,7 +1,8 @@
-import { eq, ilike, or } from 'drizzle-orm';
+import { and, eq, ilike, or } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';
 import { user } from '../../db/schema/auth-schema.ts';
+import { autoTradeRule } from '../../db/schema/trade/autoTrade.ts';
 import type { PerformanceGranularity, PerformancePoint } from '../portfolio/portfolio-performance.service.ts';
 
 export type UserProfile = {
@@ -108,5 +109,67 @@ export class UserService {
     if (!activePortfolio) return [];
 
     return this.ctx.portfolioPerformanceService.getPerformance(activePortfolio.id, granularity);
+  }
+
+  private async cancelAutoTradesForUser(userId: string): Promise<void> {
+    const portfolios = await this.ctx.portfolioService.getByUserId(userId);
+    await Promise.all(
+      portfolios.map((portfolioRow) =>
+        this.ctx.db
+          .update(autoTradeRule)
+          .set({ status: 'CANCELLED' })
+          .where(
+            and(
+              eq(autoTradeRule.portfolioId, portfolioRow.id),
+              eq(autoTradeRule.status, 'ACTIVE'),
+            ),
+          ),
+      ),
+    );
+  }
+
+  private async liquidateHoldings(userId: string): Promise<void> {
+    const activePortfolio = await this.ctx.portfolioService.getActiveForUser(userId);
+    if (!activePortfolio) return;
+
+    const holdings = await this.ctx.portfolioService.getHoldings(activePortfolio.id);
+    const activeHoldings = holdings.filter((holding) => holding.quantity > 0);
+    if (activeHoldings.length === 0) return;
+
+    const prices = await this.ctx.stockService.getLatestPricesByStockIds(
+      activeHoldings.map((holding) => holding.stockId),
+    );
+
+    await Promise.allSettled(
+      activeHoldings.map(async (holding) => {
+        const price = prices.get(holding.stockId);
+        if (price === undefined || price <= 0) return;
+        await this.ctx.portfolioService.sell(
+          activePortfolio.id,
+          holding.stockId,
+          holding.quantity,
+          price,
+        );
+      }),
+    );
+  }
+
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const authCtx = await this.ctx.auth.$context;
+    const accounts = await authCtx.internalAdapter.findAccounts(userId);
+    const credential = accounts.find((account) => account.providerId === 'credential');
+    if (!credential?.password) return false;
+    return authCtx.password.verify({ hash: credential.password, password });
+  }
+
+  async deleteAccount(userId: string): Promise<boolean> {
+    try {
+      await this.cancelAutoTradesForUser(userId);
+      await this.liquidateHoldings(userId);
+      await this.ctx.db.delete(user).where(eq(user.id, userId));
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

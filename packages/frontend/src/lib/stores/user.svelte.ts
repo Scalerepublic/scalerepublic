@@ -1,3 +1,4 @@
+import { ApiError } from '$lib/api';
 import { api, parseApiData } from '$lib/api/client';
 import type { BackendUserProfile } from '$lib/api/backend-types';
 import { mergeUserProfile } from '$lib/api/mappers';
@@ -59,6 +60,19 @@ class UserStore {
 			...this.settings,
 			notifications: { ...this.settings.notifications, ...partial }
 		};
+	}
+
+	async deleteAccount(password: string): Promise<{ userId: string; deleted: boolean }> {
+		const userId = authStore.user?.id;
+		if (!userId) {
+			throw new ApiError('Not signed in', 401);
+		}
+
+		const res = await api.api.v1.users[':id'].$delete({
+			param: { id: userId },
+			json: { password }
+		});
+		return parseApiData(res);
 	}
 }
 
