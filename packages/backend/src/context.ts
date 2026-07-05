@@ -8,11 +8,8 @@ import { PortfolioDefaultService } from './modules/portfolio/portfolio-default.s
 import { PortfolioPerformanceService } from './modules/portfolio/portfolio-performance.service.ts'
 import { PortfolioService } from './modules/portfolio/portfolio.services.ts'
 import { StockService } from './modules/stock/stock.service.ts'
-import { createStockQuoteClient } from './modules/stockapi/create-stock-quote-client.ts'
 import { MockStockDataClient } from './modules/stockapi/mock-stock-client.ts'
 import type { StockDataClient } from './modules/stockapi/stock-data-client.ts'
-import type { StockQuoteClient } from './modules/stockapi/stock-quote-client.ts'
-import { SyntheticQuoteClient } from './modules/stockapi/synthetic-quote-client.ts'
 import { UniStockClient, type UniApiSubfetch } from './modules/stockapi/uni-stock-client.ts'
 import { AlphaVantageStockClient } from './modules/stockapi/vantage/vantage-stock-client.ts'
 import { SyncService } from './modules/sync/sync.service.ts'
@@ -23,7 +20,6 @@ export type AppVars = {
     db: DbConnection
     auth: Auth
     stockDataClient: StockDataClient
-    stockQuoteClient: StockQuoteClient
     stockService: StockService
     marketDebugService: MarketDebugService
     userService: UserService
@@ -56,13 +52,10 @@ export const createAppContext = (
     db: DbConnection = defaultDb,
     options: AppContextOptions = {},
 ): AppVars => {
-    // Services receive ctx by reference. ctx.xService properties are populated
-    // before any method can be called, so cross-service access is always safe.
     const ctx = { db } as AppVars
     ctx.auth = createAuth(db, options.auth)
     if (process.env.NODE_ENV === 'test') {
         ctx.stockDataClient = new MockStockDataClient()
-        ctx.stockQuoteClient = new SyntheticQuoteClient(db)
     } else if (process.env['STOCK_API_PROVIDER'] === 'uni') {
         ctx.stockDataClient = new UniStockClient(
             undefined,
@@ -72,10 +65,6 @@ export const createAppContext = (
     } else {
         ctx.stockDataClient = new AlphaVantageStockClient()
     }
-    ctx.stockQuoteClient = createStockQuoteClient(db, ctx.stockDataClient, {
-        uniApiSubfetch: options.uniApiSubfetch,
-        uniApiBaseUrl: options.uniApiBaseUrl,
-    })
     ctx.marketDebugService = new MarketDebugService(ctx)
     ctx.stockService = new StockService(ctx)
     ctx.userService = new UserService(ctx)

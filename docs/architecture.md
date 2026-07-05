@@ -24,7 +24,6 @@ rectangle "Backend\nHono Worker / Bun" as BE {
   [better-auth]
   [Stock · Portfolio · Trades]
   [SyncService]
-  [StockQuoteClient]
   [StockDataClient]
 }
 
@@ -40,9 +39,6 @@ BE --> PROXY : Bars · Meta\n(on demand / backfill)
 PROXY --> EXT
 GHA --> EXT : Batch backfill\n(Bun, direct URL)
 GHA --> DB
-BE --> StockQuoteClient
-StockQuoteClient --> DB : synthetic quotes
-StockQuoteClient --> PROXY : live quotes\n(optional)
 
 @enduml
 ```
@@ -63,13 +59,19 @@ Live-Kurse für Charts und Browse werden **nicht** bei jedem Request von der Uni
 
 ```
 Cron (Worker) → SyncService.runSync()
-  → StockService.listEligibleQuoteSymbols()     // Ticker mit Daily Bar oder Preis > 0
-  → StockQuoteClient.getQuotes(symbols)         // Provider-Abstraktion (wie API-Call)
-  → StockService.persistQuotesFromSync()        // Batch-INSERT in stock_price
-  → StockService.refreshStockMetricsBatch()     // dayChange / periodChange auf stock
+  → StockService.insertSyntheticQuotesForAllEligible()   // 2 Bulk-SELECTs + Batch-INSERT
+  → StockService.refreshStockMetricsBatch()             // dayChange / periodChange auf stock
 ```
 
-Der Sync ist bewusst wie ein externer API-Client aufgebaut: `SyncService` orchestriert nur, der **Quote-Provider** liefert `StockQuote[]`, `StockService` persistiert.
+**Synthetische Quotes** werden direkt in `StockService` aus der DB berechnet:
+
+- Ticker mit Daily Bar → Zufallspreis zwischen letztem Low/High
+- Fallback ohne Bar → Jitter um den letzten gespeicherten Preis
+- Quelle in `stock_price.source`: `synthetic`
+
+Legacy-Pfad für Tests und einzelne Ticker: `SyncService.syncOnce(['AAPL', …])` → `insertSyntheticQuote()` pro Symbol.
+
+**Geplant:** Live-Quotes über `StockDataClient.getQuotes()` (gebatcht), sobald Uni/Vantage im Sync angebunden sind — siehe TODO in `sync.service.ts`.
 
 ### 2. Catalog Backfill (Namen + 30 Tage Daily Bars)
 
@@ -81,32 +83,20 @@ Uni API → stock_daily_bar + company_name
 
 Erst mit ausreichend Daily Bars erscheint ein Ticker im Browse (`catalogListedFilter`: ≥2 Bars im 30-Tage-Fenster). Detail-Views können on-demand nachladen (`DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES`).
 
-## Quote-Provider (`StockQuoteClient`)
-
-| Provider (`STOCK_QUOTE_PROVIDER`) | Verhalten | Typischer Einsatz |
-|-----------------------------------|-----------|-------------------|
-| `synthetic` (Default) | Zufallspreis zwischen letztem Daily Low/High aus DB | Staging + Production Price-Sync |
-| `uni` | Echte Uni-API-Calls, gebatcht mit Rate-Limit | Später: Live-Quotes vom Provider |
-| `alphavantage` | Alpha Vantage Global Quote, gebatcht | Alternative Live-Quelle |
-
-Factory: `createStockQuoteClient()` in `packages/backend/src/modules/stockapi/`.
-
-**Batching** (`batch-quote-fetch.ts`):
-
-- `SYNC_QUOTE_BATCH_SIZE` (Default 50) — Symbole pro Parallel-Batch
-- `SYNC_QUOTE_BATCH_DELAY_MS` (Default 0) — Pause zwischen Batches (für Live-APIs z. B. 1000 ms)
-
-`synthetic` ignoriert das Delay intern: `getQuotes()` macht 2 Bulk-SELECTs und berechnet alle Preise in Memory.
-
 ## Market-Data-Client (`StockDataClient`)
 
-Separater Client für **Metadaten und History**, nicht für den minütlichen Quote-Tick:
+Externer API-Client für **Metadaten, History und (später) Live-Quotes** — nicht für den aktuellen synthetischen Price-Sync:
 
 | Methode | Zweck |
 |---------|--------|
 | `getStockMeta` | Firmenname (Backfill) |
 | `getDailyBar` | OHLC pro Tag (Backfill, Charts) |
-| `getQuote` / `getQuotes` | auch auf dem Data-Client (wenn Provider = Quote-Provider) |
+| `getQuote` / `getQuotes` | Live-Quote pro Symbol; `getQuotes` batcht via `fetchQuotesInBatches()` |
+
+**Batching** (`stock-data-client.ts`):
+
+- `SYNC_QUOTE_BATCH_SIZE` (Default 50) — Symbole pro Parallel-Batch
+- `SYNC_QUOTE_BATCH_DELAY_MS` (Default 0) — Pause zwischen Batches (für Live-APIs z. B. 1000 ms)
 
 Konfiguration: `STOCK_API_PROVIDER=uni` auf Staging/Production. Worker erreicht die Uni-API über **Service Binding** → `scalerepublic-uni-proxy` (nip.io für IP-Origins).
 
@@ -124,7 +114,7 @@ Konfiguration: `STOCK_API_PROVIDER=uni` auf Staging/Production. Worker erreicht 
 |---------|--------|
 | `stock` | Ticker, Name, gecachte `day_change_percent` / `period_change_percent` |
 | `stock_daily_bar` | OHLC pro Handelstag (`uni_api` / Backfill) |
-| `stock_price` | Point-in-time Quotes (`synthetic` oder Live-Provider) |
+| `stock_price` | Point-in-time Quotes (`synthetic`; später auch Live-Provider) |
 | `sync_job` | Advisory Lock + `last_success_at` für Price-Sync |
 
 ## Frontend
@@ -138,11 +128,10 @@ Konfiguration: `STOCK_API_PROVIDER=uni` auf Staging/Production. Worker erreicht 
 
 | Variable | Rolle |
 |----------|--------|
-| `STOCK_API_PROVIDER` | `uni` — Bars/Meta/Backfill |
-| `STOCK_QUOTE_PROVIDER` | `synthetic` \| `uni` \| `alphavantage` — Price-Sync |
+| `STOCK_API_PROVIDER` | `uni` — Bars/Meta/Backfill (und später Live-Quotes) |
 | `SYNC_INTERVAL_MS` | Mindestabstand zwischen Price-Sync-Läufen |
-| `SYNC_QUOTE_BATCH_SIZE` / `SYNC_QUOTE_BATCH_DELAY_MS` | Batch-Größe und Delay für Live-Quote-Provider |
+| `SYNC_QUOTE_BATCH_SIZE` / `SYNC_QUOTE_BATCH_DELAY_MS` | Batch-Größe und Delay für `StockDataClient.getQuotes()` |
 | `CATALOG_BACKFILL_ON_CRON` | `false` auf Staging — kein Backfill im Worker-Cron |
 | `CATALOG_BACKFILL_MAX_API_CALLS` | API-Budget pro Backfill-Pass (Worker ≤40) |
 
-Relevante Pfade: `packages/backend/src/modules/sync/sync.service.ts`, `packages/backend/src/modules/stockapi/`, `packages/backend/src/modules/stock/stock.service.ts`, `packages/uni-api-proxy/`.
+Relevante Pfade: `packages/backend/src/modules/sync/sync.service.ts`, `packages/backend/src/modules/stock/stock.service.ts`, `packages/backend/src/modules/stockapi/`, `packages/uni-api-proxy/`.

@@ -134,29 +134,14 @@ export class SyncService {
             return
         }
 
-        const eligible = await this.ctx.stockService.listEligibleQuoteSymbols()
-        if (eligible.length === 0) {
+        // TODO: switch to stockDataClient.getQuotes() for live provider quotes once Uni/Vantage batch API is wired
+        const { inserted, stockIds } = await this.ctx.stockService.insertSyntheticQuotesForAllEligible()
+        if (inserted === 0) {
             console.warn('[sync] No eligible stocks with market data — skipping quote sync')
             return
         }
 
-        const symbolToStockId = new Map(eligible.map((row) => [row.symbol, row.stockId]))
-        const quotes = await this.ctx.stockQuoteClient.getQuotes(eligible.map((row) => row.symbol))
-        const entries = quotes.flatMap((quote) => {
-            const stockId = symbolToStockId.get(quote.symbol)
-            if (stockId === undefined) return []
-            return [{ stockId, quote }]
-        })
-
-        const { inserted, stockIds } = await this.ctx.stockService.persistQuotesFromSync(entries)
-        if (inserted === 0) {
-            console.warn('[sync] Quote provider returned no persistable quotes')
-            return
-        }
-
-        console.log(
-            `[sync] Stored ${inserted} quotes from ${this.ctx.stockQuoteClient.source} across ${stockIds.length} stocks`,
-        )
+        console.log(`[sync] Stored ${inserted} synthetic quotes across ${stockIds.length} stocks`)
 
         await this.ctx.stockService.refreshStockMetricsBatch(stockIds)
     }
