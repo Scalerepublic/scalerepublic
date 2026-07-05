@@ -222,53 +222,38 @@ export class StockService {
         await this.persistStockMetricsBatch([{ stockId, performance }])
     }
 
-    private async persistStockMetricsBatch(
-        entries: Array<{ stockId: string; performance: StockDetailPerformance }>,
+    private async persistStockMetricsEntry(
+        stockId: string,
+        performance: StockDetailPerformance,
     ): Promise<void> {
-        const rows = entries.flatMap(({ stockId, performance }) => {
-            if (
-                performance.periodChangePercent === null
-                && performance.dayChangePercent === null
-            ) {
-                return []
-            }
-
-            return [{
-                stockId,
-                periodChangePercent:
-                    performance.periodChangePercent !== null
-                        ? performance.periodChangePercent.toString()
-                        : null,
-                dayChangePercent:
-                    performance.dayChangePercent !== null
-                        ? performance.dayChangePercent.toString()
-                        : null,
-            }]
-        })
-
-        if (rows.length === 0) {
+        if (
+            performance.periodChangePercent === null
+            && performance.dayChangePercent === null
+        ) {
             return
         }
 
-        const metricsUpdatedAt = new Date()
+        await this.ctx.db.update(stock).set({
+            periodChangePercent:
+                performance.periodChangePercent !== null
+                    ? performance.periodChangePercent.toString()
+                    : null,
+            dayChangePercent:
+                performance.dayChangePercent !== null
+                    ? performance.dayChangePercent.toString()
+                    : null,
+            metricsUpdatedAt: new Date(),
+        }).where(eq(stock.id, stockId))
+    }
 
-        for (let offset = 0; offset < rows.length; offset += METRICS_REFRESH_CHUNK) {
-            const chunk = rows.slice(offset, offset + METRICS_REFRESH_CHUNK)
-            await this.ctx.db.execute(sql`
-                UPDATE stock AS s SET
-                    period_change_percent = v.period_change_percent::numeric,
-                    day_change_percent = v.day_change_percent::numeric,
-                    metrics_updated_at = ${metricsUpdatedAt}
-                FROM (VALUES ${sql.join(
-                    chunk.map((row) => sql`(
-                        ${row.stockId},
-                        ${row.periodChangePercent},
-                        ${row.dayChangePercent}
-                    )`),
-                    sql`, `,
-                )}) AS v(id, period_change_percent, day_change_percent)
-                WHERE s.id = v.id
-            `)
+    private async persistStockMetricsBatch(
+        entries: Array<{ stockId: string; performance: StockDetailPerformance }>,
+    ): Promise<void> {
+        for (let offset = 0; offset < entries.length; offset += METRICS_REFRESH_CHUNK) {
+            const chunk = entries.slice(offset, offset + METRICS_REFRESH_CHUNK)
+            for (const entry of chunk) {
+                await this.persistStockMetricsEntry(entry.stockId, entry.performance)
+            }
         }
     }
 

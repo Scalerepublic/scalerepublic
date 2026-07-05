@@ -167,8 +167,9 @@ export class PortfolioPerformanceService {
 
         const stockIds = [...new Set(trades.map((row) => row.stockId))];
 
+        const snapshotFrom = startOfUtcDay(end);
         const priceSeries = stockIds.length > 0
-            ? await this.ctx.stockService.getPriceSnapshotsByStockIds(stockIds, dayStart, dayEnd)
+            ? await this.ctx.stockService.getPriceSnapshotsByStockIds(stockIds, snapshotFrom, dayEnd)
             : new Map<string, Array<{ recordedAt: Date; price: number }>>();
 
         const eventTimes = new Set<number>([startMs]);
