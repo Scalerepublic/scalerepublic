@@ -1,11 +1,14 @@
+import type { ExecutionContext } from "@cloudflare/workers-types";
+
 import { createApp, createWorkerContext, type WorkerBindings } from "./app.ts";
 import { createAppContext } from "./context.ts";
 import { parseTrackedTickers } from "./modules/sync/sync.service.ts";
 
-const bunCtx = createAppContext();
+const isBunRuntime = typeof Bun !== "undefined";
+const bunCtx = isBunRuntime ? createAppContext() : undefined;
 const app = createApp(bunCtx);
 
-if (typeof Bun !== "undefined" && process.env.NODE_ENV !== "test") {
+if (isBunRuntime && process.env.NODE_ENV !== "test" && bunCtx) {
     bunCtx.syncService.startScheduler().catch((err) => {
         console.error("[sync] Failed to start scheduler:", err);
     });

@@ -2,8 +2,8 @@ import { and, eq, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 
 import type { AppVars } from '../../context.ts'
-import { readEnvNumber } from '../../lib/env-number.ts'
 import { syncJob } from '../../db/schema/sync.ts'
+import { readEnvNumber } from '../../lib/env-number.ts'
 import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
 const JOB_ID = 'stock-price-sync'
@@ -48,9 +48,14 @@ const chunk = <T>(arr: T[], size: number): T[][] => {
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
 export class SyncService {
-    private readonly lockId = `sync-${crypto.randomUUID()}`
+    private lockId: string | null = null
 
     constructor(private readonly ctx: AppVars) {}
+
+    private getLockId(): string {
+        this.lockId ??= `sync-${crypto.randomUUID()}`
+        return this.lockId
+    }
 
     private async ensureStock(ticker: string): Promise<string | null> {
         const existing = await this.ctx.stockService.getStockId(ticker)
@@ -218,10 +223,11 @@ export class SyncService {
     }
 
     private async tryClaimJob(staleThreshold: Date): Promise<boolean> {
+        const lockId = this.getLockId()
         const claimed = await this.ctx.db.update(syncJob).set({
             status: 'running',
             lockedAt: new Date(),
-            lockedBy: this.lockId,
+            lockedBy: lockId,
             lastStartedAt: new Date(),
         }).where(and(
             eq(syncJob.id, JOB_ID),
@@ -255,7 +261,7 @@ export class SyncService {
                 console.log('[sync] Failed to lock sync')
                 return
             }
-            console.log(`[sync] Lock acquired by ${this.lockId}`)
+            console.log(`[sync] Lock acquired by ${this.getLockId()}`)
 
             try {
                 let syncError: string | null = null
