@@ -17,6 +17,10 @@ const DEFAULT_NAMES_BACKFILL_BATCH = 20
 const DEFAULT_HISTORY_BACKFILL_STOCKS = 8
 const DEFAULT_HISTORY_BARS_PER_STOCK = 10
 const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 55
+const AUTO_TRADE_BATCH_SIZE = 20
+// Time after which a new instance is allowed to retake a taken lock
+// Essentially the maximum time the sync should take. Longer and we
+// assume another instance crashed while holding the lock
 const STALE_LOCK_MS = 10 * 60 * 1000
 
 const DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V', 'UNH']
@@ -247,6 +251,31 @@ export class SyncService {
         await this.runSync(tickers)
     }
 
+    async checkAllAutoTrades(): Promise<void> {
+        const expired = await this.ctx.autoTradeService.expireAutoTrades()
+        if (expired > 0) console.log(`[autotrade] Expired ${expired} rule(s)`)
+
+        const rules = await this.ctx.autoTradeService.getActiveAutoTrades()
+        if (rules.length === 0) return
+
+        console.log(`[autotrade] Evaluating ${rules.length} active rule(s)`)
+        const batches = chunk(rules, AUTO_TRADE_BATCH_SIZE)
+        for (const batch of batches) {
+            const results = await Promise.allSettled(
+                batch.map(rule => this.ctx.autoTradeService.executeAutoTrade(rule)),
+            )
+            results.forEach((r, i) => {
+                const rule = batch[i]!
+                if (r.status === 'fulfilled') {
+                    if (r.value) console.log(`[autotrade] Rule ${rule.id} triggered -> trade ${r.value.id}`)
+                } else {
+                    const message = r.reason instanceof Error ? r.reason.message : String(r.reason)
+                    console.error(`[autotrade] Rule ${rule.id} failed: ${message}`)
+                }
+            })
+        }
+    }
+
     async runDueTick(tickers: string[]): Promise<void> {
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
 
@@ -297,6 +326,8 @@ export class SyncService {
                     lockedBy: null,
                 }).where(eq(syncJob.id, JOB_ID))
                 console.log('[sync] Completed successfully')
+                // Auto-trades first (they move cash/holdings), then defaults on the result.
+                await this.checkAllAutoTrades()
                 await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
