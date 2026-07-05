@@ -50,16 +50,26 @@ export class UniStockClient implements StockDataClient {
         return trimmed
     }
 
+    private redactRequestUrl(url: URL): string {
+        const copy = new URL(url.toString())
+        copy.searchParams.set('token', '[redacted]')
+        return copy.toString()
+    }
+
     private async get(path: string, query: Record<string, string> = {}): Promise<unknown> {
         const url = new URL(`${this.baseUrl}${path}`)
         for (const [key, value] of Object.entries(query)) {
             url.searchParams.set(key, value)
         }
         url.searchParams.set('token', this.token)
-        console.log(`[uniapi] GET ${url.toString()}`)
+        console.log(`[uniapi] GET ${this.redactRequestUrl(url)}`)
         const res = await fetch(url.toString())
         if (!res.ok) throw new Error(`Uni API error: ${res.status} ${res.statusText}`)
-        return res.json()
+        const json = await res.json()
+        if (query['date'] !== undefined) {
+            console.log(`[uniapi] response ${path} date=${query['date']} ${JSON.stringify(json)}`)
+        }
+        return json
     }
 
     async getQuote(symbol: string): Promise<StockQuote> {
