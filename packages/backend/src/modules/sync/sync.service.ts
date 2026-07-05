@@ -145,7 +145,7 @@ export class SyncService {
             results.forEach((r, i) => {
                 const rule = batch[i]!
                 if (r.status === 'fulfilled') {
-                    if (r.value) console.log(`[autotrade] Rule ${rule.id} triggered → trade ${r.value.id}`)
+                    if (r.value) console.log(`[autotrade] Rule ${rule.id} triggered -> trade ${r.value.id}`)
                 } else {
                     const message = r.reason instanceof Error ? r.reason.message : String(r.reason)
                     console.error(`[autotrade] Rule ${rule.id} failed: ${message}`)

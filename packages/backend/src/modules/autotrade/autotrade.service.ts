@@ -17,6 +17,7 @@ import { AutoTradeNotFoundError, InvalidAutoTradeError } from './errors.ts';
 
 export type AutoTradeRecord = typeof autoTradeRule.$inferSelect;
 export type AutoTradeRuleType = AutoTradeRecord['ruleType'];
+export type AutoTradeTriggerDirection = AutoTradeRecord['triggerDirection'];
 
 export class AutoTradeService {
     constructor(private readonly ctx: AppVars) {}
@@ -25,11 +26,12 @@ export class AutoTradeService {
         portfolioId: string;
         stockId: string;
         ruleType: AutoTradeRuleType;
+        triggerDirection: AutoTradeTriggerDirection;
         priceThreshold: number;
         quantity: number;
         expiresAt?: Date | null;
     }): Promise<AutoTradeRecord> {
-        const { portfolioId, stockId, ruleType, priceThreshold, quantity, expiresAt } = params;
+        const { portfolioId, stockId, ruleType, triggerDirection, priceThreshold, quantity, expiresAt } = params;
 
         if (!Number.isInteger(quantity) || quantity < 1) {
             throw new InvalidAutoTradeError('quantity must be a positive integer');
@@ -51,6 +53,7 @@ export class AutoTradeService {
                 portfolioId,
                 stockId,
                 ruleType,
+                triggerDirection,
                 priceThreshold: priceThreshold.toFixed(4),
                 quantity,
                 status: 'ACTIVE',
@@ -85,8 +88,8 @@ export class AutoTradeService {
             .orderBy(desc(autoTradeRule.createdAt));
     }
 
-    shouldTrigger(ruleType: AutoTradeRuleType, priceThreshold: number, price: number): boolean {
-        return ruleType === 'BUY' ? price <= priceThreshold : price >= priceThreshold;
+    shouldTrigger(triggerDirection: AutoTradeTriggerDirection, priceThreshold: number, price: number): boolean {
+        return triggerDirection === 'AT_OR_ABOVE' ? price >= priceThreshold : price <= priceThreshold;
     }
 
     async expireAutoTrades(now: Date = new Date()): Promise<number> {
@@ -106,7 +109,7 @@ export class AutoTradeService {
         if (price === null) return null;
 
         const threshold = parseFloat(rule.priceThreshold);
-        if (!this.shouldTrigger(rule.ruleType, threshold, price)) return null;
+        if (!this.shouldTrigger(rule.triggerDirection, threshold, price)) return null;
 
         try {
             // Trade and rule update in one transaction

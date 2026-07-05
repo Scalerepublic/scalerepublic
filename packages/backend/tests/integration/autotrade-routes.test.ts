@@ -22,6 +22,7 @@ const ruleSchema = z.object({
     portfolioId: z.string(),
     stockId: z.string(),
     ruleType: z.enum(['BUY', 'SELL']),
+    triggerDirection: z.enum(['AT_OR_ABOVE', 'AT_OR_BELOW']),
     priceThreshold: z.string(),
     quantity: z.number(),
     status: z.string(),
@@ -33,19 +34,30 @@ const errorResponse = z.object({ error: z.string() })
 beforeEach(resetDb)
 
 describe('POST /api/v1/autotrade', () => {
-    test('creates an ACTIVE rule and returns 201', async () => {
+    test('creates an ACTIVE stop-loss rule and returns 201', async () => {
+        const { portfolioId } = await seedPortfolio()
+        const { stockId } = await seedStock()
+
+        const res = await post('/api/v1/autotrade', {
+            portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 5,
+        })
+        expect(res.status).toBe(201)
+
+        const { data } = ruleResponse.parse(await res.json())
+        expect(data.status).toBe('ACTIVE')
+        expect(data.ruleType).toBe('SELL')
+        expect(data.triggerDirection).toBe('AT_OR_BELOW')
+        expect(data.quantity).toBe(5)
+    })
+
+    test('returns 400 when triggerDirection is missing', async () => {
         const { portfolioId } = await seedPortfolio()
         const { stockId } = await seedStock()
 
         const res = await post('/api/v1/autotrade', {
             portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 5,
         })
-        expect(res.status).toBe(201)
-
-        const { data } = ruleResponse.parse(await res.json())
-        expect(data.status).toBe('ACTIVE')
-        expect(data.ruleType).toBe('BUY')
-        expect(data.quantity).toBe(5)
+        expect(res.status).toBe(400)
     })
 
     test('returns 400 for an invalid quantity', async () => {
@@ -53,7 +65,7 @@ describe('POST /api/v1/autotrade', () => {
         const { stockId } = await seedStock()
 
         const res = await post('/api/v1/autotrade', {
-            portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 0,
+            portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 0,
         })
         expect(res.status).toBe(400)
     })
@@ -65,7 +77,7 @@ describe('POST /api/v1/autotrade', () => {
         const res = await post('/api/v1/autotrade', {
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 1,
             expiresAt: new Date(Date.now() - 1000).toISOString(),
@@ -78,7 +90,7 @@ describe('POST /api/v1/autotrade', () => {
         const { stockId } = await seedStock()
 
         const res = await post('/api/v1/autotrade', {
-            portfolioId: 'nope', stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 1,
+            portfolioId: 'nope', stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1,
         })
         expect(res.status).toBe(404)
         errorResponse.parse(await res.json())
@@ -90,7 +102,7 @@ describe('POST /api/v1/autotrade', () => {
         await db.update(portfolio).set({ status: 'DEFAULTED' }).where(eq(portfolio.id, portfolioId))
 
         const res = await post('/api/v1/autotrade', {
-            portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 1,
+            portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1,
         })
         expect(res.status).toBe(403)
         errorResponse.parse(await res.json())
@@ -104,8 +116,8 @@ describe('GET /api/v1/portfolio/:portfolioId/autotrades', () => {
         const { stockId: s2 } = await seedStock({ ticker: 'BBB' })
 
         const created = await Promise.all([
-            post('/api/v1/autotrade', { portfolioId, stockId: s1, ruleType: 'BUY', priceThreshold: 10, quantity: 1 }),
-            post('/api/v1/autotrade', { portfolioId, stockId: s2, ruleType: 'SELL', priceThreshold: 30, quantity: 2 }),
+            post('/api/v1/autotrade', { portfolioId, stockId: s1, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 10, quantity: 1 }),
+            post('/api/v1/autotrade', { portfolioId, stockId: s2, ruleType: 'SELL', triggerDirection: 'AT_OR_ABOVE', priceThreshold: 30, quantity: 2 }),
         ])
         const ids = await Promise.all(created.map(async (r) => ruleResponse.parse(await r.json()).data.id))
 
@@ -132,7 +144,7 @@ describe('POST /api/v1/autotrade/:ruleId/cancel', () => {
         const { stockId } = await seedStock()
         const created = ruleResponse.parse(
             await (await post('/api/v1/autotrade', {
-                portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 1,
+                portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1,
             })).json(),
         )
 
@@ -147,7 +159,7 @@ describe('POST /api/v1/autotrade/:ruleId/cancel', () => {
         const { stockId } = await seedStock()
         const created = ruleResponse.parse(
             await (await post('/api/v1/autotrade', {
-                portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 1,
+                portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1,
             })).json(),
         )
         await post(`/api/v1/autotrade/${created.data.id}/cancel`, {})

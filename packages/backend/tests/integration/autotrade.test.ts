@@ -27,7 +27,7 @@ describe('AutoTradeService.createAutoTrade', () => {
         const rule = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 5,
         })
@@ -42,7 +42,7 @@ describe('AutoTradeService.createAutoTrade', () => {
         const { stockId } = await seedStock()
 
         await expect(
-            ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 0 }),
+            ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 0 }),
         ).rejects.toBeInstanceOf(InvalidAutoTradeError)
     })
 
@@ -54,7 +54,7 @@ describe('AutoTradeService.createAutoTrade', () => {
             ctx.autoTradeService.createAutoTrade({
                 portfolioId,
                 stockId,
-                ruleType: 'BUY',
+                ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
                 priceThreshold: 20,
                 quantity: 1,
                 expiresAt: new Date(Date.now() - 1000),
@@ -65,7 +65,7 @@ describe('AutoTradeService.createAutoTrade', () => {
     test('rejects an unknown portfolio', async () => {
         const { stockId } = await seedStock()
         await expect(
-            ctx.autoTradeService.createAutoTrade({ portfolioId: 'nope', stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 1 }),
+            ctx.autoTradeService.createAutoTrade({ portfolioId: 'nope', stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1 }),
         ).rejects.toBeInstanceOf(PortfolioNotFoundError)
     })
 
@@ -75,7 +75,7 @@ describe('AutoTradeService.createAutoTrade', () => {
         await db.update(portfolio).set({ status: 'DEFAULTED' }).where(eq(portfolio.id, portfolioId))
 
         await expect(
-            ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 1 }),
+            ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1 }),
         ).rejects.toBeInstanceOf(PortfolioDefaultedError)
     })
 })
@@ -87,7 +87,7 @@ describe('AutoTradeService.cancelAutoTrade', () => {
         const rule = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 1,
         })
@@ -102,7 +102,7 @@ describe('AutoTradeService.cancelAutoTrade', () => {
         const rule = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 1,
         })
@@ -121,7 +121,7 @@ describe('AutoTradeService.executeAutoTrade', () => {
         const rule = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 5,
         })
@@ -149,7 +149,7 @@ describe('AutoTradeService.executeAutoTrade', () => {
         const rule = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'SELL',
+            ruleType: 'SELL', triggerDirection: 'AT_OR_ABOVE',
             priceThreshold: 150,
             quantity: 4,
         })
@@ -161,6 +161,51 @@ describe('AutoTradeService.executeAutoTrade', () => {
         expect(updated!.status).toBe('TRIGGERED')
     })
 
+    test('stop-loss: SELL fires when the price drops to/below the threshold', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { stockId } = await seedStock()
+        await seedPrice(stockId, 100)
+        await ctx.portfolioService.buy(portfolioId, stockId, 10, 100)
+
+        await seedPrice(stockId, 80) // Dropped below the stop
+        const rule = await ctx.autoTradeService.createAutoTrade({
+            portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_BELOW', priceThreshold: 90, quantity: 4,
+        })
+
+        const executed = await ctx.autoTradeService.executeAutoTrade(rule)
+        expect(executed!.tradeType).toBe('SELL')
+        expect((await getRule(rule.id))!.status).toBe('TRIGGERED')
+    })
+
+    test('stop-buy: BUY fires when the price rises to/above the threshold', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { stockId } = await seedStock()
+        await seedPrice(stockId, 30) // Broke above the entry
+
+        const rule = await ctx.autoTradeService.createAutoTrade({
+            portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_ABOVE', priceThreshold: 25, quantity: 2,
+        })
+
+        const executed = await ctx.autoTradeService.executeAutoTrade(rule)
+        expect(executed!.tradeType).toBe('BUY')
+        expect((await getRule(rule.id))!.status).toBe('TRIGGERED')
+    })
+
+    test('stop-loss does not fire while the price is still above the stop', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { stockId } = await seedStock()
+        await seedPrice(stockId, 100)
+        await ctx.portfolioService.buy(portfolioId, stockId, 10, 100)
+
+        await seedPrice(stockId, 95) // Above the 90 stop
+        const rule = await ctx.autoTradeService.createAutoTrade({
+            portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_BELOW', priceThreshold: 90, quantity: 4,
+        })
+
+        expect(await ctx.autoTradeService.executeAutoTrade(rule)).toBeNull()
+        expect((await getRule(rule.id))!.status).toBe('ACTIVE')
+    })
+
     test('does not fire while the threshold is unmet', async () => {
         const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
         const { stockId } = await seedStock()
@@ -169,7 +214,7 @@ describe('AutoTradeService.executeAutoTrade', () => {
         const rule = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 1,
         })
@@ -186,7 +231,7 @@ describe('AutoTradeService.executeAutoTrade', () => {
         const rule = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 5, // Costs 100, only 10 available
         })
@@ -206,10 +251,10 @@ describe('AutoTradeService.executeAutoTrade', () => {
 
         // Each rule buys 4 @ 20 = 80. Only one is possible with 100 balance
         const ruleA = await ctx.autoTradeService.createAutoTrade({
-            portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 4,
+            portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 4,
         })
         const ruleB = await ctx.autoTradeService.createAutoTrade({
-            portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 4,
+            portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 4,
         })
 
         const results = await Promise.all([
@@ -239,10 +284,10 @@ describe('AutoTradeService.executeAutoTrade', () => {
 
         // Each rule sells 8. Only one can fit in the 10-share position.
         const ruleA = await ctx.autoTradeService.createAutoTrade({
-            portfolioId, stockId, ruleType: 'SELL', priceThreshold: 100, quantity: 8,
+            portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_ABOVE', priceThreshold: 100, quantity: 8,
         })
         const ruleB = await ctx.autoTradeService.createAutoTrade({
-            portfolioId, stockId, ruleType: 'SELL', priceThreshold: 100, quantity: 8,
+            portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_ABOVE', priceThreshold: 100, quantity: 8,
         })
 
         const results = await Promise.all([
@@ -269,7 +314,7 @@ describe('AutoTradeService.expireAutoTrades', () => {
         const expiring = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 1,
             expiresAt: new Date(Date.now() + 60_000),
@@ -277,7 +322,7 @@ describe('AutoTradeService.expireAutoTrades', () => {
         const openEnded = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 1,
         })
@@ -300,14 +345,14 @@ describe('SyncService.checkAllAutoTrades', () => {
         const firing = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId: cheap,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
             quantity: 5,
         })
         const dormant = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId: pricey,
-            ruleType: 'BUY',
+            ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 100,
             quantity: 1,
         })

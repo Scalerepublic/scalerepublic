@@ -84,7 +84,7 @@ describe('SyncService.runDueTick executes auto-trades', () => {
         await seedPrice(stockId, 20)
 
         const rule = await ctx.autoTradeService.createAutoTrade({
-            portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 5,
+            portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 5,
         })
 
         // Empty ticker list: no external price sync, just the auto-trade pass.
@@ -103,7 +103,7 @@ describe('SyncService.runDueTick executes auto-trades', () => {
         await seedPrice(stockId, 25) // Above the BUY threshold
 
         const rule = await ctx.autoTradeService.createAutoTrade({
-            portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 1,
+            portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1,
         })
 
         await ctx.syncService.runDueTick([])
