@@ -5,11 +5,13 @@
 	import BuyTradeSheet from './BuyTradeSheet.svelte';
 	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendStockDetail } from '$lib/api/backend-types';
-	import type { PerformancePoint } from '$lib/performance-history';
+	import type { PerformanceGranularity, PerformancePoint } from '$lib/performance-history';
 	import { getCachedStockDetail, setCachedStockDetail } from '$lib/stores/stock-detail-cache';
 	import { marketStore } from '$lib/stores/market.svelte';
+	import { periodChangeToAmount } from '$lib/stock-performance';
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
+	import { portal } from '$lib/actions/portal';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { Loader2, X } from '@lucide/svelte';
@@ -33,8 +35,23 @@
 	let error = $state<string | null>(null);
 	let tradeOpen = $state(false);
 	let activeTicker = $state<string | null>(null);
+	let chartGranularity = $state<PerformanceGranularity>('monthly');
 
-	const displayPrice = $derived(detail?.performance.latestPrice ?? stock.currentPrice);
+	const STOCK_CHART_HISTORY_DAYS = 365;
+	const MAX_DETAIL_POLL_ATTEMPTS = 12;
+
+	function resolveDetailPrice(loaded: BackendStockDetail | null, fallbackPrice: number): number {
+		if (loaded?.performance.latestPrice != null) {
+			return loaded.performance.latestPrice;
+		}
+		const lastBar = loaded?.priceHistory.at(-1)?.close;
+		if (lastBar != null) {
+			return lastBar;
+		}
+		return fallbackPrice;
+	}
+
+	const displayPrice = $derived(resolveDetailPrice(detail, stock.currentPrice));
 	const periodChangePercent = $derived(
 		detail?.performance.periodChangePercent ?? stock.periodChangePercent ?? null
 	);
@@ -43,14 +60,11 @@
 	const displayChangePercent = $derived(periodChangePercent ?? dayChangePercent);
 	const displayChangeAmount = $derived.by(() => {
 		if (periodChangePercent !== null) {
-			return displayPrice - displayPrice / (1 + periodChangePercent / 100);
+			return periodChangeToAmount(displayPrice, periodChangePercent);
 		}
 		return dayChange;
 	});
-	const description = $derived(
-		detail?.stock.description?.trim() ||
-			`this stock (${detail?.stock.companyName ?? stock.name}) is good because i like it`
-	);
+	const description = $derived(detail?.stock.description?.trim() || null);
 
 	const chartData = $derived.by((): PerformancePoint[] => {
 		const history = detail?.priceHistory ?? [];
@@ -58,6 +72,32 @@
 	});
 
 	const showChart = $derived(chartData.length >= 2);
+	const missingMarketData = $derived(!loading && !error && (detail?.priceHistory.length ?? 0) < 2);
+	const canTrade = $derived(showChart && !loading && !missingMarketData);
+	let pollAttempts = $state(0);
+
+	function pollDelayMs(attempt: number): number {
+		return Math.min(5_000 * 2 ** attempt, 30_000);
+	}
+
+	$effect(() => {
+		if (!open || !missingMarketData) {
+			pollAttempts = 0;
+			return;
+		}
+
+		if (pollAttempts >= MAX_DETAIL_POLL_ATTEMPTS) {
+			return;
+		}
+
+		const ticker = stock.ticker;
+		const timeout = window.setTimeout(() => {
+			pollAttempts += 1;
+			void loadDetail(ticker, { silent: true });
+		}, pollDelayMs(pollAttempts));
+
+		return () => window.clearTimeout(timeout);
+	});
 
 	$effect(() => {
 		if (!open) {
@@ -71,14 +111,16 @@
 		if (activeTicker === ticker) return;
 
 		activeTicker = ticker;
+		detail = null;
+		chartGranularity = 'monthly';
 		error = null;
 
 		const cached = getCachedStockDetail(ticker);
-		if (cached) {
+		if (cached && cached.priceHistory.length >= 2) {
 			detail = cached;
 			loading = false;
 			marketStore.applyDetailMetrics(ticker, {
-				currentPrice: cached.performance.latestPrice ?? stock.currentPrice,
+				currentPrice: resolveDetailPrice(cached, stock.currentPrice),
 				dayChange: cached.performance.dayChange,
 				dayChangePercent: cached.performance.dayChangePercent,
 				periodChangePercent: cached.performance.periodChangePercent
@@ -89,27 +131,32 @@
 		void loadDetail(ticker);
 	});
 
-	async function loadDetail(ticker: string) {
-		loading = true;
-		error = null;
+	async function loadDetail(ticker: string, options?: { silent?: boolean }) {
+		if (!options?.silent) {
+			loading = true;
+			error = null;
+		}
 		try {
 			const res = await api.api.v1.stocks[':ticker'].detail.$get({
 				param: { ticker },
-				query: {}
+				query: { historyDays: String(STOCK_CHART_HISTORY_DAYS) }
 			});
 			const loaded = await parseApiData<BackendStockDetail>(res);
 			if (activeTicker !== ticker) return;
 			detail = loaded;
 			setCachedStockDetail(ticker, loaded);
+			const resolvedPrice = resolveDetailPrice(loaded, stock.currentPrice);
 			marketStore.applyDetailMetrics(ticker, {
-				currentPrice: loaded.performance.latestPrice ?? stock.currentPrice,
+				currentPrice: resolvedPrice,
 				dayChange: loaded.performance.dayChange,
 				dayChangePercent: loaded.performance.dayChangePercent,
 				periodChangePercent: loaded.performance.periodChangePercent
 			});
 		} catch (e) {
 			if (activeTicker !== ticker) return;
-			error = e instanceof Error ? e.message : 'Could not load stock details.';
+			if (!options?.silent) {
+				error = e instanceof Error ? e.message : 'Could not load stock details.';
+			}
 		} finally {
 			if (activeTicker === ticker) {
 				loading = false;
@@ -118,12 +165,18 @@
 	}
 
 	function close() {
+		tradeOpen = false;
 		open = false;
 		activeTicker = null;
 	}
 
 	function onBackdropKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') close();
+		if (event.key !== 'Escape') return;
+		if (tradeOpen) {
+			tradeOpen = false;
+			return;
+		}
+		close();
 	}
 </script>
 
@@ -131,6 +184,7 @@
 
 {#if open}
 	<div
+		use:portal
 		class="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
 		role="presentation"
 		transition:fade={{ duration: 150 }}
@@ -195,10 +249,7 @@
 								<p class="font-mono text-3xl font-bold text-foreground">
 									{formatCurrency(displayPrice)}
 								</p>
-								<ChangeIndicator
-									amount={displayChangeAmount}
-									percent={displayChangePercent}
-								/>
+								<ChangeIndicator amount={displayChangeAmount} percent={displayChangePercent} />
 							</div>
 						</div>
 
@@ -208,17 +259,32 @@
 									Recent performance
 								</p>
 								<div class="border border-border bg-muted/30 p-3">
-									<PerformanceChart data={chartData} />
+									<PerformanceChart
+										data={chartData}
+										mode="stock"
+										bind:granularity={chartGranularity}
+									/>
 								</div>
 							</div>
+						{:else if missingMarketData}
+							<p class="text-sm text-muted-foreground">
+								{#if pollAttempts < MAX_DETAIL_POLL_ATTEMPTS}
+									Loading market data from backfill queue…
+								{:else}
+									Market data is not cached yet. Open again later or run a catalog backfill for this
+									ticker.
+								{/if}
+							</p>
 						{/if}
 
-						<div>
-							<p class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-								About
-							</p>
-							<p class="mt-2 text-sm leading-relaxed text-foreground/90">{description}</p>
-						</div>
+						{#if description}
+							<div>
+								<p class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+									About
+								</p>
+								<p class="mt-2 text-sm leading-relaxed text-foreground/90">{description}</p>
+							</div>
+						{/if}
 
 						{#if detail?.stock.isAccumulating !== null && detail?.stock.isAccumulating !== undefined}
 							<div>
@@ -235,7 +301,12 @@
 			</div>
 
 			<div class="border-t border-border px-5 py-4">
-				<NobleButton type="button" class="h-10 w-full" onclick={() => (tradeOpen = true)}>
+				<NobleButton
+					type="button"
+					class="h-10 w-full"
+					disabled={!canTrade}
+					onclick={() => (tradeOpen = true)}
+				>
 					Buy {stock.ticker}
 				</NobleButton>
 			</div>

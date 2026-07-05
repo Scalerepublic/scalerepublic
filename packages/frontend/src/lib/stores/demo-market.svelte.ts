@@ -125,7 +125,7 @@ class DemoMarketStore {
 		const userId = authStore.user?.id;
 		await Promise.all([
 			syncMarketClock(),
-			marketStore.load({ silent: true }),
+			marketStore.loadTrending({ silent: true, force: true }),
 			portfolioStore.load(),
 			leaderboardStore.load({ silent: true }),
 			userId ? performanceStore.load(userId) : Promise.resolve()

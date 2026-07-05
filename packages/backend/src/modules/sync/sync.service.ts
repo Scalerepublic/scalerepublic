@@ -1,10 +1,9 @@
-import os from 'node:os'
-
 import { and, eq, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 
 import type { AppVars } from '../../context.ts'
 import { syncJob } from '../../db/schema/sync.ts'
+import { readEnvNumber } from '../../lib/env-number.ts'
 import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 
 const JOB_ID = 'stock-price-sync'
@@ -12,9 +11,12 @@ const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 1000
 const RATE_LIMIT_BATCH_SIZE = 5
 const RATE_LIMIT_WINDOW_MS = 1000
-// Time after which a new instance is allowed to retake a taken lock
-// Essentially the maximum time the sync should take. Longer and we
-// assume another instance crashed while holding the lock
+const CATALOG_BACKFILL_BATCH_SIZE = 5
+const CATALOG_BACKFILL_BATCH_INTERVAL_MS = 5000
+const DEFAULT_NAMES_BACKFILL_BATCH = 20
+const DEFAULT_HISTORY_BACKFILL_STOCKS = 8
+const DEFAULT_HISTORY_BARS_PER_STOCK = 10
+const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 55
 const STALE_LOCK_MS = 10 * 60 * 1000
 
 const DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V', 'UNH']
@@ -46,9 +48,14 @@ const chunk = <T>(arr: T[], size: number): T[][] => {
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
 export class SyncService {
-    private readonly lockId = `${os.hostname()}:${process.pid}`
+    private lockId: string | null = null
 
     constructor(private readonly ctx: AppVars) {}
+
+    private getLockId(): string {
+        this.lockId ??= `sync-${crypto.randomUUID()}`
+        return this.lockId
+    }
 
     private async ensureStock(ticker: string): Promise<string | null> {
         const existing = await this.ctx.stockService.getStockId(ticker)
@@ -63,9 +70,9 @@ export class SyncService {
         return this.ctx.stockService.createStock(ticker, meta.name, meta.exchange, meta.currency)
     }
 
-    private async syncTicker(ticker: string): Promise<void> {
+    private async syncTicker(ticker: string): Promise<boolean> {
         const stockId = await this.ensureStock(ticker)
-        if (stockId === null) return
+        if (stockId === null) return false
 
         const quote = await this.ctx.stockDataClient.getQuote(ticker)
         await this.ctx.stockService.insertPrice(stockId, quote.price, this.ctx.stockDataClient.source, new Date())
@@ -73,6 +80,7 @@ export class SyncService {
         await this.ctx.stockService.refreshStockMetrics(stockId)
 
         console.log(`[sync] ${ticker}: ${quote.price} (${quote.tradingDay.toISOString().slice(0, 10)})`)
+        return true
     }
 
     private async runSync(tickers: string[]): Promise<void> {
@@ -81,20 +89,130 @@ export class SyncService {
             return
         }
 
+        if (tickers.length === 0) {
+            return
+        }
+
+        let succeeded = 0
         const batches = chunk(tickers, RATE_LIMIT_BATCH_SIZE)
         for (let i = 0; i < batches.length; i++) {
             if (i > 0) await sleep(RATE_LIMIT_WINDOW_MS)
             const results = await Promise.allSettled(batches[i]!.map(t => this.syncTicker(t)))
             results.forEach((r, j) => {
+                if (r.status === 'fulfilled' && r.value) {
+                    succeeded += 1
+                    return
+                }
                 if (r.status === 'rejected') {
                     console.error(`[sync] ${batches[i]![j]} failed: ${r.reason instanceof Error ? r.reason.message : r.reason}`)
                 }
             })
         }
+
+        if (succeeded === 0) {
+            throw new Error(`Price sync failed for all ${tickers.length} tracked tickers`)
+        }
+    }
+
+    private readBackfillConfig(): {
+        namesPerTick: number
+        historyStocksPerTick: number
+        barsPerStock: number
+        maxApiCallsPerTick: number
+    } {
+        return {
+            namesPerTick: readEnvNumber('CATALOG_BACKFILL_NAMES_PER_TICK', DEFAULT_NAMES_BACKFILL_BATCH),
+            historyStocksPerTick: readEnvNumber('CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK', DEFAULT_HISTORY_BACKFILL_STOCKS),
+            barsPerStock: readEnvNumber('CATALOG_BACKFILL_BARS_PER_STOCK', DEFAULT_HISTORY_BARS_PER_STOCK),
+            maxApiCallsPerTick: readEnvNumber('CATALOG_BACKFILL_MAX_API_CALLS', DEFAULT_MAX_UNI_API_CALLS_PER_TICK),
+        }
+    }
+
+    private async backfillCatalogNames(batchSize: number, apiBudget: { remaining: number }): Promise<void> {
+        if (apiBudget.remaining <= 0) {
+            return
+        }
+
+        const stocks = await this.ctx.stockService.listStocksNeedingNames(Math.min(batchSize, apiBudget.remaining))
+        if (stocks.length === 0) {
+            return
+        }
+
+        console.log(`[sync/backfill] Resolving names for ${stocks.length} stocks (budget ${apiBudget.remaining})`)
+        for (const { id, ticker } of stocks) {
+            if (apiBudget.remaining <= 0) {
+                break
+            }
+
+            apiBudget.remaining -= 1
+            try {
+                const updated = await this.ctx.stockService.applyStockNameFromApi(id, ticker)
+                if (updated) {
+                    console.log(`[sync/backfill] ${ticker}: name resolved`)
+                }
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err)
+                console.error(`[sync/names] ${ticker} failed: ${message}`)
+            }
+
+            await sleep(CATALOG_BACKFILL_BATCH_INTERVAL_MS / CATALOG_BACKFILL_BATCH_SIZE)
+        }
+    }
+
+    private async backfillCatalogHistory(
+        stocksPerTick: number,
+        barsPerStock: number,
+        apiBudget: { remaining: number },
+    ): Promise<void> {
+        if (apiBudget.remaining <= 0) {
+            return
+        }
+
+        const stocks = await this.ctx.stockService.listStocksNeedingHistory(stocksPerTick)
+        if (stocks.length === 0) {
+            return
+        }
+
+        console.log(`[sync/backfill] Backfilling history for up to ${stocks.length} stocks (budget ${apiBudget.remaining})`)
+        for (const { id, ticker } of stocks) {
+            if (apiBudget.remaining <= 0) {
+                break
+            }
+
+            const maxFetches = Math.min(barsPerStock, apiBudget.remaining)
+            try {
+                const { fetchesUsed } = await this.ctx.stockService.backfillStockHistory(id, ticker, { maxFetches })
+                apiBudget.remaining -= fetchesUsed
+                if (fetchesUsed > 0) {
+                    console.log(`[sync/backfill] ${ticker}: stored ${fetchesUsed} daily bars`)
+                }
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err)
+                console.error(`[sync/backfill] ${ticker} failed: ${message}`)
+            }
+
+            await sleep(CATALOG_BACKFILL_BATCH_INTERVAL_MS / CATALOG_BACKFILL_BATCH_SIZE)
+        }
+    }
+
+    private async runCatalogBackfill(): Promise<void> {
+        if (isMarketDebugEnabled()) {
+            console.log('[sync/backfill] Skipping catalog backfill while STOCK_DEBUG=true')
+            return
+        }
+
+        const config = this.readBackfillConfig()
+        const apiBudget = { remaining: config.maxApiCallsPerTick }
+        await this.backfillCatalogNames(config.namesPerTick, apiBudget)
+        await this.backfillCatalogHistory(config.historyStocksPerTick, config.barsPerStock, apiBudget)
+        console.log(`[sync/backfill] Finished with ${apiBudget.remaining} API calls remaining`)
+    }
+
+    async runCatalogBackfillOnce(): Promise<void> {
+        await this.runCatalogBackfill()
     }
 
     private async isSyncDue(syncDueThreshold: Date): Promise<boolean> {
-        console.log('[sync] Checking if sync is due')
         const row = await this.ctx.db
             .select({ lastSuccessAt: syncJob.lastSuccessAt })
             .from(syncJob)
@@ -105,12 +223,11 @@ export class SyncService {
     }
 
     private async tryClaimJob(staleThreshold: Date): Promise<boolean> {
-        // Atomic write to make sure only one instance/container can acquire the lock
-        // and run the sync at a time.
+        const lockId = this.getLockId()
         const claimed = await this.ctx.db.update(syncJob).set({
             status: 'running',
             lockedAt: new Date(),
-            lockedBy: this.lockId,
+            lockedBy: lockId,
             lastStartedAt: new Date(),
         }).where(and(
             eq(syncJob.id, JOB_ID),
@@ -130,19 +247,10 @@ export class SyncService {
         await this.runSync(tickers)
     }
 
-    /**
-     * Runs a single scheduler tick: claims the DB lock, syncs if due, and
-     * releases the lock. Safe to invoke from a Cloudflare Cron Trigger
-     * (scheduled handler) or from the local polling loop. The DB advisory lock
-     * guards against overlapping runs.
-     */
     async runDueTick(tickers: string[]): Promise<void> {
-        const syncIntervalMs = Number(process.env['SYNC_INTERVAL_MS'] ?? DEFAULT_SYNC_INTERVAL_MS)
+        const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
 
         try {
-            // Keep this inside the try: a transient DB/connection failure here
-            // (e.g. Neon cold start via Hyperdrive) must be logged, not rethrown
-            // into the Cron Trigger's waitUntil where it surfaces as a failed run.
             await this.ctx.db.insert(syncJob).values({ id: JOB_ID }).onConflictDoNothing()
 
             const staleThreshold = new Date(Date.now() - STALE_LOCK_MS)
@@ -153,10 +261,34 @@ export class SyncService {
                 console.log('[sync] Failed to lock sync')
                 return
             }
-            console.log(`[sync] Lock acquired by ${this.lockId}`)
+            console.log(`[sync] Lock acquired by ${this.getLockId()}`)
 
             try {
-                await this.runSync(tickers)
+                let syncError: string | null = null
+                try {
+                    await this.runSync(tickers)
+                } catch (err) {
+                    syncError = err instanceof Error ? err.message : String(err)
+                    console.error(`[sync] Price sync failed: ${syncError}`)
+                }
+
+                try {
+                    await this.runCatalogBackfill()
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err)
+                    console.error(`[sync/backfill] Failed: ${message}`)
+                }
+
+                if (syncError !== null) {
+                    await this.ctx.db.update(syncJob).set({
+                        status: 'failed',
+                        lastError: syncError,
+                        lockedAt: null,
+                        lockedBy: null,
+                    }).where(eq(syncJob.id, JOB_ID))
+                    return
+                }
+
                 await this.ctx.db.update(syncJob).set({
                     status: 'idle',
                     lastSuccessAt: new Date(),
@@ -181,14 +313,10 @@ export class SyncService {
         }
     }
 
-    /**
-     * Local/Bun-only polling loop. On Cloudflare Workers this is replaced by a
-     * Cron Trigger that calls {@link runDueTick} directly.
-     */
     async startScheduler(): Promise<void> {
         const tickers = parseTrackedTickers()
-        const syncIntervalMs = Number(process.env['SYNC_INTERVAL_MS'] ?? DEFAULT_SYNC_INTERVAL_MS)
-        const checkIntervalMs = Number(process.env['SYNC_CHECK_INTERVAL_MS'] ?? DEFAULT_CHECK_INTERVAL_MS)
+        const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
+        const checkIntervalMs = readEnvNumber('SYNC_CHECK_INTERVAL_MS', DEFAULT_CHECK_INTERVAL_MS)
 
         console.log(`[sync] Tracking: ${tickers.join(', ')}. Sync every ${syncIntervalMs / 1000}s, check every ${checkIntervalMs / 1000}s`)
 

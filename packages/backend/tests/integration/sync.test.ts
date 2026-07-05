@@ -56,13 +56,11 @@ describe('SyncService.syncOnce', () => {
         expect(prices.map(p => parseFloat(p.price)).sort((a, b) => a - b)).toEqual([150, 175])
     })
 
-    test('skips ticker when meta is unavailable', async () => {
+    test('throws when every tracked ticker fails', async () => {
         mockClient.setQuote('UNKNOWN', 50)
-        // No meta seeded — getStockMeta returns null
 
-        await ctx.syncService.syncOnce(['UNKNOWN'])
-
-        const stocks = await db.select().from(stock)
-        expect(stocks).toHaveLength(0)
+        await expect(ctx.syncService.syncOnce(['UNKNOWN'])).rejects.toThrow(
+            'Price sync failed for all 1 tracked tickers',
+        )
     })
 })

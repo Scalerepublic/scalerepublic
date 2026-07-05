@@ -10,7 +10,7 @@ import { PortfolioService } from './modules/portfolio/portfolio.services.ts'
 import { StockService } from './modules/stock/stock.service.ts'
 import { MockStockDataClient } from './modules/stockapi/mock-stock-client.ts'
 import type { StockDataClient } from './modules/stockapi/stock-data-client.ts'
-import { UniStockClient } from './modules/stockapi/uni-stock-client.ts'
+import { UniStockClient, type UniApiSubfetch } from './modules/stockapi/uni-stock-client.ts'
 import { AlphaVantageStockClient } from './modules/stockapi/vantage/vantage-stock-client.ts'
 import { SyncService } from './modules/sync/sync.service.ts'
 import { TradesService } from './modules/trades/index.ts'
@@ -44,6 +44,8 @@ export const useCtx = (c: AppContext): AppVars => c.get('ctx')
 
 export type AppContextOptions = {
     auth?: AuthOptions
+    uniApiSubfetch?: UniApiSubfetch
+    uniApiBaseUrl?: string
 }
 
 export const createAppContext = (
@@ -57,7 +59,11 @@ export const createAppContext = (
     if (process.env.NODE_ENV === 'test') {
         ctx.stockDataClient = new MockStockDataClient()
     } else if (process.env['STOCK_API_PROVIDER'] === 'uni') {
-        ctx.stockDataClient = new UniStockClient()
+        ctx.stockDataClient = new UniStockClient(
+            undefined,
+            options.uniApiBaseUrl,
+            options.uniApiSubfetch,
+        )
     } else {
         ctx.stockDataClient = new AlphaVantageStockClient()
     }

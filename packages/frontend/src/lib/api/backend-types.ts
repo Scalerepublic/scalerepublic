@@ -11,6 +11,25 @@ export type BackendStockSummary = {
 	periodChangePercent: number | null;
 };
 
+export type BackendStockListResponse = {
+	items: BackendStockSummary[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type BackendMarketSector = {
+	id: string;
+	label: string;
+	description: string;
+	count: number;
+};
+
+export type BackendMarketSectorCatalog = {
+	sectors: BackendMarketSector[];
+	totalListings: number;
+};
+
 export type BackendPortfolioRow = {
 	id: string;
 	userId: string;

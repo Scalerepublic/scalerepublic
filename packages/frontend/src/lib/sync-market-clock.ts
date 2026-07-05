@@ -1,3 +1,4 @@
+import { API_CACHE_TTL_MS, getApiCache, setApiCache } from '$lib/api-cache';
 import { setDemoMarketDate } from '$lib/demo-market-date';
 
 type MarketClock = {
@@ -6,14 +7,28 @@ type MarketClock = {
 	simulated: boolean;
 };
 
+const MARKET_CLOCK_CACHE_KEY = 'v1/market/clock';
+
 let syncInFlight: Promise<void> | null = null;
 
-export async function syncMarketClock(): Promise<void> {
+export async function syncMarketClock(options?: { force?: boolean }): Promise<void> {
 	if (syncInFlight) {
 		return syncInFlight;
 	}
 
 	syncInFlight = (async () => {
+		if (!options?.force) {
+			const cached = getApiCache<MarketClock>(MARKET_CLOCK_CACHE_KEY, API_CACHE_TTL_MS.marketClock);
+			if (cached !== null) {
+				if (!cached.simulated) {
+					setDemoMarketDate(null);
+					return;
+				}
+				setDemoMarketDate(cached.marketDate);
+				return;
+			}
+		}
+
 		try {
 			const res = await fetch('/api/v1/market/clock', { credentials: 'include' });
 			if (!res.ok) {
@@ -26,6 +41,7 @@ export async function syncMarketClock(): Promise<void> {
 				setDemoMarketDate(null);
 				return;
 			}
+			setApiCache(MARKET_CLOCK_CACHE_KEY, clock);
 			setDemoMarketDate(clock.marketDate);
 		} catch {
 			setDemoMarketDate(null);

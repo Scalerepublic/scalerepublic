@@ -1,17 +1,50 @@
-import { and, asc, desc, eq, gte, inArray, lte, ne, or, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, ne, or, sql, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockDailyBar, stockPrice } from '../../db/schema/stock/index.ts'
+import { readEnvNumber } from '../../lib/env-number.ts'
 import {
     DEBUG_MARKET_CRASH_SOURCE,
     DEBUG_MARKET_PRICE_SOURCE,
     isMarketDebugEnabled,
 } from '../../lib/market-debug.ts'
 
+import { getSectorTickers, MARKET_SECTORS, type MarketSectorId } from './market-sectors.ts'
+
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
-const DETAIL_DAILY_BAR_FETCHES = 30
 const MIN_BARS_FOR_METRICS = 2
+const TRADING_DAYS_PER_CALENDAR_MONTH = 22
+const DEFAULT_DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES = 30
+
+const readDetailOnDemandPrefetchMaxFetches = (): number => {
+    const configured = readEnvNumber(
+        'DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES',
+        DEFAULT_DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES,
+    )
+    return Math.max(0, Math.floor(configured))
+}
+
+export { HISTORY_DAYS, MAX_DAILY_BAR_FETCHES }
+
+export type StockListResult = {
+    items: StockSummary[]
+    total: number
+    page: number
+    limit: number
+}
+
+export type MarketSectorSummary = {
+    id: MarketSectorId
+    label: string
+    description: string
+    count: number
+}
+
+export type MarketSectorCatalog = {
+    sectors: MarketSectorSummary[]
+    totalListings: number
+}
 
 export type StockSummary = {
     id: string
@@ -139,30 +172,36 @@ export class StockService {
 
         const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
 
-        const rows = await this.ctx.db
-            .select({
-                stockId: stockDailyBar.stockId,
-                tradingDate: stockDailyBar.tradingDate,
-                close: stockDailyBar.close,
-            })
-            .from(stockDailyBar)
-            .where(and(
-                inArray(stockDailyBar.stockId, stockIds),
-                gte(stockDailyBar.tradingDate, fromDate),
-            ))
-            .orderBy(asc(stockDailyBar.tradingDate))
+        try {
+            const rows = await this.ctx.db
+                .select({
+                    stockId: stockDailyBar.stockId,
+                    tradingDate: stockDailyBar.tradingDate,
+                    close: stockDailyBar.close,
+                })
+                .from(stockDailyBar)
+                .where(and(
+                    inArray(stockDailyBar.stockId, stockIds),
+                    gte(stockDailyBar.tradingDate, fromDate),
+                ))
+                .orderBy(asc(stockDailyBar.tradingDate))
 
-        const histories = new Map<string, Array<{ date: string; close: number }>>()
-        for (const row of rows) {
-            const history = histories.get(row.stockId) ?? []
-            history.push({
-                date: row.tradingDate,
-                close: parseFloat(row.close),
-            })
-            histories.set(row.stockId, history)
+            const histories = new Map<string, Array<{ date: string; close: number }>>()
+            for (const row of rows) {
+                const history = histories.get(row.stockId) ?? []
+                history.push({
+                    date: row.tradingDate,
+                    close: parseFloat(row.close),
+                })
+                histories.set(row.stockId, history)
+            }
+
+            return histories
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.error(`[stock] getDailyBarHistoriesByStockIds failed: ${message}`)
+            throw err
         }
-
-        return histories
     }
 
     private parsePersistedMetric(value: string | null | undefined): number | null {
@@ -240,6 +279,189 @@ export class StockService {
         await this.persistStockMetrics(stockId, performance)
     }
 
+    private buildLatestPriceSubquery() {
+        const filters = this.priceFilters()
+        return this.ctx.db
+            .selectDistinctOn([stockPrice.stockId], {
+                stockId: stockPrice.stockId,
+                price: stockPrice.price,
+            })
+            .from(stockPrice)
+            .where(and(...filters))
+            .orderBy(stockPrice.stockId, desc(stockPrice.recordedAt))
+            .as('latest_price')
+    }
+
+    private mapListRowToSummary(row: {
+        id: string
+        ticker: string
+        companyName: string
+        exchange: string
+        currency: string
+        latestPrice: string | null
+        periodChangePercent: string | null
+        dayChangePercent: string | null
+    }): StockSummary {
+        const latestPrice = row.latestPrice !== null ? parseFloat(row.latestPrice) : null
+        const persistedPeriod = this.parsePersistedMetric(row.periodChangePercent)
+        const persistedDay = this.parsePersistedMetric(row.dayChangePercent)
+        let dayChange: number | null = null
+
+        if (persistedDay !== null && latestPrice !== null) {
+            dayChange = latestPrice - latestPrice / (1 + persistedDay / 100)
+        }
+
+        return {
+            id: row.id,
+            ticker: row.ticker,
+            companyName: row.companyName,
+            exchange: row.exchange,
+            currency: row.currency,
+            latestPrice,
+            previousClose: null,
+            dayChange,
+            dayChangePercent: persistedDay,
+            periodChangePercent: persistedPeriod,
+        }
+    }
+
+    private buildListWhereClause(options: {
+        q?: string
+        sector?: string
+    }): SQL | undefined {
+        const clauses: SQL[] = [eq(stock.isActive, true)]
+
+        const query = options.q?.trim()
+        if (query !== undefined && query.length > 0) {
+            const escaped = query.replace(/[%_\\]/g, (char) => `\\${char}`)
+            const pattern = `%${escaped}%`
+            clauses.push(or(
+                ilike(stock.ticker, pattern),
+                ilike(stock.companyName, pattern),
+            )!)
+        }
+
+        const sector = options.sector?.trim()
+        if (sector !== undefined && sector.length > 0 && sector !== 'all') {
+            const tickers = getSectorTickers(sector)
+            if (tickers.length === 0) {
+                return sql`false`
+            }
+            clauses.push(inArray(stock.ticker, tickers))
+        }
+
+        return and(...clauses)
+    }
+
+    async listStocks(options: {
+        q?: string
+        sector?: string
+        page: number
+        limit: number
+    }): Promise<StockListResult> {
+        const page = Math.max(1, options.page)
+        const limit = Math.min(48, Math.max(1, options.limit))
+        const where = this.buildListWhereClause(options)
+
+        const [countRow] = await this.ctx.db
+            .select({ total: count() })
+            .from(stock)
+            .where(where)
+
+        const totalCount = Number(countRow?.total ?? 0)
+        if (totalCount === 0) {
+            return { items: [], total: 0, page, limit }
+        }
+
+        const latestPricePerStock = this.buildLatestPriceSubquery()
+        const offset = (page - 1) * limit
+
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                companyName: stock.companyName,
+                exchange: stock.exchange,
+                currency: stock.currency,
+                latestPrice: latestPricePerStock.price,
+                periodChangePercent: stock.periodChangePercent,
+                dayChangePercent: stock.dayChangePercent,
+            })
+            .from(stock)
+            .leftJoin(latestPricePerStock, eq(stock.id, latestPricePerStock.stockId))
+            .where(where)
+            .orderBy(asc(stock.ticker))
+            .limit(limit)
+            .offset(offset)
+
+        return {
+            items: rows.map((row) => this.mapListRowToSummary(row)),
+            total: totalCount,
+            page,
+            limit,
+        }
+    }
+
+    async getTrending(limit = 6): Promise<StockSummary[]> {
+        const latestPricePerStock = this.buildLatestPriceSubquery()
+
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                companyName: stock.companyName,
+                exchange: stock.exchange,
+                currency: stock.currency,
+                latestPrice: latestPricePerStock.price,
+                periodChangePercent: stock.periodChangePercent,
+                dayChangePercent: stock.dayChangePercent,
+            })
+            .from(stock)
+            .innerJoin(latestPricePerStock, eq(stock.id, latestPricePerStock.stockId))
+            .where(eq(stock.isActive, true))
+            .limit(Math.max(limit, 1) * 8)
+
+        return rows
+            .map((row) => this.mapListRowToSummary(row))
+            .sort((left, right) => {
+                const leftMove = Math.abs(left.dayChangePercent ?? left.periodChangePercent ?? 0)
+                const rightMove = Math.abs(right.dayChangePercent ?? right.periodChangePercent ?? 0)
+                return rightMove - leftMove
+            })
+            .slice(0, limit)
+    }
+
+    async getSectorCatalog(): Promise<MarketSectorCatalog> {
+        const summaries: MarketSectorSummary[] = []
+
+        for (const sector of MARKET_SECTORS) {
+            const [countRow] = await this.ctx.db
+                .select({ total: count() })
+                .from(stock)
+                .where(and(
+                    eq(stock.isActive, true),
+                    inArray(stock.ticker, [...sector.tickers]),
+                ))
+
+            summaries.push({
+                id: sector.id,
+                label: sector.label,
+                description: sector.description,
+                count: Number(countRow?.total ?? 0),
+            })
+        }
+
+        const [listingsRow] = await this.ctx.db
+            .select({ totalListings: count() })
+            .from(stock)
+            .where(eq(stock.isActive, true))
+
+        return {
+            sectors: summaries,
+            totalListings: Number(listingsRow?.totalListings ?? 0),
+        }
+    }
+
     async getAll(): Promise<StockSummary[]> {
         const filters = this.priceFilters()
         const latestPricePerStock = this.ctx.db
@@ -268,12 +490,17 @@ export class StockService {
             .where(eq(stock.isActive, true))
 
         const rowsNeedingFallback = rows.filter((row) => {
+            if (row.latestPrice === null) {
+                return false
+            }
             const persistedPeriod = this.parsePersistedMetric(row.periodChangePercent)
             const persistedDay = this.parsePersistedMetric(row.dayChangePercent)
             return persistedPeriod === null && persistedDay === null
         })
 
-        const fallbackIds = rowsNeedingFallback.map((row) => row.id)
+        const fallbackIds = rowsNeedingFallback
+            .slice(0, MAX_DAILY_BAR_FETCHES)
+            .map((row) => row.id)
         const previousDayEnd = this.previousDayEnd()
 
         const [dailyBarHistories, previousCloses] = await Promise.all([
@@ -346,13 +573,117 @@ export class StockService {
         return rows.map(r => ({ recordedAt: r.recordedAt, price: parseFloat(r.price) }))
     }
 
-    calculateTotal(symbol: string, quantity: number, price: number) {
-        return { symbol, quantity, price, total: quantity * price }
-    }
-
     async getStockId(ticker: string): Promise<string | null> {
         const row = await this.ctx.db.select({ id: stock.id }).from(stock).where(eq(stock.ticker, ticker)).limit(1)
         return row[0]?.id ?? null
+    }
+
+    async listStocksNeedingNames(limit: number): Promise<Array<{ id: string; ticker: string }>> {
+        return this.ctx.db
+            .select({ id: stock.id, ticker: stock.ticker })
+            .from(stock)
+            .where(and(
+                eq(stock.isActive, true),
+                sql`${stock.companyName} = ${stock.ticker}`,
+            ))
+            .orderBy(desc(stock.backfillRequestedAt), asc(stock.ticker))
+            .limit(limit)
+    }
+
+    async listStocksNeedingHistory(
+        limit: number,
+        days = HISTORY_DAYS,
+    ): Promise<Array<{ id: string; ticker: string }>> {
+        const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
+        const minBars = Math.min(days, TRADING_DAYS_PER_CALENDAR_MONTH)
+
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                barCount: count(stockDailyBar.id),
+            })
+            .from(stock)
+            .leftJoin(stockDailyBar, and(
+                eq(stockDailyBar.stockId, stock.id),
+                gte(stockDailyBar.tradingDate, fromDate),
+            ))
+            .where(eq(stock.isActive, true))
+            .groupBy(stock.id, stock.ticker, stock.backfillRequestedAt)
+            .having(sql`count(${stockDailyBar.id}) < ${minBars}`)
+            .orderBy(desc(stock.backfillRequestedAt), sql`count(${stockDailyBar.id}) asc`, asc(stock.ticker))
+            .limit(limit)
+
+        return rows.map(({ id, ticker }) => ({ id, ticker }))
+    }
+
+    async requestBackfillPriority(stockId: string): Promise<void> {
+        await this.ctx.db
+            .update(stock)
+            .set({ backfillRequestedAt: new Date() })
+            .where(eq(stock.id, stockId))
+    }
+
+    async backfillTickerFully(ticker: string): Promise<void> {
+        const stockId = await this.getStockId(ticker)
+        if (stockId === null) {
+            throw new Error(`Unknown ticker: ${ticker}`)
+        }
+
+        await this.applyStockNameFromApi(stockId, ticker)
+        await this.backfillStockHistory(stockId, ticker, {
+            days: HISTORY_DAYS,
+            maxFetches: HISTORY_DAYS,
+        })
+    }
+
+    async applyStockNameFromApi(stockId: string, ticker: string): Promise<boolean> {
+        const bar = await this.ctx.stockDataClient.getDailyBar(ticker)
+        if (bar === null || bar.name === '' || bar.name === ticker) {
+            return false
+        }
+        await this.applyResolvedName(stockId, ticker, bar.name)
+        return true
+    }
+
+    async backfillStockHistory(
+        stockId: string,
+        ticker: string,
+        options?: { days?: number; maxFetches?: number },
+    ): Promise<{ fetchesUsed: number }> {
+        const days = options?.days ?? HISTORY_DAYS
+        const maxFetches = options?.maxFetches ?? MAX_DAILY_BAR_FETCHES
+        const beforeCount = (await this.getCachedDailyBarHistory(stockId, days)).length
+        const { resolvedName, fetchesUsed } = await this.cacheMissingDailyBars(stockId, ticker, days, maxFetches)
+
+        if (resolvedName !== null && resolvedName !== '') {
+            await this.applyResolvedName(stockId, ticker, resolvedName)
+        }
+
+        const history = await this.getCachedDailyBarHistory(stockId, days)
+        if (history.length <= beforeCount) {
+            return { fetchesUsed }
+        }
+
+        const todayStr = this.formatUtcDate(new Date())
+        const todayBar = history.find((bar) => bar.date === todayStr)
+        if (todayBar) {
+            const latestPrice = await this.getLatestPriceByStockId(stockId)
+            if (latestPrice === null) {
+                await this.insertPrice(
+                    stockId,
+                    todayBar.close,
+                    this.ctx.stockDataClient.source,
+                    new Date(),
+                )
+            }
+        }
+
+        if (history.length >= MIN_BARS_FOR_METRICS) {
+            await this.refreshStockMetrics(stockId)
+        }
+
+        return { fetchesUsed }
     }
 
     async getTicker(stockId: string): Promise<string | null> {
@@ -375,9 +706,24 @@ export class StockService {
 
     async createStock(ticker: string, companyName: string, exchange: string, currency: string): Promise<string> {
         const id = crypto.randomUUID()
-        await this.ctx.db.insert(stock).values({ id, ticker, companyName, exchange, currency, isActive: true }).onConflictDoNothing()
+        const inserted = await this.ctx.db.insert(stock).values({
+            id,
+            ticker,
+            companyName,
+            exchange,
+            currency,
+            isActive: true,
+        }).onConflictDoNothing().returning({ id: stock.id })
+
+        if (inserted[0] !== undefined) {
+            return inserted[0].id
+        }
+
         const row = await this.ctx.db.select({ id: stock.id }).from(stock).where(eq(stock.ticker, ticker)).limit(1)
-        return row[0]!.id
+        if (row[0] === undefined) {
+            throw new Error(`Failed to create or load stock row for ${ticker}`)
+        }
+        return row[0].id
     }
 
     async getLatestPriceByStockId(stockId: string, asOf?: Date): Promise<number | null> {
@@ -456,8 +802,11 @@ export class StockService {
         return date.toISOString().slice(0, 10)
     }
 
-    private buildPlaceholderDescription(companyName: string): string {
-        return `this stock (${companyName}) is good because i like it`
+    private normalizeTradingDate(value: string | Date): string {
+        if (value instanceof Date) {
+            return this.formatUtcDate(value)
+        }
+        return value.slice(0, 10)
     }
 
     private addUtcDays(date: Date, days: number): Date {
@@ -466,40 +815,26 @@ export class StockService {
         return next
     }
 
-    private async ensureStockMetadata(
-        stockRow: typeof stock.$inferSelect,
-    ): Promise<typeof stock.$inferSelect> {
-        if (stockRow.description !== null && stockRow.description !== '') {
-            return stockRow
+    private async applyResolvedName(stockId: string, ticker: string, name: string): Promise<void> {
+        const trimmedName = name.trim()
+        if (!trimmedName || trimmedName === ticker) {
+            return
         }
 
-        const companyName = stockRow.companyName
-        const description = this.buildPlaceholderDescription(companyName) // TODO, GET REAL DESCRIPTION
+        const [row] = await this.ctx.db
+            .select({ companyName: stock.companyName })
+            .from(stock)
+            .where(eq(stock.id, stockId))
+            .limit(1)
 
-        if (stockRow.companyName !== stockRow.ticker) {
-            await this.ctx.db
-                .update(stock)
-                .set({ description })
-                .where(eq(stock.id, stockRow.id))
-            return { ...stockRow, description }
+        if (!row || row.companyName !== ticker) {
+            return
         }
 
-        const meta = await this.ctx.stockDataClient.getStockMeta(stockRow.ticker)
-        const resolvedName = meta?.name ?? companyName
-        const resolvedDescription = this.buildPlaceholderDescription(resolvedName) // TODO, GET REAL DESCRIPTION
         await this.ctx.db
             .update(stock)
-            .set({
-                companyName: resolvedName,
-                description: resolvedDescription,
-            })
-            .where(eq(stock.id, stockRow.id))
-
-        return {
-            ...stockRow,
-            companyName: resolvedName,
-            description: resolvedDescription,
-        }
+            .set({ companyName: trimmedName })
+            .where(eq(stock.id, stockId))
     }
 
     private async cacheMissingDailyBars(
@@ -507,7 +842,7 @@ export class StockService {
         ticker: string,
         days: number,
         maxFetches = MAX_DAILY_BAR_FETCHES,
-    ): Promise<void> {
+    ): Promise<{ resolvedName: string | null; fetchesUsed: number }> {
         const today = new Date()
         today.setUTCHours(0, 0, 0, 0)
         const fromDate = this.formatUtcDate(this.addUtcDays(today, -(days - 1)))
@@ -520,7 +855,10 @@ export class StockService {
                 gte(stockDailyBar.tradingDate, fromDate),
             ))
 
-        const existingDates = new Set(existingRows.map((row) => row.tradingDate))
+        const existingDates = new Set(
+            existingRows.map((row) => this.normalizeTradingDate(row.tradingDate)),
+        )
+        let resolvedName: string | null = null
 
         let attempts = 0
         for (let offset = 0; offset < days && attempts < maxFetches; offset += 1) {
@@ -531,18 +869,31 @@ export class StockService {
             attempts += 1
             const bar = await this.ctx.stockDataClient.getDailyBar(ticker, this.addUtcDays(today, -offset))
             if (bar === null) continue
+
+            const barDate = tradingDate
+
+            if (
+                resolvedName === null
+                && bar.name !== ''
+                && bar.name !== ticker
+            ) {
+                resolvedName = bar.name
+            }
+
             await this.ctx.db.insert(stockDailyBar).values({
                 id: crypto.randomUUID(),
                 stockId,
-                tradingDate,
+                tradingDate: barDate,
                 open: bar.open.toString(),
                 high: bar.high.toString(),
                 low: bar.low.toString(),
                 close: bar.close.toString(),
                 source: this.ctx.stockDataClient.source,
             }).onConflictDoNothing()
-            existingDates.add(tradingDate)
+            existingDates.add(barDate)
         }
+
+        return { resolvedName, fetchesUsed: attempts }
     }
 
     private async getCachedDailyBarHistory(
@@ -564,7 +915,7 @@ export class StockService {
             .orderBy(asc(stockDailyBar.tradingDate))
 
         return rows.map((row) => ({
-            date: row.tradingDate,
+            date: this.normalizeTradingDate(row.tradingDate),
             close: parseFloat(row.close),
         }))
     }
@@ -585,8 +936,38 @@ export class StockService {
         }
     }
 
-    private async ensureDetailDailyBarHistory(stockId: string, ticker: string, days: number): Promise<void> {
-        await this.ensureDailyBarHistory(stockId, ticker, days, DETAIL_DAILY_BAR_FETCHES)
+    private async detailCacheIsWarm(
+        stockId: string,
+        days: number,
+    ): Promise<{ warm: boolean; history: Array<{ date: string; close: number }> }> {
+        const history = await this.getCachedDailyBarHistory(stockId, days)
+        return {
+            warm: history.length >= Math.min(days, MIN_BARS_FOR_METRICS),
+            history,
+        }
+    }
+
+    private async getChartPriceHistory(
+        stockId: string,
+        ticker: string,
+        days: number,
+    ): Promise<Array<{ date: string; close: number }>> {
+        const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(days - 1)))
+        const dailyBars = await this.getCachedDailyBarHistory(stockId, days)
+        const closeByDate = new Map(dailyBars.map((bar) => [bar.date, bar.close]))
+
+        const from = this.addUtcDays(new Date(), -(days - 1))
+        const priceRows = await this.getPriceHistory(ticker, from, new Date()) ?? []
+
+        for (const row of priceRows) {
+            const date = this.formatUtcDate(row.recordedAt)
+            if (date < fromDate) continue
+            closeByDate.set(date, row.price)
+        }
+
+        return [...closeByDate.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([date, close]) => ({ date, close }))
     }
 
     async getStockDetail(ticker: string, historyDays = HISTORY_DAYS): Promise<StockDetail | null> {
@@ -598,45 +979,57 @@ export class StockService {
 
         if (!stockRow) return null
 
-        const enrichedStock = await this.ensureStockMetadata(stockRow)
+        const cache = await this.detailCacheIsWarm(stockRow.id, historyDays)
+        if (!cache.warm) {
+            await this.requestBackfillPriority(stockRow.id)
+            const { resolvedName } = await this.cacheMissingDailyBars(
+                stockRow.id,
+                stockRow.ticker,
+                historyDays,
+                readDetailOnDemandPrefetchMaxFetches(),
+            )
+            if (resolvedName !== null && resolvedName !== '') {
+                await this.applyResolvedName(stockRow.id, stockRow.ticker, resolvedName)
+                stockRow.companyName = resolvedName
+            }
+        }
 
-        await this.ensureDetailDailyBarHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
-        let priceHistory = await this.getCachedDailyBarHistory(enrichedStock.id, historyDays)
+        const priceHistory = await this.getChartPriceHistory(
+            stockRow.id,
+            stockRow.ticker,
+            historyDays,
+        )
 
-        const latestPrice = await this.getLatestPriceByStockId(enrichedStock.id)
+        const latestPrice = await this.getLatestPriceByStockId(stockRow.id)
+            ?? priceHistory.at(-1)?.close
+            ?? null
         const priceTablePreviousClose = await this.getLatestPriceByStockId(
-            enrichedStock.id,
+            stockRow.id,
             this.previousDayEnd(),
         )
 
-        if (priceHistory.length === 0) {
-            const from = this.addUtcDays(new Date(), -(historyDays - 1))
-            const fallback = await this.getPriceHistory(ticker, from, new Date())
-            priceHistory = (fallback ?? []).map((point) => ({
-                date: this.formatUtcDate(point.recordedAt),
-                close: point.price,
-            }))
-        }
-
+        const metricsHistory = priceHistory.slice(-HISTORY_DAYS)
         const performance = this.computePerformanceMetrics(
             latestPrice,
-            priceHistory,
+            metricsHistory,
             priceTablePreviousClose,
         )
 
-        if (priceHistory.length >= MIN_BARS_FOR_METRICS) {
-            await this.persistStockMetrics(enrichedStock.id, performance)
-        }
+        const trimmedDescription = stockRow.description?.trim()
+        const description =
+            trimmedDescription === undefined || trimmedDescription === ''
+                ? null
+                : trimmedDescription
 
         return {
             stock: {
-                id: enrichedStock.id,
-                ticker: enrichedStock.ticker,
-                companyName: enrichedStock.companyName,
-                exchange: enrichedStock.exchange,
-                currency: enrichedStock.currency,
-                description: this.buildPlaceholderDescription(enrichedStock.companyName),
-                isAccumulating: enrichedStock.isAccumulating,
+                id: stockRow.id,
+                ticker: stockRow.ticker,
+                companyName: stockRow.companyName,
+                exchange: stockRow.exchange,
+                currency: stockRow.currency,
+                description,
+                isAccumulating: stockRow.isAccumulating,
             },
             performance,
             priceHistory,

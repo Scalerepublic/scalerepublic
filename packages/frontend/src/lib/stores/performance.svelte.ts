@@ -7,7 +7,7 @@ export type { PerformanceGranularity };
 
 class PerformanceStore {
 	data = $state<PerformancePoint[]>([]);
-	granularity = $state<PerformanceGranularity>('daily');
+	granularity = $state<PerformanceGranularity>('monthly');
 	loading = $state(false);
 	error = $state<string | null>(null);
 	private loadInFlight: Promise<void> | null = null;
