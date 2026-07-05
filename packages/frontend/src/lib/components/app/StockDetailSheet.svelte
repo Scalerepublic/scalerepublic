@@ -2,7 +2,7 @@
 	import ChangeIndicator from './ChangeIndicator.svelte';
 	import NobleButton from './NobleButton.svelte';
 	import PerformanceChart from './PerformanceChart.svelte';
-	import TradeSheet from './TradeSheet.svelte';
+	import BuyTradeSheet from './BuyTradeSheet.svelte';
 	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendStockDetail } from '$lib/api/backend-types';
 	import type { PerformancePoint } from '$lib/performance-history';
@@ -243,4 +243,4 @@
 	</div>
 {/if}
 
-<TradeSheet bind:open={tradeOpen} {stock} mode="buy" />
+<BuyTradeSheet bind:open={tradeOpen} {stock} />

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import NobleButton from './NobleButton.svelte';
 	import StockDetailSheet from './StockDetailSheet.svelte';
-	import TradeSheet from './TradeSheet.svelte';
+	import SellTradeSheet from './SellTradeSheet.svelte';
 	import { cn, formatCurrency, formatPercent, formatNumber } from '$lib/utils';
 	import type { HoldingWithMarket, Stock } from '$lib/types';
 
@@ -134,10 +134,9 @@
 </div>
 
 {#if sellTarget && !readOnly}
-	<TradeSheet
+	<SellTradeSheet
 		bind:open={sellOpen}
 		stock={sellTarget.stock}
-		mode="sell"
 		maxQuantity={sellTarget.shares}
 	/>
 {/if}
