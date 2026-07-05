@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, gte, ilike, inArray, lte, ne, or, sql, type 
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockDailyBar, stockPrice } from '../../db/schema/stock/index.ts'
+import { readEnvNumber } from '../../lib/env-number.ts'
 import {
     DEBUG_MARKET_CRASH_SOURCE,
     DEBUG_MARKET_PRICE_SOURCE,
@@ -14,6 +15,15 @@ const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
 const MIN_BARS_FOR_METRICS = 2
 const TRADING_DAYS_PER_CALENDAR_MONTH = 22
+const DEFAULT_DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES = 30
+
+const readDetailOnDemandPrefetchMaxFetches = (): number => {
+    const configured = readEnvNumber(
+        'DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES',
+        DEFAULT_DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES,
+    )
+    return Math.max(0, Math.floor(configured))
+}
 
 export { HISTORY_DAYS, MAX_DAILY_BAR_FETCHES }
 
@@ -972,6 +982,16 @@ export class StockService {
         const cache = await this.detailCacheIsWarm(stockRow.id, historyDays)
         if (!cache.warm) {
             await this.requestBackfillPriority(stockRow.id)
+            const { resolvedName } = await this.cacheMissingDailyBars(
+                stockRow.id,
+                stockRow.ticker,
+                historyDays,
+                readDetailOnDemandPrefetchMaxFetches(),
+            )
+            if (resolvedName !== null && resolvedName !== '') {
+                await this.applyResolvedName(stockRow.id, stockRow.ticker, resolvedName)
+                stockRow.companyName = resolvedName
+            }
         }
 
         const priceHistory = await this.getChartPriceHistory(
