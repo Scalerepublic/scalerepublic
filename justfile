@@ -58,7 +58,7 @@ db-migrate:
 db-studio:
     cd "{{backend}}" && bun run db:studio
 
-db-backfill-descriptions:
+db-backfill-stock-info:
     cd "{{backend}}" && bun run db:backfill-stock-info
 
 test:

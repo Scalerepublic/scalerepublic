@@ -67,13 +67,9 @@ for (let i = 0; i < SEED_STOCKS.length; i++) {
 }
 
 const { stockService } = createAppContext();
-const descriptions = await stockService.backfillMissingDescriptions();
+const stockInfo = await stockService.backfillStockInfo();
 console.log(
-  `[seed] Wikipedia descriptions: ${descriptions.updated} updated, ${descriptions.failed} failed, ${descriptions.pending - descriptions.updated} still pending.`,
-);
-const facts = await stockService.backfillMissingCompanyFacts();
-console.log(
-  `[seed] Wikidata company facts: ${facts.updated} updated, ${facts.failed} failed, ${facts.pending - facts.updated} still pending.`,
+  `[seed] Stock info (Wikipedia + Wikidata): ${stockInfo.updated} updated, ${stockInfo.failed} failed, ${stockInfo.pending - stockInfo.updated} still pending.`,
 );
 
 await client.end();

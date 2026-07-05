@@ -12,7 +12,7 @@ const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 1000
 const RATE_LIMIT_BATCH_SIZE = 5
 const RATE_LIMIT_WINDOW_MS = 1000
-const DESCRIPTION_BACKFILL_BATCH_SIZE = 5
+const STOCK_INFO_BACKFILL_BATCH_SIZE = 5
 // Time after which a new instance is allowed to retake a taken lock
 // Essentially the maximum time the sync should take. Longer and we
 // assume another instance crashed while holding the lock
@@ -158,20 +158,12 @@ export class SyncService {
 
             try {
                 await this.runSync(tickers)
-                const backfill = await this.ctx.stockService.backfillMissingDescriptions({
-                    limit: DESCRIPTION_BACKFILL_BATCH_SIZE,
+                const stockInfo = await this.ctx.stockService.backfillStockInfo({
+                    limit: STOCK_INFO_BACKFILL_BATCH_SIZE,
                 })
-                if (backfill.updated > 0 || backfill.failed > 0) {
+                if (stockInfo.updated > 0 || stockInfo.failed > 0) {
                     console.log(
-                        `[sync] Description backfill: ${backfill.updated} updated, ${backfill.failed} failed, ${backfill.pending - backfill.updated} still pending`,
-                    )
-                }
-                const factsBackfill = await this.ctx.stockService.backfillMissingCompanyFacts({
-                    limit: DESCRIPTION_BACKFILL_BATCH_SIZE,
-                })
-                if (factsBackfill.updated > 0 || factsBackfill.failed > 0) {
-                    console.log(
-                        `[sync] Company facts backfill: ${factsBackfill.updated} updated, ${factsBackfill.failed} failed, ${factsBackfill.pending - factsBackfill.updated} still pending`,
+                        `[sync] Stock info backfill: ${stockInfo.updated} updated, ${stockInfo.failed} failed, ${stockInfo.pending - stockInfo.updated} still pending`,
                     )
                 }
                 await this.ctx.db.update(syncJob).set({
