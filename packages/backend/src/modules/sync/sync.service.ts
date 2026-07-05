@@ -16,10 +16,17 @@ const DEFAULT_HISTORY_BARS_PER_STOCK = 10
 const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 40
 const DEFAULT_CATALOG_BACKFILL_MIN_INTERVAL_MS = 5 * 60 * 1000
 const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000
+const AUTO_TRADE_BATCH_SIZE = 20
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
 const catalogBackfillOnCron = (): boolean => process.env['CATALOG_BACKFILL_ON_CRON'] !== 'false'
+
+const chunk = <T>(arr: T[], size: number): T[][] => {
+    const out: T[][] = []
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+    return out
+}
 
 export class SyncService {
     private lockId: string | null = null
@@ -215,6 +222,31 @@ export class SyncService {
         await this.runSync()
     }
 
+    async checkAllAutoTrades(): Promise<void> {
+        const expired = await this.ctx.autoTradeService.expireAutoTrades()
+        if (expired > 0) console.log(`[autotrade] Expired ${expired} rule(s)`)
+
+        const rules = await this.ctx.autoTradeService.getActiveAutoTrades()
+        if (rules.length === 0) return
+
+        console.log(`[autotrade] Evaluating ${rules.length} active rule(s)`)
+        const batches = chunk(rules, AUTO_TRADE_BATCH_SIZE)
+        for (const batch of batches) {
+            const results = await Promise.allSettled(
+                batch.map(rule => this.ctx.autoTradeService.executeAutoTrade(rule)),
+            )
+            results.forEach((r, i) => {
+                const rule = batch[i]!
+                if (r.status === 'fulfilled') {
+                    if (r.value) console.log(`[autotrade] Rule ${rule.id} triggered -> trade ${r.value.id}`)
+                } else {
+                    const message = r.reason instanceof Error ? r.reason.message : String(r.reason)
+                    console.error(`[autotrade] Rule ${rule.id} failed: ${message}`)
+                }
+            })
+        }
+    }
+
     async runDueTick(): Promise<void> {
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
         const staleLockMs = readEnvNumber(
@@ -272,6 +304,7 @@ export class SyncService {
                 }).where(eq(syncJob.id, JOB_ID))
                 console.log('[sync] Price sync completed')
 
+                await this.checkAllAutoTrades()
                 await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
 
                 await this.runCatalogBackfillIfDue(syncIntervalMs, backfillMinIntervalMs)
