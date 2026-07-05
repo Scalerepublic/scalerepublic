@@ -1,6 +1,7 @@
 import { inArray } from 'drizzle-orm';
 import seedrandom from 'seedrandom';
 
+import { createAppContext } from '../../context.ts';
 import { client, db } from '../index.ts';
 import { stockPrice } from '../schema/stock/market.ts';
 import { stock } from '../schema/stock/stock.ts';
@@ -64,6 +65,16 @@ for (let i = 0; i < SEED_STOCKS.length; i++) {
 
   console.log(`[+] ${def.ticker} (${def.archetype}): ${points.length} points`);
 }
+
+const { stockService } = createAppContext();
+const descriptions = await stockService.backfillMissingDescriptions();
+console.log(
+  `[seed] Wikipedia descriptions: ${descriptions.updated} updated, ${descriptions.failed} failed, ${descriptions.pending - descriptions.updated} still pending.`,
+);
+const facts = await stockService.backfillMissingCompanyFacts();
+console.log(
+  `[seed] Wikidata company facts: ${facts.updated} updated, ${facts.failed} failed, ${facts.pending - facts.updated} still pending.`,
+);
 
 await client.end();
 console.log('Done.');

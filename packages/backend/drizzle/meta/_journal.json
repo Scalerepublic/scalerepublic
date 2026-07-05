@@ -36,6 +36,13 @@
       "when": 1782500000000,
       "tag": "0005_stock_market_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782600000000,
+      "tag": "0006_stock_company_facts",
+      "breakpoints": true
     }
   ]
 }

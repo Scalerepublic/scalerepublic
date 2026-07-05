@@ -29,7 +29,9 @@
     "db:baseline": "bun scripts/baseline-migrations.ts",
     "db:push": "bunx drizzle-kit push",
     "db:studio": "bunx drizzle-kit studio --host 0.0.0.0",
-    "db:seed": "bun src/db/seed/index.ts"
+    "db:seed": "bun src/db/seed/index.ts",
+    "db:backfill-descriptions": "bun scripts/backfill-stock-descriptions.ts",
+    "db:backfill-stock-info": "bun scripts/backfill-stock-descriptions.ts"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.4",

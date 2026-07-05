@@ -57,9 +57,21 @@ export const createAppContext = (
     if (process.env.NODE_ENV === 'test') {
         ctx.stockDataClient = new MockStockDataClient()
     } else if (process.env['STOCK_API_PROVIDER'] === 'uni') {
-        ctx.stockDataClient = new UniStockClient()
+        const hasUniCredentials =
+            process.env['UNI_API_TOKEN'] !== undefined
+            && process.env['UNI_API_TOKEN'] !== ''
+            && process.env['UNI_API_BASE_URL'] !== undefined
+            && process.env['UNI_API_BASE_URL'] !== ''
+        ctx.stockDataClient = hasUniCredentials
+            ? new UniStockClient()
+            : new MockStockDataClient()
     } else {
-        ctx.stockDataClient = new AlphaVantageStockClient()
+        const hasVantageKey =
+            process.env['ALPHAVANTAGE_API_KEY'] !== undefined
+            && process.env['ALPHAVANTAGE_API_KEY'] !== ''
+        ctx.stockDataClient = hasVantageKey
+            ? new AlphaVantageStockClient()
+            : new MockStockDataClient()
     }
     ctx.marketDebugService = new MarketDebugService(ctx)
     ctx.stockService = new StockService(ctx)

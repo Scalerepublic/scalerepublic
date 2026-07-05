@@ -73,6 +73,17 @@ export type BackendPerformancePoint = {
 	value: number;
 };
 
+export type BackendCompanyFactMetric = {
+	label: string;
+	value: string;
+	asOf: string | null;
+};
+
+export type BackendCompanyFacts = {
+	wikidataId: string;
+	metrics: BackendCompanyFactMetric[];
+};
+
 export type BackendStockDetail = {
 	stock: {
 		id: string;
@@ -91,4 +102,5 @@ export type BackendStockDetail = {
 		periodChangePercent: number | null;
 	};
 	priceHistory: Array<{ date: string; close: number }>;
+	companyFacts: BackendCompanyFacts | null;
 };

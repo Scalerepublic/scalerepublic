@@ -7,11 +7,14 @@ import {
     DEBUG_MARKET_PRICE_SOURCE,
     isMarketDebugEnabled,
 } from '../../lib/market-debug.ts'
+import { WikidataClient, type CompanyFacts } from '../wikipedia/wikidata-client.ts'
+import { WikipediaClient } from '../wikipedia/wikipedia-client.ts'
 
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
 const DETAIL_DAILY_BAR_FETCHES = 30
 const MIN_BARS_FOR_METRICS = 2
+const COMPANY_FACTS_REFRESH_DAYS = 7
 
 export type StockSummary = {
     id: string
@@ -46,10 +49,15 @@ export type StockDetail = {
     }
     performance: StockDetailPerformance
     priceHistory: Array<{ date: string; close: number }>
+    companyFacts: CompanyFacts | null
 }
 
 export class StockService {
-    constructor(private readonly ctx: AppVars) { }
+    constructor(
+        private readonly ctx: AppVars,
+        private readonly wikipediaClient = new WikipediaClient(),
+        private readonly wikidataClient = new WikidataClient(),
+    ) { }
 
     private priceSourceFilter(): SQL {
         if (isMarketDebugEnabled()) {
@@ -456,8 +464,190 @@ export class StockService {
         return date.toISOString().slice(0, 10)
     }
 
-    private buildPlaceholderDescription(companyName: string): string {
-        return `this stock (${companyName}) is good because i like it`
+    private isPlaceholderDescription(description: string | null | undefined): boolean {
+        if (description === null || description === undefined) return true
+        const trimmed = description.trim()
+        if (trimmed === '') return true
+        return /^this stock \(.+\) is good because i like it$/.test(trimmed)
+    }
+
+    private normalizeDescription(description: string | null | undefined): string | null {
+        if (this.isPlaceholderDescription(description)) return null
+        return description!.trim()
+    }
+
+    private async fetchWikipediaDescription(
+        companyName: string,
+        ticker: string,
+    ): Promise<string | null> {
+        const summary = await this.wikipediaClient.searchSummary(companyName, ticker)
+        return summary?.extract ?? null
+    }
+
+    private parseStoredCompanyFacts(
+        stockRow: typeof stock.$inferSelect,
+    ): CompanyFacts | null {
+        const metrics = stockRow.companyFacts?.metrics
+        if (
+            stockRow.wikidataId === null
+            || stockRow.wikidataId === undefined
+            || metrics === undefined
+            || metrics.length === 0
+        ) {
+            return null
+        }
+
+        return {
+            wikidataId: stockRow.wikidataId,
+            metrics,
+        }
+    }
+
+    private needsCompanyFactsRefresh(
+        stockRow: Pick<
+            typeof stock.$inferSelect,
+            'companyFacts' | 'companyFactsUpdatedAt'
+        >,
+        refreshOlderThanDays: number,
+    ): boolean {
+        if (stockRow.companyFacts === null || stockRow.companyFactsUpdatedAt === null) {
+            return true
+        }
+
+        const threshold = Date.now() - refreshOlderThanDays * 24 * 60 * 60 * 1000
+        return stockRow.companyFactsUpdatedAt.getTime() < threshold
+    }
+
+    async backfillMissingCompanyFacts(
+        options: { limit?: number; refreshOlderThanDays?: number } = {},
+    ): Promise<{
+        pending: number
+        updated: number
+        failed: number
+    }> {
+        const limit = options.limit
+        const refreshOlderThanDays = options.refreshOlderThanDays ?? COMPANY_FACTS_REFRESH_DAYS
+
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                companyName: stock.companyName,
+                companyFacts: stock.companyFacts,
+                companyFactsUpdatedAt: stock.companyFactsUpdatedAt,
+            })
+            .from(stock)
+            .where(eq(stock.isActive, true))
+
+        const pendingRows = rows.filter((row) =>
+            this.needsCompanyFactsRefresh(row, refreshOlderThanDays),
+        )
+        const batch = limit === undefined ? pendingRows : pendingRows.slice(0, limit)
+
+        let updated = 0
+        let failed = 0
+
+        for (const row of batch) {
+            try {
+                let companyName = row.companyName
+                if (row.companyName === row.ticker) {
+                    const meta = await this.ctx.stockDataClient.getStockMeta(row.ticker)
+                    companyName = meta?.name ?? companyName
+                }
+
+                const summary = await this.wikipediaClient.searchSummary(companyName, row.ticker)
+                if (summary?.wikidataId === null || summary?.wikidataId === undefined) {
+                    failed += 1
+                    continue
+                }
+
+                const facts = await this.wikidataClient.getCompanyFacts(summary.wikidataId)
+                if (facts === null || facts.metrics.length === 0) {
+                    failed += 1
+                    continue
+                }
+
+                await this.ctx.db
+                    .update(stock)
+                    .set({
+                        wikidataId: facts.wikidataId,
+                        companyFacts: { metrics: facts.metrics },
+                        companyFactsUpdatedAt: new Date(),
+                    })
+                    .where(eq(stock.id, row.id))
+
+                updated += 1
+            } catch {
+                failed += 1
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 200))
+        }
+
+        return {
+            pending: pendingRows.length,
+            updated,
+            failed,
+        }
+    }
+
+    async backfillMissingDescriptions(options: { limit?: number } = {}): Promise<{
+        pending: number
+        updated: number
+        failed: number
+    }> {
+        const limit = options.limit
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                companyName: stock.companyName,
+                description: stock.description,
+            })
+            .from(stock)
+            .where(eq(stock.isActive, true))
+
+        const pendingRows = rows.filter((row) => this.isPlaceholderDescription(row.description))
+        const batch = limit === undefined ? pendingRows : pendingRows.slice(0, limit)
+
+        let updated = 0
+        let failed = 0
+
+        for (const row of batch) {
+            try {
+                let companyName = row.companyName
+                if (row.companyName === row.ticker) {
+                    const meta = await this.ctx.stockDataClient.getStockMeta(row.ticker)
+                    companyName = meta?.name ?? companyName
+                }
+
+                const description = await this.fetchWikipediaDescription(companyName, row.ticker)
+                if (description === null) {
+                    failed += 1
+                    continue
+                }
+
+                await this.ctx.db
+                    .update(stock)
+                    .set({
+                        companyName,
+                        description,
+                    })
+                    .where(eq(stock.id, row.id))
+
+                updated += 1
+            } catch {
+                failed += 1
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 200))
+        }
+
+        return {
+            pending: pendingRows.length,
+            updated,
+            failed,
+        }
     }
 
     private addUtcDays(date: Date, days: number): Date {
@@ -469,36 +659,35 @@ export class StockService {
     private async ensureStockMetadata(
         stockRow: typeof stock.$inferSelect,
     ): Promise<typeof stock.$inferSelect> {
-        if (stockRow.description !== null && stockRow.description !== '') {
+        if (!this.isPlaceholderDescription(stockRow.description)) {
             return stockRow
         }
 
-        const companyName = stockRow.companyName
-        const description = this.buildPlaceholderDescription(companyName) // TODO, GET REAL DESCRIPTION
-
-        if (stockRow.companyName !== stockRow.ticker) {
-            await this.ctx.db
-                .update(stock)
-                .set({ description })
-                .where(eq(stock.id, stockRow.id))
-            return { ...stockRow, description }
+        let companyName = stockRow.companyName
+        if (stockRow.companyName === stockRow.ticker) {
+            const meta = await this.ctx.stockDataClient.getStockMeta(stockRow.ticker)
+            companyName = meta?.name ?? companyName
         }
 
-        const meta = await this.ctx.stockDataClient.getStockMeta(stockRow.ticker)
-        const resolvedName = meta?.name ?? companyName
-        const resolvedDescription = this.buildPlaceholderDescription(resolvedName) // TODO, GET REAL DESCRIPTION
+        const description = await this.fetchWikipediaDescription(companyName, stockRow.ticker)
+        if (description === null) {
+            return stockRow.companyName === companyName
+                ? stockRow
+                : { ...stockRow, companyName }
+        }
+
         await this.ctx.db
             .update(stock)
             .set({
-                companyName: resolvedName,
-                description: resolvedDescription,
+                companyName,
+                description,
             })
             .where(eq(stock.id, stockRow.id))
 
         return {
             ...stockRow,
-            companyName: resolvedName,
-            description: resolvedDescription,
+            companyName,
+            description,
         }
     }
 
@@ -635,11 +824,12 @@ export class StockService {
                 companyName: enrichedStock.companyName,
                 exchange: enrichedStock.exchange,
                 currency: enrichedStock.currency,
-                description: this.buildPlaceholderDescription(enrichedStock.companyName),
+                description: this.normalizeDescription(enrichedStock.description),
                 isAccumulating: enrichedStock.isAccumulating,
             },
             performance,
             priceHistory,
+            companyFacts: this.parseStoredCompanyFacts(enrichedStock),
         }
     }
 }

@@ -5,6 +5,7 @@ import {
     timestamp,
     index,
     numeric,
+    jsonb,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -34,6 +35,18 @@ export const stock = pgTable(
             .notNull(),
 
         description: text("description"),
+
+        wikidataId: text("wikidata_id"),
+
+        companyFacts: jsonb("company_facts").$type<{
+            metrics: Array<{
+                label: string
+                value: string
+                asOf: string | null
+            }>
+        }>(),
+
+        companyFactsUpdatedAt: timestamp("company_facts_updated_at", { withTimezone: true }),
 
         isAccumulating: boolean("is_accumulating"),
 
