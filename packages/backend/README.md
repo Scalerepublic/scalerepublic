@@ -85,7 +85,7 @@ This section describes how stock prices, company names, and chart history are lo
 
 We use two related but separate sync flows:
 
-1. **Tracked ticker sync** (`SYNC_TICKERS`): keeps a small set of liquid names (demo defaults or env override) fresh for portfolio pricing and leaderboards.
+1. **Price sync**: random quotes for holdings, seed tickers (`SYNC_TICKERS`), and trending names — capped by `SYNC_MAX_TICKERS`.
 2. **Catalog backfill**: gradually fills the full imported ticker list (~12k symbols) with company names and 30 days of daily bars for the market tab.
 
 Both flows read from the **uni stock API** and write into Postgres. The frontend always reads from our API and database, never from the uni API directly.
@@ -112,7 +112,9 @@ Frontend (market tab, detail sheet, portfolio)
 | `GET /stocks/{symbol}?token=...&date=YYYY-MM-DD` | Daily bar (open, high, low, close) and `stock_name` |
 | `GET /stocks/{symbol}/price?token=...` | Live price (not used; rate limit is too strict) |
 
-`getQuote()` derives a synthetic price as a random value between the day's low and high (not a real market quote).
+Synthetic live quotes are generated locally during price sync: a random value between the latest cached daily low and high in Postgres (`source: synthetic`). The uni API is only used to backfill `stock_daily_bar` and company names, not on every quote tick.
+
+`UniStockClient.getQuote()` still exists for tests and legacy callers but the sync scheduler does not call it.
 
 Configuration:
 
@@ -139,26 +141,33 @@ Rate limit from the provider: about **60 requests per minute**. Catalog backfill
 
 Imported tickers start with `company_name = ticker` and no bars. Backfill replaces the placeholder name and fills `stock_daily_bar`.
 
-### Tracked ticker sync
+### Price sync
 
 **Code:** `src/modules/sync/sync.service.ts`
 
-**Tickers:** `SYNC_TICKERS` env var (comma-separated). Defaults to `AAPL, MSFT, GOOGL, ...` if unset.
+**Ticker set (each run, priority order, deduped, capped at `SYNC_MAX_TICKERS`):**
+
+1. All symbols with open holdings across portfolios
+2. Seed list from `SYNC_TICKERS` (defaults to 10 liquid names)
+3. Current trending symbols (`SYNC_TRENDING_LIMIT`, default 24)
 
 **Per ticker, each run:**
 
 1. Ensure `stock` row exists (create from API metadata if missing).
-2. Fetch quote via uni daily endpoint.
-3. Insert `stock_price`.
-4. Cache missing daily bars (up to `MAX_DAILY_BAR_FETCHES` per call).
+2. Read latest `stock_daily_bar` (or last `stock_price` as fallback).
+3. Random price between bar low/high (or ±0.5% jitter around last price).
+4. Insert `stock_price` with `source: synthetic`.
 5. Recompute and persist list metrics on `stock`.
+
+No uni API call per quote. Daily bars come from catalog backfill.
 
 **Scheduling:**
 
 | Runtime | How it runs |
 |---------|-------------|
 | Local Bun (`bun run dev`) | In-process loop: `startScheduler()` polls every `SYNC_CHECK_INTERVAL_MS`, runs when `SYNC_INTERVAL_MS` elapsed |
-| Cloudflare Worker | Cron `0 * * * *` calls `scheduled` in `src/index.ts`, which invokes `syncService.runDueTick()` |
+| Cloudflare Worker (production) | Cron `0 * * * *` |
+| Cloudflare Worker (staging) | Cron `* * * * *`, `SYNC_INTERVAL_MS=60000` (1 min) |
 
 **Locking:** Only one run at a time via `sync_job` row (`stock-price-sync`). Stale locks expire after 10 minutes.
 
@@ -243,12 +252,14 @@ The frontend polls `/detail` with exponential backoff when history is still empt
 
 ### Environment variables
 
-**Sync interval (tracked tickers):**
+**Sync interval (price sync):**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SYNC_TICKERS` | 10 demo symbols | Comma-separated list for price sync |
-| `SYNC_INTERVAL_MS` | `3600000` (1h) on Worker, `20000` in `.env.example` | Minimum time between successful sync runs |
+| `SYNC_TICKERS` | 10 demo symbols | Seed list merged into each price-sync run |
+| `SYNC_MAX_TICKERS` | `500` | Max symbols per price-sync run |
+| `SYNC_TRENDING_LIMIT` | `24` | Trending symbols to include when under the cap |
+| `SYNC_INTERVAL_MS` | `3600000` (prod), `60000` (staging), `20000` in `.env.example` | Minimum time between successful sync runs |
 | `SYNC_CHECK_INTERVAL_MS` | `60000` / `5000` | Poll interval for local scheduler only |
 
 **Catalog backfill:**

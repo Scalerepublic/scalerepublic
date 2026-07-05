@@ -9,8 +9,8 @@ import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 const JOB_ID = 'stock-price-sync'
 const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 1000
-const RATE_LIMIT_BATCH_SIZE = 5
-const RATE_LIMIT_WINDOW_MS = 1000
+const DEFAULT_SYNC_MAX_TICKERS = 500
+const DEFAULT_SYNC_TRENDING_LIMIT = 24
 const CATALOG_BACKFILL_BATCH_SIZE = 5
 const CATALOG_BACKFILL_BATCH_INTERVAL_MS = 5000
 const DEFAULT_NAMES_BACKFILL_BATCH = 20
@@ -23,7 +23,7 @@ const DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'
 
 const TickerSchema = z.string().regex(/^[A-Z]{1,5}$/, 'must be 1–5 uppercase letters')
 
-export const parseTrackedTickers = (): string[] => {
+export const parseSeedTickers = (): string[] => {
     const raw = process.env['SYNC_TICKERS']
     if (raw === undefined || raw.trim() === '') return DEFAULT_TICKERS
 
@@ -39,11 +39,7 @@ export const parseTrackedTickers = (): string[] => {
     return result.data
 }
 
-const chunk = <T>(arr: T[], size: number): T[][] => {
-    const out: T[][] = []
-    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
-    return out
-}
+export const parseTrackedTickers = parseSeedTickers
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
@@ -55,6 +51,29 @@ export class SyncService {
     private getLockId(): string {
         this.lockId ??= `sync-${crypto.randomUUID()}`
         return this.lockId
+    }
+
+    async resolvePriceSyncTickers(): Promise<string[]> {
+        const maxTickers = readEnvNumber('SYNC_MAX_TICKERS', DEFAULT_SYNC_MAX_TICKERS)
+        const trendingLimit = readEnvNumber('SYNC_TRENDING_LIMIT', DEFAULT_SYNC_TRENDING_LIMIT)
+
+        const heldStockIds = await this.ctx.tradesService.listHeldStockIds()
+        const heldTickers = [...(await this.ctx.stockService.getTickersByStockIds(heldStockIds)).values()]
+        const seedTickers = parseSeedTickers()
+        const trendingTickers = (await this.ctx.stockService.getTrending(trendingLimit)).map((row) => row.ticker)
+
+        const seen = new Set<string>()
+        const tickers: string[] = []
+
+        for (const ticker of [...heldTickers, ...seedTickers, ...trendingTickers]) {
+            const normalized = ticker.trim().toUpperCase()
+            if (normalized === '' || seen.has(normalized)) continue
+            seen.add(normalized)
+            tickers.push(normalized)
+            if (tickers.length >= maxTickers) break
+        }
+
+        return tickers
     }
 
     private async ensureStock(ticker: string): Promise<string | null> {
@@ -74,12 +93,14 @@ export class SyncService {
         const stockId = await this.ensureStock(ticker)
         if (stockId === null) return false
 
-        const quote = await this.ctx.stockDataClient.getQuote(ticker)
-        await this.ctx.stockService.insertPrice(stockId, quote.price, this.ctx.stockDataClient.source, new Date())
-        await this.ctx.stockService.ensureDailyBarHistory(stockId, ticker)
+        if (!await this.ctx.stockService.insertSyntheticQuote(stockId)) {
+            console.warn(`[sync] ${ticker}: no daily bar or prior price — skipping quote`)
+            return false
+        }
+
         await this.ctx.stockService.refreshStockMetrics(stockId)
 
-        console.log(`[sync] ${ticker}: ${quote.price} (${quote.tradingDay.toISOString().slice(0, 10)})`)
+        console.log(`[sync] ${ticker}: synthetic quote stored`)
         return true
     }
 
@@ -94,19 +115,14 @@ export class SyncService {
         }
 
         let succeeded = 0
-        const batches = chunk(tickers, RATE_LIMIT_BATCH_SIZE)
-        for (let i = 0; i < batches.length; i++) {
-            if (i > 0) await sleep(RATE_LIMIT_WINDOW_MS)
-            const results = await Promise.allSettled(batches[i]!.map(t => this.syncTicker(t)))
-            results.forEach((r, j) => {
-                if (r.status === 'fulfilled' && r.value) {
+        for (const ticker of tickers) {
+            try {
+                if (await this.syncTicker(ticker)) {
                     succeeded += 1
-                    return
                 }
-                if (r.status === 'rejected') {
-                    console.error(`[sync] ${batches[i]![j]} failed: ${r.reason instanceof Error ? r.reason.message : r.reason}`)
-                }
-            })
+            } catch (err) {
+                console.error(`[sync] ${ticker} failed: ${err instanceof Error ? err.message : err}`)
+            }
         }
 
         if (succeeded === 0) {
@@ -243,11 +259,12 @@ export class SyncService {
         return claimed.length > 0
     }
 
-    async syncOnce(tickers: string[]): Promise<void> {
-        await this.runSync(tickers)
+    async syncOnce(tickers?: string[]): Promise<void> {
+        const resolved = tickers ?? await this.resolvePriceSyncTickers()
+        await this.runSync(resolved)
     }
 
-    async runDueTick(tickers: string[]): Promise<void> {
+    async runDueTick(): Promise<void> {
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
 
         try {
@@ -264,6 +281,9 @@ export class SyncService {
             console.log(`[sync] Lock acquired by ${this.getLockId()}`)
 
             try {
+                const tickers = await this.resolvePriceSyncTickers()
+                console.log(`[sync] Price sync for ${tickers.length} tickers`)
+
                 let syncError: string | null = null
                 try {
                     await this.runSync(tickers)
@@ -314,14 +334,14 @@ export class SyncService {
     }
 
     async startScheduler(): Promise<void> {
-        const tickers = parseTrackedTickers()
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
         const checkIntervalMs = readEnvNumber('SYNC_CHECK_INTERVAL_MS', DEFAULT_CHECK_INTERVAL_MS)
+        const maxTickers = readEnvNumber('SYNC_MAX_TICKERS', DEFAULT_SYNC_MAX_TICKERS)
 
-        console.log(`[sync] Tracking: ${tickers.join(', ')}. Sync every ${syncIntervalMs / 1000}s, check every ${checkIntervalMs / 1000}s`)
+        console.log(`[sync] Dynamic price sync up to ${maxTickers} tickers. Sync every ${syncIntervalMs / 1000}s, check every ${checkIntervalMs / 1000}s`)
 
         for (;;) {
-            await this.runDueTick(tickers)
+            await this.runDueTick()
             await sleep(checkIntervalMs)
         }
     }

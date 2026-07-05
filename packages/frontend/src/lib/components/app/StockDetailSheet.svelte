@@ -39,6 +39,7 @@
 
 	const STOCK_CHART_HISTORY_DAYS = 365;
 	const MAX_DETAIL_POLL_ATTEMPTS = 12;
+	const STOCK_DAILY_CHART_POLL_MS = 15_000;
 
 	function resolveDetailPrice(loaded: BackendStockDetail | null, fallbackPrice: number): number {
 		if (loaded?.performance.latestPrice != null) {
@@ -97,6 +98,19 @@
 		}, pollDelayMs(pollAttempts));
 
 		return () => window.clearTimeout(timeout);
+	});
+
+	$effect(() => {
+		if (!open || chartGranularity !== 'daily') {
+			return;
+		}
+
+		const ticker = stock.ticker;
+		const timer = window.setInterval(() => {
+			void loadDetail(ticker, { silent: true });
+		}, STOCK_DAILY_CHART_POLL_MS);
+
+		return () => window.clearInterval(timer);
 	});
 
 	$effect(() => {
@@ -263,6 +277,11 @@
 										data={chartData}
 										mode="stock"
 										bind:granularity={chartGranularity}
+										onGranularityChange={(next) => {
+											if (next === 'daily') {
+												void loadDetail(stock.ticker, { silent: true });
+											}
+										}}
 									/>
 								</div>
 							</div>

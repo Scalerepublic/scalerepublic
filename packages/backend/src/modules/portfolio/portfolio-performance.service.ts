@@ -3,6 +3,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import type { AppVars } from '../../context.ts';
 import { trade } from '../../db/schema/trade/trade.ts';
 import { isMarketDebugEnabled } from '../../lib/market-debug.ts';
+import { getMarketSessionBounds } from '../../lib/market-session.ts';
 
 export type PerformanceGranularity = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -34,21 +35,38 @@ const windowDays: Record<PerformanceGranularity, number> = {
     yearly: 365,
 };
 
+const parsePointMs = (date: string): number =>
+    date.length === 10
+        ? new Date(`${date}T12:00:00.000Z`).getTime()
+        : new Date(date).getTime();
+
 const filterToWindow = (
     points: PerformancePoint[],
     granularity: PerformanceGranularity,
     endDate: Date,
 ): PerformancePoint[] => {
-    const days = windowDays[granularity];
     if (points.length === 0) return points;
 
+    const endIso = toUtcDateIso(endDate);
+
+    if (granularity === 'daily') {
+        const { startMs, endMs } = getMarketSessionBounds(endIso, endDate.getTime());
+        return points
+            .filter((point) => {
+                const ms = parsePointMs(point.date);
+                return ms >= startMs && ms <= endMs;
+            })
+            .sort((left, right) => parsePointMs(left.date) - parsePointMs(right.date));
+    }
+
+    const days = windowDays[granularity];
     const end = startOfUtcDay(endDate);
     const cutoffIso = toUtcDateIso(addUtcDays(end, -(days - 1)));
-    const endIso = toUtcDateIso(end);
+    const endMs = toUtcDateIso(end);
 
     return points.filter((p) => {
         const pointIso = p.date.length === 10 ? p.date : toUtcDateIso(new Date(p.date));
-        return pointIso >= cutoffIso && pointIso <= endIso;
+        return pointIso >= cutoffIso && pointIso <= endMs;
     });
 };
 
@@ -136,8 +154,10 @@ export class PortfolioPerformanceService {
         trades: ExecutedTrade[],
         end: Date,
     ): Promise<PerformancePoint[]> {
-        const dayStart = startOfUtcDay(end);
-        const dayEnd = endOfUtcDay(toUtcDateIso(end));
+        const endIso = toUtcDateIso(end);
+        const { startMs, endMs } = getMarketSessionBounds(endIso, end.getTime());
+        const dayStart = new Date(startMs);
+        const dayEnd = new Date(endMs);
 
         const { cash: openingCash, holdings: openingHoldings } = this.replayPortfolioAt(
             startingCapital,
@@ -151,19 +171,23 @@ export class PortfolioPerformanceService {
             ? await this.ctx.stockService.getPriceSnapshotsByStockIds(stockIds, dayStart, dayEnd)
             : new Map<string, Array<{ recordedAt: Date; price: number }>>();
 
-        const eventTimes = new Set<number>([dayStart.getTime()]);
+        const eventTimes = new Set<number>([startMs]);
         for (const t of trades) {
             const executedAt = t.executedAt ?? t.createdAt;
-            if (executedAt >= dayStart && executedAt <= dayEnd) {
-                eventTimes.add(executedAt.getTime());
+            const executedMs = executedAt.getTime();
+            if (executedMs >= startMs && executedMs <= endMs) {
+                eventTimes.add(executedMs);
             }
         }
         for (const series of priceSeries.values()) {
             for (const point of series) {
-                eventTimes.add(point.recordedAt.getTime());
+                const recordedMs = point.recordedAt.getTime();
+                if (recordedMs >= startMs && recordedMs <= endMs) {
+                    eventTimes.add(recordedMs);
+                }
             }
         }
-        eventTimes.add(Math.min(end.getTime(), dayEnd.getTime()));
+        eventTimes.add(endMs);
 
         const sortedTimes = [...eventTimes].sort((left, right) => left - right);
         const holdings = new Map(openingHoldings);

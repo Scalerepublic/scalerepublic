@@ -2,7 +2,6 @@ import type { ExecutionContext } from "@cloudflare/workers-types";
 
 import { createApp, createWorkerContext, type WorkerBindings } from "./app.ts";
 import { createAppContext } from "./context.ts";
-import { parseTrackedTickers } from "./modules/sync/sync.service.ts";
 
 const isBunRuntime = typeof Bun !== "undefined";
 const bunCtx = isBunRuntime ? createAppContext() : undefined;
@@ -30,7 +29,7 @@ export default {
         const { ctx: appCtx, client } = createWorkerContext(env);
         ctx.waitUntil(
             appCtx.syncService
-                .runDueTick(parseTrackedTickers())
+                .runDueTick()
                 .finally(() => client.end()),
         );
     },

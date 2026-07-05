@@ -1,4 +1,5 @@
 import { getEffectiveMarketDate } from '$lib/demo-market-date';
+import { getMarketSessionBounds } from '$lib/market-session';
 
 export interface PerformancePoint {
 	date: string;
@@ -40,8 +41,14 @@ export function getPerformanceWindowBounds(granularity: PerformanceGranularity):
 	startIso: string;
 	endIso: string;
 } {
-	const days = granularityWindowDays[granularity];
 	const endIso = getPerformanceWindowEndIso();
+
+	if (granularity === 'daily') {
+		const { startMs, endMs } = getMarketSessionBounds(endIso);
+		return { startMs, endMs, startIso: endIso, endIso };
+	}
+
+	const days = granularityWindowDays[granularity];
 	const endMs = new Date(`${endIso}T23:59:59.999Z`).getTime();
 	const startMs = new Date(`${endIso}T00:00:00.000Z`).getTime() - (days - 1) * 86_400_000;
 	return {
