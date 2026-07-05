@@ -1,6 +1,6 @@
+import { fetchQuotesInBatches, readQuoteBatchOptions } from '../batch-quote-fetch.ts'
 import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from '../stock-data-client.ts'
 
-import { fetchQuotesInBatches, readQuoteBatchOptions } from '../batch-quote-fetch.ts'
 import { createAlphaVantageClient } from './vantage.client.ts'
 
 export class AlphaVantageStockClient implements StockDataClient {

@@ -15,7 +15,6 @@
 		formatMarketTime,
 		getMarketSessionBounds,
 		MARKET_CLOSE_HOUR,
-		MARKET_OPEN_HOUR,
 		marketSessionOpenIso,
 		zonedWallTimeToUtc
 	} from '$lib/market-session';
@@ -131,9 +130,7 @@
 		if (granularity === 'daily') {
 			const endIso = getPerformanceWindowEndIso();
 			const { endMs } = getMarketSessionBounds(endIso);
-			const closeLabel = new Date(
-				zonedWallTimeToUtc(endIso, MARKET_CLOSE_HOUR, 0)
-			).toISOString();
+			const closeLabel = new Date(zonedWallTimeToUtc(endIso, MARKET_CLOSE_HOUR, 0)).toISOString();
 			const endLabel =
 				endMs < zonedWallTimeToUtc(endIso, MARKET_CLOSE_HOUR, 0)
 					? new Date(endMs).toISOString()

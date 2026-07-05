@@ -1,8 +1,8 @@
 import type { DbConnection } from '../../db/index.ts'
 
-import { SyntheticQuoteClient } from './synthetic-quote-client.ts'
-import type { StockQuoteClient } from './stock-quote-client.ts'
 import type { StockDataClient } from './stock-data-client.ts'
+import type { StockQuoteClient } from './stock-quote-client.ts'
+import { SyntheticQuoteClient } from './synthetic-quote-client.ts'
 import { UniStockClient, type UniApiSubfetch } from './uni-stock-client.ts'
 import { AlphaVantageStockClient } from './vantage/vantage-stock-client.ts'
 

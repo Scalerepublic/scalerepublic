@@ -1,7 +1,7 @@
 import { readEnvNumber } from '../../lib/env-number.ts'
 
-import type { StockQuoteClient } from './stock-quote-client.ts'
 import type { StockQuote } from './stock-data-client.ts'
+import type { StockQuoteClient } from './stock-quote-client.ts'
 
 export const DEFAULT_QUOTE_BATCH_SIZE = 50
 export const DEFAULT_QUOTE_BATCH_DELAY_MS = 0
@@ -18,11 +18,11 @@ export const readQuoteBatchOptions = (): QuoteBatchOptions => ({
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-export async function fetchQuotesInBatches(
+export const fetchQuotesInBatches = async (
     client: StockQuoteClient,
     symbols: string[],
     options: QuoteBatchOptions,
-): Promise<StockQuote[]> {
+): Promise<StockQuote[]> => {
     const unique = [...new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))]
     if (unique.length === 0) {
         return []

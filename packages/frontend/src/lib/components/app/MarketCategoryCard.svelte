@@ -28,7 +28,9 @@
 	></span>
 
 	<div class="flex flex-1 flex-col pl-2">
-		<p class="line-clamp-2 min-h-[3.25rem] font-serif text-xl font-semibold tracking-tight text-foreground">
+		<p
+			class="line-clamp-2 min-h-[3.25rem] font-serif text-xl font-semibold tracking-tight text-foreground"
+		>
 			{label}
 		</p>
 		<p class="mt-1.5 line-clamp-2 min-h-[2.5rem] text-xs leading-relaxed text-muted-foreground">
