@@ -1,14 +1,23 @@
 import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from '../stock-data-client.ts'
 
+import { fetchQuotesInBatches, readQuoteBatchOptions } from '../batch-quote-fetch.ts'
 import { createAlphaVantageClient } from './vantage.client.ts'
 
 export class AlphaVantageStockClient implements StockDataClient {
     readonly source = 'alpha_vantage'
     private readonly client = createAlphaVantageClient()
 
-    async getQuote(symbol: string): Promise<StockQuote> {
-        const q = await this.client.getGlobalQuote(symbol)
-        return { symbol: q.symbol, price: q.price, tradingDay: q.latestTradingDay }
+    async getQuote(symbol: string): Promise<StockQuote | null> {
+        try {
+            const q = await this.client.getGlobalQuote(symbol)
+            return { symbol: q.symbol, price: q.price, tradingDay: q.latestTradingDay }
+        } catch {
+            return null
+        }
+    }
+
+    async getQuotes(symbols: string[]): Promise<StockQuote[]> {
+        return fetchQuotesInBatches(this, symbols, readQuoteBatchOptions())
     }
 
     async getStockMeta(symbol: string): Promise<StockMeta | null> {

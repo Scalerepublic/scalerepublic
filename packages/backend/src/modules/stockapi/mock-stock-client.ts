@@ -41,10 +41,24 @@ export class MockStockDataClient implements StockDataClient {
         this.meta.set(symbol, meta)
     }
 
-    async getQuote(symbol: string): Promise<StockQuote> {
+    async getQuote(symbol: string): Promise<StockQuote | null> {
         const price = this.quotes.get(symbol)
-        if (price === undefined) throw new Error(`MockStockDataClient: no quote seeded for ${symbol}`)
+        if (price === undefined) return null
         return { symbol, price, tradingDay: new Date() }
+    }
+
+    async getQuotes(symbols: string[]): Promise<StockQuote[]> {
+        const tradingDay = new Date()
+        const quotes: StockQuote[] = []
+
+        for (const symbol of symbols) {
+            const normalized = symbol.trim().toUpperCase()
+            const price = this.quotes.get(normalized)
+            if (price === undefined) continue
+            quotes.push({ symbol: normalized, price, tradingDay })
+        }
+
+        return quotes
     }
 
     async getStockMeta(symbol: string): Promise<StockMeta | null> {

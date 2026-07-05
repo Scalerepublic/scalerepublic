@@ -233,8 +233,8 @@ export class PortfolioPerformanceService {
             .orderBy(asc(trade.executedAt));
 
         const end = isMarketDebugEnabled()
-            ? startOfUtcDay(this.ctx.marketDebugService.getMarketDate())
-            : startOfUtcDay(new Date());
+            ? this.ctx.marketDebugService.getMarketDate()
+            : new Date();
 
         if (granularity === 'daily') {
             return filterToWindow(
@@ -244,9 +244,11 @@ export class PortfolioPerformanceService {
             );
         }
 
+        const calendarEnd = startOfUtcDay(end);
+
         const stockIds = [...new Set(trades.map((row) => row.stockId))];
         const priceSeries = stockIds.length > 0
-            ? await this.ctx.stockService.getPriceSnapshotsByStockIds(stockIds, startOfUtcDay(portfolio.createdAt), endOfUtcDay(toUtcDateIso(end)))
+            ? await this.ctx.stockService.getPriceSnapshotsByStockIds(stockIds, startOfUtcDay(portfolio.createdAt), endOfUtcDay(toUtcDateIso(calendarEnd)))
             : new Map<string, Array<{ recordedAt: Date; price: number }>>();
         const priceTrackers = new Map<string, PriceTracker>();
 
@@ -256,7 +258,7 @@ export class PortfolioPerformanceService {
         const holdings = new Map<string, number>();
         const start = startOfUtcDay(portfolio.createdAt);
 
-        for (let cursor = new Date(start); cursor <= end; cursor = addUtcDays(cursor, 1)) {
+        for (let cursor = new Date(start); cursor <= calendarEnd; cursor = addUtcDays(cursor, 1)) {
             const dayIso = toUtcDateIso(cursor);
             const dayEnd = endOfUtcDay(dayIso);
 
@@ -273,6 +275,6 @@ export class PortfolioPerformanceService {
             daily.push({ date: dayIso, value: cash + holdingsValue });
         }
 
-        return filterToWindow(daily, granularity, end);
+        return filterToWindow(daily, granularity, calendarEnd);
     }
 }

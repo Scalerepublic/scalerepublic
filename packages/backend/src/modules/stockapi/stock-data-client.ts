@@ -1,3 +1,5 @@
+import type { StockQuoteClient } from './stock-quote-client.ts'
+
 export type StockQuote = {
     symbol: string
     price: number
@@ -21,9 +23,7 @@ export type StockDailyBar = {
     close: number
 }
 
-export interface StockDataClient {
-    readonly source: string
-    getQuote(symbol: string): Promise<StockQuote>
+export interface StockDataClient extends StockQuoteClient {
     getStockMeta(symbol: string): Promise<StockMeta | null>
     getDailyBar(symbol: string, date?: Date): Promise<StockDailyBar | null>
 }

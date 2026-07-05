@@ -92,27 +92,6 @@ export class SyncService {
         return this.ctx.stockService.createStock(ticker, meta.name, meta.exchange, meta.currency)
     }
 
-    async resolvePriorityStockIds(): Promise<string[]> {
-        const trendingLimit = readEnvNumber('SYNC_TRENDING_LIMIT', DEFAULT_SYNC_TRENDING_LIMIT)
-
-        const heldStockIds = await this.ctx.tradesService.listHeldStockIds()
-        const trendingRows = await this.ctx.stockService.getTrending(trendingLimit)
-        const seedStockIds = await Promise.all(
-            parseSeedTickers().map((ticker) => this.ctx.stockService.getStockId(ticker)),
-        )
-
-        const seen = new Set<string>()
-        const stockIds: string[] = []
-
-        for (const stockId of [...heldStockIds, ...seedStockIds, ...trendingRows.map((row) => row.id)]) {
-            if (stockId === null || stockId === '' || seen.has(stockId)) continue
-            seen.add(stockId)
-            stockIds.push(stockId)
-        }
-
-        return stockIds
-    }
-
     private async syncTicker(ticker: string): Promise<boolean> {
         const stockId = await this.ensureStock(ticker)
         if (stockId === null) return false
@@ -155,17 +134,31 @@ export class SyncService {
             return
         }
 
-        const { inserted, stockIds } = await this.ctx.stockService.insertSyntheticQuotesForAllEligible()
+        const eligible = await this.ctx.stockService.listEligibleQuoteSymbols()
+        if (eligible.length === 0) {
+            console.warn('[sync] No eligible stocks with market data — skipping quote sync')
+            return
+        }
+
+        const symbolToStockId = new Map(eligible.map((row) => [row.symbol, row.stockId]))
+        const quotes = await this.ctx.stockQuoteClient.getQuotes(eligible.map((row) => row.symbol))
+        const entries = quotes.flatMap((quote) => {
+            const stockId = symbolToStockId.get(quote.symbol)
+            if (stockId === undefined) return []
+            return [{ stockId, quote }]
+        })
+
+        const { inserted, stockIds } = await this.ctx.stockService.persistQuotesFromSync(entries)
         if (inserted === 0) {
-            throw new Error('Price sync failed: no eligible stocks with market data')
+            console.warn('[sync] Quote provider returned no persistable quotes')
+            return
         }
 
-        console.log(`[sync] Stored ${inserted} synthetic quotes across ${stockIds.length} stocks`)
+        console.log(
+            `[sync] Stored ${inserted} quotes from ${this.ctx.stockQuoteClient.source} across ${stockIds.length} stocks`,
+        )
 
-        const priorityStockIds = await this.resolvePriorityStockIds()
-        if (priorityStockIds.length > 0) {
-            await this.ctx.stockService.refreshStockMetricsBatch(priorityStockIds)
-        }
+        await this.ctx.stockService.refreshStockMetricsBatch(stockIds)
     }
 
     private async runSyncLegacy(tickers: string[]): Promise<void> {
