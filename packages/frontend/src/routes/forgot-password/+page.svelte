@@ -4,6 +4,7 @@
 	import { Loader2 } from '@lucide/svelte';
 	import { emailSchema, passwordSchema } from 'backend/validation';
 	import { toast } from 'svelte-sonner';
+	import PasswordRequirements from '$lib/components/app/PasswordRequirements.svelte';
 
 	let email = $state('');
 	let password = $state('');
@@ -118,17 +119,16 @@
 						type="password"
 						autocomplete="new-password"
 						required
-						minlength={8}
 						bind:value={password}
 						disabled={isSubmitting}
+						aria-invalid={passwordIssue !== null}
 						placeholder="At least 8 characters"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
 					/>
 					{#if passwordIssue}
 						<p class="text-xs font-medium text-destructive">{passwordIssue}</p>
-					{:else}
-						<p class="text-xs text-muted-foreground">Must be at least 8 characters.</p>
 					{/if}
+					<PasswordRequirements password={password} />
 				</div>
 
 				<div class="space-y-1.5">

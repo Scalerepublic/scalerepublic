@@ -11,6 +11,7 @@
 	import { signOut, changePassword, changeEmail } from '$lib/auth-client';
 	import { api, parseApiData } from '$lib/api/client';
 	import { emailSchema, passwordSchema } from 'backend/validation';
+	import PasswordRequirements from '$lib/components/app/PasswordRequirements.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { setMode, userPrefersMode } from 'mode-watcher';
 	import { toast } from 'svelte-sonner';
@@ -415,17 +416,16 @@
 							type="password"
 							autocomplete="new-password"
 							required
-							minlength={8}
 							bind:value={newPassword}
 							disabled={isChangingPassword}
+							aria-invalid={newPasswordIssue !== null}
 							placeholder="At least 8 characters"
-							class={inputClass}
+							class={cn(inputClass, newPasswordIssue !== null && 'border-destructive')}
 						/>
 						{#if newPasswordIssue}
 							<p class="text-xs font-medium text-destructive">{newPasswordIssue}</p>
-						{:else}
-							<p class="text-xs text-muted-foreground">Must be at least 8 characters.</p>
 						{/if}
+						<PasswordRequirements password={newPassword} />
 					</div>
 					<div class="space-y-1.5">
 						<label for="confirm-new-password" class={labelClass}>Confirm new password</label>

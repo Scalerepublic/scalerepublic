@@ -23,10 +23,19 @@ up:
     #!/usr/bin/env bash
     set -euo pipefail
     cd "{{backend}}"
-    docker compose stop backend 2>/dev/null || true
-    docker compose up -d postgres
-    echo "Waiting for Postgres on localhost:50025…"
-    until docker compose exec postgres pg_isready -U postgres -q; do sleep 1; done
+    if command -v docker &>/dev/null && docker info &>/dev/null; then
+      docker compose stop backend 2>/dev/null || true
+      docker compose up -d postgres
+      echo "Waiting for Postgres on localhost:50025…"
+      until docker compose exec postgres pg_isready -U postgres -q; do sleep 1; done
+    else
+      echo "Docker not running or not installed. Checking local Postgres on port 50025…"
+      if ! nc -z localhost 50025 &>/dev/null && ! /usr/local/opt/postgresql@16/bin/pg_isready -p 50025 -q &>/dev/null; then
+        echo "Error: Postgres is not running on port 50025." >&2
+        echo "Please start PostgreSQL on port 50025 or install/start Docker." >&2
+        exit 1
+      fi
+    fi
     bun run db:migrate
     echo "Postgres is ready and migrations are applied."
 

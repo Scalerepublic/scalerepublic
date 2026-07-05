@@ -1,10 +1,12 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware, APIError } from "better-auth/api";
 
 import type { DbConnection } from "../db/index.ts";
 import { account, session, user, verification } from "../db/schema/auth-schema.ts";
 
 import { hashPassword, verifyPassword } from "./password.ts";
+import { passwordSchema } from "./validation.ts";
 
 export type Auth = ReturnType<typeof createAuth>;
 
@@ -43,6 +45,26 @@ export const createAuth = (db: DbConnection, options: AuthOptions = {}) => {
     trustedOrigins: baseURL !== undefined ? [baseURL] : [],
     advanced: {
       useSecureCookies: baseURL !== undefined ? baseURL.startsWith("https://") : false,
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/sign-up/email" && ctx.body) {
+          const result = passwordSchema.safeParse((ctx.body as any).password);
+          if (!result.success) {
+            throw new APIError("BAD_REQUEST", {
+              message: result.error.issues[0]?.message ?? "Invalid password",
+            });
+          }
+        }
+        if (ctx.path === "/change-password" && ctx.body) {
+          const result = passwordSchema.safeParse((ctx.body as any).newPassword);
+          if (!result.success) {
+            throw new APIError("BAD_REQUEST", {
+              message: result.error.issues[0]?.message ?? "Invalid password",
+            });
+          }
+        }
+      }),
     },
   });
 };

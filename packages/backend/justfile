@@ -62,10 +62,15 @@ db-migrate-all:
 
 test:
     #!/bin/sh
-    docker compose -p scalerepublic-test -f compose.test.yaml up --build --exit-code-from backend --attach backend
-    STATUS=$?
-    docker compose -p scalerepublic-test -f compose.test.yaml down -v
-    exit $STATUS
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+      docker compose -p scalerepublic-test -f compose.test.yaml up --build --exit-code-from backend --attach backend
+      STATUS=$?
+      docker compose -p scalerepublic-test -f compose.test.yaml down -v
+      exit $STATUS
+    else
+      echo "Docker not running or not installed. Running tests locally..."
+      DATABASE_URL="postgres://postgres:postgres@localhost:50025/scalerepublic_test" bun test
+    fi
 
 logs:
     docker compose -f {{compose_file}} logs -f {{service}}

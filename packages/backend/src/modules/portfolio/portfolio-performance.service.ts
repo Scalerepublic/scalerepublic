@@ -145,9 +145,18 @@ export class PortfolioPerformanceService {
             new Date(dayStart.getTime() - 1),
         );
 
-        const stockIds = [...openingHoldings.entries()]
-            .filter(([, quantity]) => quantity > 0)
-            .map(([stockId]) => stockId);
+        const stockIdsSet = new Set(
+            [...openingHoldings.entries()]
+                .filter(([, quantity]) => quantity > 0)
+                .map(([stockId]) => stockId)
+        );
+        for (const t of trades) {
+            const executedAt = t.executedAt ?? t.createdAt;
+            if (executedAt >= dayStart && executedAt <= dayEnd) {
+                stockIdsSet.add(t.stockId);
+            }
+        }
+        const stockIds = [...stockIdsSet];
 
         const priceSeries = stockIds.length > 0
             ? await this.ctx.stockService.getPriceSnapshotsByStockIds(stockIds, dayStart, dayEnd)

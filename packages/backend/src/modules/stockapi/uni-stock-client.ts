@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
-import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from './stock-data-client.ts'
 import { UNI_API_PROXY_BASE_URL } from '../../lib/uni-api-proxy.ts'
+
+import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from './stock-data-client.ts'
 
 const DailyResponseSchema = z.object({
     stock_symbol: z.string(),
