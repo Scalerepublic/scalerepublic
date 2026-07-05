@@ -29,40 +29,15 @@
 	<table class="w-full border-collapse text-sm">
 		<thead>
 			<tr class="border-b border-border bg-muted">
-				<th
-					class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>Ticker</th
-				>
-				<th
-					class="hidden px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase sm:table-cell"
-					>Name</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>Shares</th
-				>
-				<th
-					class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase md:table-cell"
-					>Avg Cost</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>Price</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>Value</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>P&amp;L</th
-				>
-				<th
-					class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase sm:table-cell"
-					>P&amp;L %</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+				<th class="table-th text-left">Ticker</th>
+				<th class="table-th hidden text-left sm:table-cell">Name</th>
+				<th class="table-th text-right">Shares</th>
+				<th class="table-th hidden text-right md:table-cell">Avg Cost</th>
+				<th class="table-th text-right">Price</th>
+				<th class="table-th text-right">Value</th>
+				<th class="table-th text-right">P&amp;L</th>
+				<th class="table-th hidden text-right sm:table-cell">P&amp;L %</th>
+				<th class="table-th text-right"
 					>{#if !readOnly}&nbsp;{/if}</th
 				>
 			</tr>
