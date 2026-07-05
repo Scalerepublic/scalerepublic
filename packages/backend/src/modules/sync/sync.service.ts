@@ -16,8 +16,9 @@ const CATALOG_BACKFILL_BATCH_INTERVAL_MS = 5000
 const DEFAULT_NAMES_BACKFILL_BATCH = 20
 const DEFAULT_HISTORY_BACKFILL_STOCKS = 8
 const DEFAULT_HISTORY_BARS_PER_STOCK = 10
-const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 55
-const STALE_LOCK_MS = 10 * 60 * 1000
+const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 40
+const DEFAULT_CATALOG_BACKFILL_MIN_INTERVAL_MS = 5 * 60 * 1000
+const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000
 
 const DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V', 'UNH']
 
@@ -42,6 +43,8 @@ export const parseSeedTickers = (): string[] => {
 export const parseTrackedTickers = parseSeedTickers
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
+
+const catalogBackfillOnCron = (): boolean => process.env['CATALOG_BACKFILL_ON_CRON'] !== 'false'
 
 export class SyncService {
     private lockId: string | null = null
@@ -228,6 +231,18 @@ export class SyncService {
         await this.runCatalogBackfill()
     }
 
+    private async getJobRow(): Promise<{
+        status: 'idle' | 'running' | 'failed'
+        lockedAt: Date | null
+    } | null> {
+        const row = await this.ctx.db
+            .select({ status: syncJob.status, lockedAt: syncJob.lockedAt })
+            .from(syncJob)
+            .where(eq(syncJob.id, JOB_ID))
+            .limit(1)
+        return row[0] ?? null
+    }
+
     private async isSyncDue(syncDueThreshold: Date): Promise<boolean> {
         const row = await this.ctx.db
             .select({ lastSuccessAt: syncJob.lastSuccessAt })
@@ -266,16 +281,27 @@ export class SyncService {
 
     async runDueTick(): Promise<void> {
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
+        const staleLockMs = readEnvNumber(
+            'SYNC_STALE_LOCK_MS',
+            Math.max(DEFAULT_STALE_LOCK_MS, syncIntervalMs * 5),
+        )
+        const backfillMinIntervalMs = readEnvNumber(
+            'CATALOG_BACKFILL_MIN_INTERVAL_MS',
+            DEFAULT_CATALOG_BACKFILL_MIN_INTERVAL_MS,
+        )
 
         try {
             await this.ctx.db.insert(syncJob).values({ id: JOB_ID }).onConflictDoNothing()
 
-            const staleThreshold = new Date(Date.now() - STALE_LOCK_MS)
+            const staleThreshold = new Date(Date.now() - staleLockMs)
             const syncDueThreshold = new Date(Date.now() - syncIntervalMs)
 
             if (!await this.isSyncDue(syncDueThreshold)) return
             if (!await this.tryClaimJob(staleThreshold)) {
-                console.log('[sync] Failed to lock sync')
+                const job = await this.getJobRow()
+                if (job?.status !== 'running') {
+                    console.log('[sync] Failed to lock sync')
+                }
                 return
             }
             console.log(`[sync] Lock acquired by ${this.getLockId()}`)
@@ -290,13 +316,6 @@ export class SyncService {
                 } catch (err) {
                     syncError = err instanceof Error ? err.message : String(err)
                     console.error(`[sync] Price sync failed: ${syncError}`)
-                }
-
-                try {
-                    await this.runCatalogBackfill()
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err)
-                    console.error(`[sync/backfill] Failed: ${message}`)
                 }
 
                 if (syncError !== null) {
@@ -316,8 +335,23 @@ export class SyncService {
                     lockedAt: null,
                     lockedBy: null,
                 }).where(eq(syncJob.id, JOB_ID))
-                console.log('[sync] Completed successfully')
+                console.log('[sync] Price sync completed')
+
                 await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
+
+                if (syncIntervalMs >= backfillMinIntervalMs) {
+                    if (catalogBackfillOnCron()) {
+                        try {
+                            await this.runCatalogBackfill()
+                            console.log('[sync] Catalog backfill completed')
+                        } catch (err) {
+                            const message = err instanceof Error ? err.message : String(err)
+                            console.error(`[sync/backfill] Failed: ${message}`)
+                        }
+                    } else {
+                        console.log('[sync] Skipping catalog backfill (CATALOG_BACKFILL_ON_CRON=false)')
+                    }
+                }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 await this.ctx.db.update(syncJob).set({

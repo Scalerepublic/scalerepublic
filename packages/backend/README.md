@@ -237,14 +237,18 @@ bun run db:import-tickers:staging
 
 ### Stock detail endpoint
 
+**Route:** `GET /api/v1/stocks?page=&limit=&q=&sector=`
+
+Browse and sector listings only return symbols with at least two cached daily bars in the rolling window. A search query (`q`) searches the full imported catalog, including symbols that are not listed yet.
+
 **Route:** `GET /api/v1/stocks/:ticker/detail?historyDays=30`
 
 **Code:** `StockService.getStockDetail()`
 
-Read-only handler:
+Read-only handler for browse; on-demand fetch when opened from search:
 
 1. Load `stock` row.
-2. If fewer than 2 cached daily bars: mark `backfill_requested_at` for the next catalog backfill pass.
+2. If fewer than 2 cached daily bars: fetch bars from the uni API immediately (up to `DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES`) and mark `backfill_requested_at` as a fallback for batch backfill.
 3. Build `priceHistory` from `stock_daily_bar` (and any `stock_price` rows in range).
 4. Return performance metrics and history JSON from cache.
 
@@ -259,8 +263,10 @@ The frontend polls `/detail` with exponential backoff when history is still empt
 | `SYNC_TICKERS` | 10 demo symbols | Seed list merged into each price-sync run |
 | `SYNC_MAX_TICKERS` | `500` | Max symbols per price-sync run |
 | `SYNC_TRENDING_LIMIT` | `24` | Trending symbols to include when under the cap |
-| `SYNC_INTERVAL_MS` | `3600000` (prod), `60000` (staging), `20000` in `.env.example` | Minimum time between successful sync runs |
+| `SYNC_INTERVAL_MS` | `3600000` (prod), `60000` (staging), `20000` in `.env.example` | Minimum time between successful price sync runs |
 | `SYNC_CHECK_INTERVAL_MS` | `60000` / `5000` | Poll interval for local scheduler only |
+| `SYNC_STALE_LOCK_MS` | `max(10min, 5× interval)` | Reclaim a stuck `running` lock after this age |
+| `CATALOG_BACKFILL_MIN_INTERVAL_MS` | `300000` (5 min) | Inline catalog backfill only runs when `SYNC_INTERVAL_MS` is at least this large; faster price sync ticks skip it (use GitHub Actions backfill on staging) |
 
 **Catalog backfill:**
 

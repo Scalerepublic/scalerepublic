@@ -17,7 +17,7 @@ const MAX_DAILY_BAR_FETCHES = 10
 const MIN_BARS_FOR_METRICS = 2
 const SYNTHETIC_PRICE_SOURCE = 'synthetic'
 const TRADING_DAYS_PER_CALENDAR_MONTH = 22
-const DEFAULT_DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES = 30
+const DEFAULT_DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES = 20
 
 const readDetailOnDemandPrefetchMaxFetches = (): number => {
     const configured = readEnvNumber(
@@ -330,11 +330,13 @@ export class StockService {
     private buildListWhereClause(options: {
         q?: string
         sector?: string
+        catalogOnly?: boolean
     }): SQL | undefined {
         const clauses: SQL[] = [eq(stock.isActive, true)]
 
         const query = options.q?.trim()
-        if (query !== undefined && query.length > 0) {
+        const isSearch = query !== undefined && query.length > 0
+        if (isSearch) {
             const escaped = query.replace(/[%_\\]/g, (char) => `\\${char}`)
             const pattern = `%${escaped}%`
             clauses.push(or(
@@ -352,7 +354,23 @@ export class StockService {
             clauses.push(inArray(stock.ticker, tickers))
         }
 
+        if (options.catalogOnly ?? !isSearch) {
+            clauses.push(this.catalogListedFilter())
+        }
+
         return and(...clauses)
+    }
+
+    private catalogListedFilter(): SQL {
+        const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(HISTORY_DAYS - 1)))
+        return sql`exists (
+            select 1
+            from ${stockDailyBar}
+            where ${stockDailyBar.stockId} = ${stock.id}
+              and ${stockDailyBar.tradingDate} >= ${fromDate}
+            group by ${stockDailyBar.stockId}
+            having count(*) >= ${MIN_BARS_FOR_METRICS}
+        )`
     }
 
     async listStocks(options: {
@@ -420,7 +438,10 @@ export class StockService {
             })
             .from(stock)
             .innerJoin(latestPricePerStock, eq(stock.id, latestPricePerStock.stockId))
-            .where(eq(stock.isActive, true))
+            .where(and(
+                eq(stock.isActive, true),
+                this.catalogListedFilter(),
+            ))
             .limit(Math.max(limit, 1) * 8)
 
         return rows
@@ -443,6 +464,7 @@ export class StockService {
                 .where(and(
                     eq(stock.isActive, true),
                     inArray(stock.ticker, [...sector.tickers]),
+                    this.catalogListedFilter(),
                 ))
 
             summaries.push({
@@ -456,7 +478,10 @@ export class StockService {
         const [listingsRow] = await this.ctx.db
             .select({ totalListings: count() })
             .from(stock)
-            .where(eq(stock.isActive, true))
+            .where(and(
+                eq(stock.isActive, true),
+                this.catalogListedFilter(),
+            ))
 
         return {
             sectors: summaries,

@@ -7,7 +7,7 @@ import { db } from '../../src/db/index.ts'
 import { stockDailyBar } from '../../src/db/schema/stock/market.ts'
 import { stock } from '../../src/db/schema/stock/stock.ts'
 import { MockStockDataClient } from '../../src/modules/stockapi/mock-stock-client.ts'
-import { resetDb } from '../helpers/db.ts'
+import { resetDb, seedDailyBar } from '../helpers/db.ts'
 
 const mockClient = new MockStockDataClient()
 const ctx = createAppContext()
@@ -93,6 +93,25 @@ describe('catalog backfill helpers', () => {
         const pending = await ctx.stockService.listStocksNeedingHistory(2)
         expect(pending[0]?.id).toBe(emptyId)
         expect(pending[1]?.id).toBe(partialId)
+    })
+
+    test('listStocks hides unbackfilled tickers unless searching', async () => {
+        const coldId = await seedImportedStock('COLD')
+        const warmId = await seedImportedStock('WARM')
+        const today = new Date().toISOString().slice(0, 10)
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+        await seedDailyBar(warmId, { date: yesterday, close: 100 })
+        await seedDailyBar(warmId, { date: today, close: 101 })
+
+        const browse = await ctx.stockService.listStocks({ page: 1, limit: 24 })
+        expect(browse.items.map((row) => row.ticker)).toEqual(['WARM'])
+        expect(browse.total).toBe(1)
+
+        const search = await ctx.stockService.listStocks({ q: 'O', page: 1, limit: 24 })
+        expect(search.items.map((row) => row.ticker).sort()).toEqual(['COLD', 'WARM'])
+        expect(search.total).toBe(2)
+
+        void coldId
     })
 
     test('backfillStockHistory stores bars on requested calendar dates', async () => {
