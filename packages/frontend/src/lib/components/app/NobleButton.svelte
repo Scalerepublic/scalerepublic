@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
+	import type { RouteId } from '$app/types';
+	import { appResolve } from '$lib/app-resolve';
 	import { cn } from '$lib/utils';
 
 	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
 	type Props = {
-		href?: string;
+		href?: RouteId;
 		class?: string;
 		variant?: 'primary' | 'secondary';
 		children?: import('svelte').Snippet;
@@ -30,7 +31,7 @@
 </script>
 
 {#if href}
-	<a href={resolve(href as '/')} class={classes} {...rest as HTMLAnchorAttributes}>
+	<a href={appResolve(href)} class={classes} {...rest as HTMLAnchorAttributes}>
 		{@render children?.()}
 	</a>
 {:else}

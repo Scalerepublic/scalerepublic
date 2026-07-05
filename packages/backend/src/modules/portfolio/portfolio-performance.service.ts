@@ -149,6 +149,26 @@ export class PortfolioPerformanceService {
         return { cash, holdings };
     }
 
+    private sessionStockIds(
+        openingHoldings: Map<string, number>,
+        trades: ExecutedTrade[],
+        startMs: number,
+        endMs: number,
+    ): string[] {
+        const stockIds = new Set<string>();
+        for (const [stockId, quantity] of openingHoldings) {
+            if (quantity > 0) stockIds.add(stockId);
+        }
+        for (const t of trades) {
+            const executedAt = t.executedAt ?? t.createdAt;
+            const executedMs = executedAt.getTime();
+            if (executedMs >= startMs && executedMs <= endMs) {
+                stockIds.add(t.stockId);
+            }
+        }
+        return [...stockIds];
+    }
+
     private async getIntradayPerformance(
         startingCapital: number,
         trades: ExecutedTrade[],
@@ -165,7 +185,7 @@ export class PortfolioPerformanceService {
             new Date(dayStart.getTime() - 1),
         );
 
-        const stockIds = [...new Set(trades.map((row) => row.stockId))];
+        const stockIds = this.sessionStockIds(openingHoldings, trades, startMs, endMs);
 
         const snapshotFrom = startOfUtcDay(end);
         const priceSeries = stockIds.length > 0
