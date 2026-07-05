@@ -2,6 +2,8 @@
 	import { cn, formatCurrency, formatPercent } from '$lib/utils';
 	import {
 		filterPerformanceByGranularity,
+		granularityLabels,
+		granularityPeriodLabels,
 		type PerformanceChartMode,
 		type PerformanceGranularity,
 		type PerformancePoint
@@ -9,7 +11,7 @@
 
 	let {
 		data,
-		granularity = $bindable<PerformanceGranularity>('daily'),
+		granularity = $bindable<PerformanceGranularity>('monthly'),
 		loading = false,
 		mode = 'portfolio',
 		subtitle,
@@ -27,12 +29,9 @@
 		subtitle ?? (mode === 'stock' ? 'Closing price' : 'Mark-to-market portfolio value')
 	);
 
-	const granularityOptions: { value: PerformanceGranularity; label: string }[] = [
-		{ value: 'daily', label: 'Daily' },
-		{ value: 'weekly', label: 'Weekly' },
-		{ value: 'monthly', label: 'Monthly' },
-		{ value: 'yearly', label: 'Yearly' }
-	];
+	const granularityOptions: { value: PerformanceGranularity; label: string }[] = (
+		['daily', 'weekly', 'monthly', 'yearly'] as const
+	).map((value) => ({ value, label: granularityLabels[value] }));
 
 	const loadingDelayMs = 3000;
 	let showLoading = $state(false);
@@ -144,31 +143,7 @@
 		];
 	});
 
-	const periodLabel = $derived.by(() => {
-		if (mode === 'stock') {
-			switch (granularity) {
-				case 'weekly':
-					return 'past 7 days';
-				case 'monthly':
-					return 'past 30 days';
-				case 'yearly':
-					return 'past 90 days';
-				default:
-					return 'past 30 days';
-			}
-		}
-
-		switch (granularity) {
-			case 'weekly':
-				return 'past 7 days';
-			case 'monthly':
-				return 'past 30 days';
-			case 'yearly':
-				return 'past year';
-			default:
-				return 'all time';
-		}
-	});
+	const periodLabel = $derived(granularityPeriodLabels[granularity]);
 
 	const startValue = $derived(points[0]?.value ?? 0);
 	const endValue = $derived(points[points.length - 1]?.value ?? 0);

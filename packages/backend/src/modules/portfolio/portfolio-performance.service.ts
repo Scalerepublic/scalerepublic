@@ -27,8 +27,8 @@ const addUtcDays = (date: Date, days: number): Date => {
 
 const endOfUtcDay = (isoDate: string): Date => new Date(`${isoDate}T23:59:59.999Z`);
 
-const windowDays: Record<PerformanceGranularity, number | null> = {
-    daily: null,
+const windowDays: Record<PerformanceGranularity, number> = {
+    daily: 1,
     weekly: 7,
     monthly: 30,
     yearly: 365,
@@ -37,16 +37,16 @@ const windowDays: Record<PerformanceGranularity, number | null> = {
 const filterToWindow = (
     points: PerformancePoint[],
     granularity: PerformanceGranularity,
+    endDate: Date,
 ): PerformancePoint[] => {
     const days = windowDays[granularity];
-    if (days === null || points.length === 0) return points;
+    if (points.length === 0) return points;
 
-    const endDate = points[points.length - 1]!.date;
-    const end = startOfUtcDay(new Date(`${endDate}T12:00:00.000Z`));
-    const cutoff = addUtcDays(end, -(days - 1));
-    const cutoffIso = toUtcDateIso(cutoff);
+    const end = startOfUtcDay(endDate);
+    const cutoffIso = toUtcDateIso(addUtcDays(end, -(days - 1)));
+    const endIso = toUtcDateIso(end);
 
-    return points.filter((p) => p.date >= cutoffIso);
+    return points.filter((p) => p.date >= cutoffIso && p.date <= endIso);
 };
 
 type PriceTracker = {
@@ -137,6 +137,6 @@ export class PortfolioPerformanceService {
             daily.push({ date: dayIso, value: cash + holdingsValue });
         }
 
-        return filterToWindow(daily, granularity);
+        return filterToWindow(daily, granularity, end);
     }
 }

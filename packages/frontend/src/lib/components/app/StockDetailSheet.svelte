@@ -35,9 +35,9 @@
 	let error = $state<string | null>(null);
 	let tradeOpen = $state(false);
 	let activeTicker = $state<string | null>(null);
-	let chartGranularity = $state<PerformanceGranularity>('daily');
+	let chartGranularity = $state<PerformanceGranularity>('monthly');
 
-	const STOCK_CHART_HISTORY_DAYS = 30;
+	const STOCK_CHART_HISTORY_DAYS = 365;
 	const MAX_DETAIL_POLL_ATTEMPTS = 12;
 
 	function resolveDetailPrice(loaded: BackendStockDetail | null, fallbackPrice: number): number {
@@ -112,7 +112,7 @@
 
 		activeTicker = ticker;
 		detail = null;
-		chartGranularity = 'daily';
+		chartGranularity = 'monthly';
 		error = null;
 
 		const cached = getCachedStockDetail(ticker);

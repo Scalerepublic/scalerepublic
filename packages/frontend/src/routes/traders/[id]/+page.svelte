@@ -22,7 +22,7 @@
 
 	let performanceData = $state<PerformancePoint[]>([]);
 	let performanceLoading = $state(false);
-	let granularity = $state<PerformanceGranularity>('daily');
+	let granularity = $state<PerformanceGranularity>('monthly');
 	let holdings = $state<HoldingWithMarket[]>(data.holdings);
 	let summary = $state(data.summary);
 
