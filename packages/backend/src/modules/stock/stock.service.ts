@@ -18,6 +18,8 @@ const MIN_BARS_FOR_METRICS = 2
 const SYNTHETIC_PRICE_SOURCE = 'synthetic'
 const TRADING_DAYS_PER_CALENDAR_MONTH = 22
 const DEFAULT_DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES = 20
+const SYNTHETIC_QUOTE_INSERT_CHUNK = 500
+const METRICS_REFRESH_CHUNK = 100
 
 const readDetailOnDemandPrefetchMaxFetches = (): number => {
     const configured = readEnvNumber(
@@ -259,26 +261,41 @@ export class StockService {
     }
 
     async refreshStockMetrics(stockId: string): Promise<void> {
-        const latestPrice = await this.getLatestPriceByStockId(stockId)
-        const priceTablePreviousClose = await this.getLatestPriceByStockId(
-            stockId,
-            this.previousDayEnd(),
-        )
-        const priceHistory = await this.getCachedDailyBarHistory(stockId, HISTORY_DAYS)
-        const performance = this.computePerformanceMetrics(
-            latestPrice,
-            priceHistory,
-            priceTablePreviousClose,
-        )
+        await this.refreshStockMetricsBatch([stockId])
+    }
 
-        if (
-            performance.periodChangePercent === null
-            && performance.dayChangePercent === null
-        ) {
+    async refreshStockMetricsBatch(stockIds: string[]): Promise<void> {
+        if (stockIds.length === 0) {
             return
         }
 
-        await this.persistStockMetrics(stockId, performance)
+        const previousDayEnd = this.previousDayEnd()
+
+        for (let offset = 0; offset < stockIds.length; offset += METRICS_REFRESH_CHUNK) {
+            const chunk = stockIds.slice(offset, offset + METRICS_REFRESH_CHUNK)
+            const [latestPrices, previousCloses, histories] = await Promise.all([
+                this.getLatestPricesByStockIds(chunk),
+                this.getLatestPricesByStockIds(chunk, previousDayEnd),
+                this.getDailyBarHistoriesByStockIds(chunk, HISTORY_DAYS),
+            ])
+
+            for (const stockId of chunk) {
+                const performance = this.computePerformanceMetrics(
+                    latestPrices.get(stockId) ?? null,
+                    histories.get(stockId) ?? [],
+                    previousCloses.get(stockId) ?? null,
+                )
+
+                if (
+                    performance.periodChangePercent === null
+                    && performance.dayChangePercent === null
+                ) {
+                    continue
+                }
+
+                await this.persistStockMetrics(stockId, performance)
+            }
+        }
     }
 
     private buildLatestPriceSubquery() {
@@ -825,6 +842,15 @@ export class StockService {
         }).onConflictDoNothing()
     }
 
+    private computeSyntheticPrice(high: number, low: number, close: number): number {
+        const spread = high - low
+        return spread > 0 ? low + Math.random() * spread : close
+    }
+
+    private computeSyntheticPriceFromLatest(latestPrice: number): number {
+        return latestPrice * (0.995 + Math.random() * 0.01)
+    }
+
     async insertSyntheticQuote(stockId: string): Promise<boolean> {
         const [bar] = await this.ctx.db
             .select({
@@ -840,19 +866,109 @@ export class StockService {
 
         let price: number
         if (bar !== undefined) {
-            const high = parseFloat(bar.high)
-            const low = parseFloat(bar.low)
-            const close = parseFloat(bar.close)
-            const spread = high - low
-            price = spread > 0 ? low + Math.random() * spread : close
+            price = this.computeSyntheticPrice(
+                parseFloat(bar.high),
+                parseFloat(bar.low),
+                parseFloat(bar.close),
+            )
         } else {
             const latestPrice = await this.getLatestPriceByStockId(stockId)
-            if (latestPrice === null) return false
-            price = latestPrice * (0.995 + Math.random() * 0.01)
+            if (latestPrice === null || latestPrice <= 0) return false
+            price = this.computeSyntheticPriceFromLatest(latestPrice)
         }
+
+        if (price <= 0) return false
 
         await this.insertPrice(stockId, price, SYNTHETIC_PRICE_SOURCE, new Date())
         return true
+    }
+
+    async insertSyntheticQuotesForAllEligible(): Promise<{ inserted: number; stockIds: string[] }> {
+        const recordedAt = new Date()
+        const barRows = await this.ctx.db
+            .selectDistinctOn([stockDailyBar.stockId], {
+                stockId: stockDailyBar.stockId,
+                high: stockDailyBar.high,
+                low: stockDailyBar.low,
+                close: stockDailyBar.close,
+            })
+            .from(stockDailyBar)
+            .innerJoin(stock, eq(stock.id, stockDailyBar.stockId))
+            .where(and(
+                eq(stock.isActive, true),
+                sql`${stockDailyBar.close}::numeric > 0`,
+            ))
+            .orderBy(stockDailyBar.stockId, desc(stockDailyBar.tradingDate))
+
+        const inserts: Array<{
+            id: string
+            stockId: string
+            price: string
+            source: string
+            recordedAt: Date
+        }> = []
+        const stockIds: string[] = []
+        const coveredStockIds = new Set<string>()
+
+        for (const row of barRows) {
+            const price = this.computeSyntheticPrice(
+                parseFloat(row.high),
+                parseFloat(row.low),
+                parseFloat(row.close),
+            )
+            if (price <= 0) continue
+
+            stockIds.push(row.stockId)
+            coveredStockIds.add(row.stockId)
+            inserts.push({
+                id: crypto.randomUUID(),
+                stockId: row.stockId,
+                price: price.toString(),
+                source: SYNTHETIC_PRICE_SOURCE,
+                recordedAt,
+            })
+        }
+
+        const priceRows = await this.ctx.db
+            .selectDistinctOn([stockPrice.stockId], {
+                stockId: stockPrice.stockId,
+                price: stockPrice.price,
+            })
+            .from(stockPrice)
+            .innerJoin(stock, eq(stock.id, stockPrice.stockId))
+            .where(and(
+                eq(stock.isActive, true),
+                sql`${stockPrice.price}::numeric > 0`,
+                ...this.priceFilters(),
+            ))
+            .orderBy(stockPrice.stockId, desc(stockPrice.recordedAt))
+
+        for (const row of priceRows) {
+            if (coveredStockIds.has(row.stockId)) continue
+
+            const latestPrice = parseFloat(row.price)
+            if (!Number.isFinite(latestPrice) || latestPrice <= 0) continue
+
+            const price = this.computeSyntheticPriceFromLatest(latestPrice)
+            if (price <= 0) continue
+
+            stockIds.push(row.stockId)
+            inserts.push({
+                id: crypto.randomUUID(),
+                stockId: row.stockId,
+                price: price.toString(),
+                source: SYNTHETIC_PRICE_SOURCE,
+                recordedAt,
+            })
+        }
+
+        for (let offset = 0; offset < inserts.length; offset += SYNTHETIC_QUOTE_INSERT_CHUNK) {
+            const chunk = inserts.slice(offset, offset + SYNTHETIC_QUOTE_INSERT_CHUNK)
+            if (chunk.length === 0) continue
+            await this.ctx.db.insert(stockPrice).values(chunk).onConflictDoNothing()
+        }
+
+        return { inserted: inserts.length, stockIds }
     }
 
     private formatUtcDate(date: Date): string {

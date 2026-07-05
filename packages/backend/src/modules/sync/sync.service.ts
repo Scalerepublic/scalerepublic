@@ -92,6 +92,27 @@ export class SyncService {
         return this.ctx.stockService.createStock(ticker, meta.name, meta.exchange, meta.currency)
     }
 
+    async resolvePriorityStockIds(): Promise<string[]> {
+        const trendingLimit = readEnvNumber('SYNC_TRENDING_LIMIT', DEFAULT_SYNC_TRENDING_LIMIT)
+
+        const heldStockIds = await this.ctx.tradesService.listHeldStockIds()
+        const trendingRows = await this.ctx.stockService.getTrending(trendingLimit)
+        const seedStockIds = await Promise.all(
+            parseSeedTickers().map((ticker) => this.ctx.stockService.getStockId(ticker)),
+        )
+
+        const seen = new Set<string>()
+        const stockIds: string[] = []
+
+        for (const stockId of [...heldStockIds, ...seedStockIds, ...trendingRows.map((row) => row.id)]) {
+            if (stockId === null || stockId === '' || seen.has(stockId)) continue
+            seen.add(stockId)
+            stockIds.push(stockId)
+        }
+
+        return stockIds
+    }
+
     private async syncTicker(ticker: string): Promise<boolean> {
         const stockId = await this.ensureStock(ticker)
         if (stockId === null) return false
@@ -107,12 +128,7 @@ export class SyncService {
         return true
     }
 
-    private async runSync(tickers: string[]): Promise<void> {
-        if (isMarketDebugEnabled()) {
-            console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
-            return
-        }
-
+    private async runSyncTickers(tickers: string[]): Promise<void> {
         if (tickers.length === 0) {
             return
         }
@@ -131,6 +147,34 @@ export class SyncService {
         if (succeeded === 0) {
             throw new Error(`Price sync failed for all ${tickers.length} tracked tickers`)
         }
+    }
+
+    private async runSync(): Promise<void> {
+        if (isMarketDebugEnabled()) {
+            console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
+            return
+        }
+
+        const { inserted, stockIds } = await this.ctx.stockService.insertSyntheticQuotesForAllEligible()
+        if (inserted === 0) {
+            throw new Error('Price sync failed: no eligible stocks with market data')
+        }
+
+        console.log(`[sync] Stored ${inserted} synthetic quotes across ${stockIds.length} stocks`)
+
+        const priorityStockIds = await this.resolvePriorityStockIds()
+        if (priorityStockIds.length > 0) {
+            await this.ctx.stockService.refreshStockMetricsBatch(priorityStockIds)
+        }
+    }
+
+    private async runSyncLegacy(tickers: string[]): Promise<void> {
+        if (isMarketDebugEnabled()) {
+            console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
+            return
+        }
+
+        await this.runSyncTickers(tickers)
     }
 
     private readBackfillConfig(): {
@@ -231,6 +275,28 @@ export class SyncService {
         await this.runCatalogBackfill()
     }
 
+    private async runCatalogBackfillIfDue(
+        syncIntervalMs: number,
+        backfillMinIntervalMs: number,
+    ): Promise<void> {
+        if (syncIntervalMs < backfillMinIntervalMs) {
+            return
+        }
+
+        if (!catalogBackfillOnCron()) {
+            console.log('[sync] Skipping catalog backfill (CATALOG_BACKFILL_ON_CRON=false)')
+            return
+        }
+
+        try {
+            await this.runCatalogBackfill()
+            console.log('[sync] Catalog backfill completed')
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.error(`[sync/backfill] Failed: ${message}`)
+        }
+    }
+
     private async getJobRow(): Promise<{
         status: 'idle' | 'running' | 'failed'
         lockedAt: Date | null
@@ -275,8 +341,12 @@ export class SyncService {
     }
 
     async syncOnce(tickers?: string[]): Promise<void> {
-        const resolved = tickers ?? await this.resolvePriceSyncTickers()
-        await this.runSync(resolved)
+        if (tickers !== undefined) {
+            await this.runSyncLegacy(tickers)
+            return
+        }
+
+        await this.runSync()
     }
 
     async runDueTick(): Promise<void> {
@@ -307,12 +377,11 @@ export class SyncService {
             console.log(`[sync] Lock acquired by ${this.getLockId()}`)
 
             try {
-                const tickers = await this.resolvePriceSyncTickers()
-                console.log(`[sync] Price sync for ${tickers.length} tickers`)
+                console.log('[sync] Batch price sync for all eligible stocks')
 
                 let syncError: string | null = null
                 try {
-                    await this.runSync(tickers)
+                    await this.runSync()
                 } catch (err) {
                     syncError = err instanceof Error ? err.message : String(err)
                     console.error(`[sync] Price sync failed: ${syncError}`)
@@ -339,19 +408,7 @@ export class SyncService {
 
                 await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
 
-                if (syncIntervalMs >= backfillMinIntervalMs) {
-                    if (catalogBackfillOnCron()) {
-                        try {
-                            await this.runCatalogBackfill()
-                            console.log('[sync] Catalog backfill completed')
-                        } catch (err) {
-                            const message = err instanceof Error ? err.message : String(err)
-                            console.error(`[sync/backfill] Failed: ${message}`)
-                        }
-                    } else {
-                        console.log('[sync] Skipping catalog backfill (CATALOG_BACKFILL_ON_CRON=false)')
-                    }
-                }
+                await this.runCatalogBackfillIfDue(syncIntervalMs, backfillMinIntervalMs)
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 await this.ctx.db.update(syncJob).set({
@@ -370,9 +427,8 @@ export class SyncService {
     async startScheduler(): Promise<void> {
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
         const checkIntervalMs = readEnvNumber('SYNC_CHECK_INTERVAL_MS', DEFAULT_CHECK_INTERVAL_MS)
-        const maxTickers = readEnvNumber('SYNC_MAX_TICKERS', DEFAULT_SYNC_MAX_TICKERS)
 
-        console.log(`[sync] Dynamic price sync up to ${maxTickers} tickers. Sync every ${syncIntervalMs / 1000}s, check every ${checkIntervalMs / 1000}s`)
+        console.log(`[sync] Batch synthetic quotes for all eligible stocks. Sync every ${syncIntervalMs / 1000}s, check every ${checkIntervalMs / 1000}s`)
 
         for (;;) {
             await this.runDueTick()

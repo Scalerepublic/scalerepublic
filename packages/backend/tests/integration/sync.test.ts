@@ -77,6 +77,24 @@ describe('SyncService.syncOnce', () => {
             'Price sync failed for all 1 tracked tickers',
         )
     })
+
+    test('batch sync stores synthetic prices for every eligible stock', async () => {
+        const aapl = await seedStock({ ticker: 'AAPL' })
+        const tsla = await seedStock({ ticker: 'TSLA' })
+        const empty = await seedStock({ ticker: 'VOID' })
+        await seedDailyBar(aapl.stockId, { low: 140, high: 160, close: 150 })
+        await seedDailyBar(tsla.stockId, { low: 190, high: 210, close: 200 })
+
+        await ctx.syncService.syncOnce()
+
+        const aaplPrices = await db.select().from(stockPrice).where(eq(stockPrice.stockId, aapl.stockId))
+        const tslaPrices = await db.select().from(stockPrice).where(eq(stockPrice.stockId, tsla.stockId))
+        const voidPrices = await db.select().from(stockPrice).where(eq(stockPrice.stockId, empty.stockId))
+
+        expect(aaplPrices).toHaveLength(1)
+        expect(tslaPrices).toHaveLength(1)
+        expect(voidPrices).toHaveLength(0)
+    })
 })
 
 describe('SyncService.resolvePriceSyncTickers', () => {
