@@ -3,6 +3,7 @@ import { and, eq, ilike, or } from 'drizzle-orm';
 import type { AppVars } from '../../context.ts';
 import { user } from '../../db/schema/auth-schema.ts';
 import { autoTradeRule } from '../../db/schema/trade/autoTrade.ts';
+import { UserSuspendedError } from '../portfolio/errors.ts';
 import type { PerformanceGranularity, PerformancePoint } from '../portfolio/portfolio-performance.service.ts';
 
 export type UserProfile = {
@@ -38,23 +39,28 @@ export class UserService {
 
     if (!authUser) return null;
 
-    const [activePortfolio, penaltyCounter, rank] = await Promise.all([
-      this.ctx.portfolioService.getActiveForUser(userId),
+    const [penaltyCounter, rank] = await Promise.all([
       this.ctx.portfolioService.getDefaultCount(userId),
       this.ctx.leaderboardService.getRankForUser(userId),
     ]);
 
-    if (!activePortfolio) {
-      return {
-        userId,
-        name: authUser.name,
-        cashBalance: 0,
-        netWorth: 0,
-        startingCapital: 0,
-        isDefaulted: true,
-        penaltyCounter,
-        rank: null,
-      };
+    let activePortfolio;
+    try {
+      activePortfolio = await this.ctx.portfolioService.ensureForUser(userId);
+    } catch (err) {
+      if (err instanceof UserSuspendedError) {
+        return {
+          userId,
+          name: authUser.name,
+          cashBalance: 0,
+          netWorth: 0,
+          startingCapital: 0,
+          isDefaulted: true,
+          penaltyCounter,
+          rank: null,
+        };
+      }
+      throw err;
     }
 
     const netWorth = await this.ctx.portfolioService.getNetWorth(activePortfolio.id);

@@ -4,6 +4,7 @@ import { db as defaultDb, type DbConnection } from './db/index.ts'
 import { type Auth, type AuthOptions, createAuth } from './lib/auth.ts'
 import { isMarketDebugEnabled } from './lib/market-debug.ts'
 import { AutoTradeService } from './modules/autotrade/index.ts'
+import { DeveloperService } from './modules/developer/index.ts'
 import { LeaderboardService } from './modules/leaderboard/leaderboard.service.ts'
 import { MarketDebugService } from './modules/market-debug/market-debug.service.ts'
 import { PortfolioDefaultService } from './modules/portfolio/portfolio-default.service.ts'
@@ -32,6 +33,7 @@ export type AppVars = {
     portfolioPerformanceService: PortfolioPerformanceService
     tradesService: TradesService
     autoTradeService: AutoTradeService
+    developerService: DeveloperService
 }
 
 export type AppEnv = {
@@ -78,5 +80,6 @@ export const createAppContext = (
     ctx.portfolioPerformanceService = new PortfolioPerformanceService(ctx)
     ctx.tradesService = new TradesService(ctx)
     ctx.autoTradeService = new AutoTradeService(ctx)
+    ctx.developerService = new DeveloperService(ctx)
     return ctx
 }

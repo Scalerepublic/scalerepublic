@@ -6,10 +6,12 @@
 		Trophy,
 		PanelLeftClose,
 		PanelLeft,
-		LogOut
+		LogOut,
+		KeyRound
 	} from '@lucide/svelte';
 	import NavItem from './NavItem.svelte';
 	import { userStore } from '$lib/stores/user.svelte';
+	import { developerStore } from '$lib/stores/developer.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
 	import { signOut } from '$lib/auth-client';
 	import { goto } from '$app/navigation';
@@ -17,12 +19,22 @@
 	import { getInitials, cn } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
 
-	const navItems = [
+	const baseNavItems = [
 		{ href: '/dashboard', label: 'Portfolio', icon: LayoutDashboard },
 		{ href: '/search', label: 'Market', icon: Search },
 		{ href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
 		{ href: '/settings', label: 'Settings', icon: Settings }
 	] as const;
+
+	const navItems = $derived(
+		developerStore.enabled
+			? [
+					...baseNavItems.slice(0, 3),
+					{ href: '/developer/api-keys' as const, label: 'API', icon: KeyRound },
+					...baseNavItems.slice(3)
+				]
+			: [...baseNavItems]
+	);
 
 	let isSigningOut = $state(false);
 

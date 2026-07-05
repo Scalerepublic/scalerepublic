@@ -3,6 +3,7 @@ import { syncMarketClock } from '$lib/sync-market-clock';
 import { marketStore } from '$lib/stores/market.svelte';
 import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
+import { developerStore } from '$lib/stores/developer.svelte';
 import { userStore } from '$lib/stores/user.svelte';
 
 let loadedForUserId: string | null = null;
@@ -33,7 +34,8 @@ export function bootstrapAppData() {
 		performanceStore.load(userId),
 		marketStore.loadTrending(),
 		marketStore.loadSectors(),
-		userStore.load()
+		userStore.load(),
+		developerStore.load()
 	]).then(() => {
 		if (generation !== loadGeneration || authStore.user?.id !== userId) {
 			return;

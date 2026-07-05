@@ -7,9 +7,11 @@ import { isMarketDebugEnabled } from "./lib/market-debug.ts";
 import { UNI_API_PROXY_BASE_URL } from "./lib/uni-api-proxy.ts";
 import { registerAuthRoutes } from "./modules/auth/auth.routes.ts";
 import { registerAutoTradeRoutes } from "./modules/autotrade/autotrade.routes.ts";
+import { registerDeveloperRoutes } from "./modules/developer/developer.routes.ts";
 import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.routes.ts";
 import { registerMarketDebugRoutes } from "./modules/market-debug/index.ts";
 import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
+import { registerPublicApiRoutes } from "./modules/public-api/index.ts";
 import { registerStockRoutes } from "./modules/stock/stock.routes.ts";
 import type { UniApiSubfetch } from "./modules/stockapi/uni-stock-client.ts";
 import { registerUserRoutes } from "./modules/user/user.routes.ts";
@@ -118,6 +120,8 @@ export const createApp = (staticCtx?: AppVars): App => {
     registerLeaderboardRoutes(app);
     registerPortfolioRoutes(app);
     registerAutoTradeRoutes(app);
+    registerDeveloperRoutes(app);
+    registerPublicApiRoutes(app);
     // Always registered: the /api/v1/market/clock endpoint must exist even when
     // market debug is disabled (it returns the real, non-simulated date). The
     // /api/v1/debug/* endpoints self-gate via requireMarketDebugOperator.
