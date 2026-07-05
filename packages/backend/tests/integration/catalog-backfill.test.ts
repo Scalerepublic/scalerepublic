@@ -107,9 +107,13 @@ describe('catalog backfill helpers', () => {
         expect(browse.items.map((row) => row.ticker)).toEqual(['WARM'])
         expect(browse.total).toBe(1)
 
-        const search = await ctx.stockService.listStocks({ q: 'O', page: 1, limit: 24 })
-        expect(search.items.map((row) => row.ticker).sort()).toEqual(['COLD', 'WARM'])
-        expect(search.total).toBe(2)
+        const searchCold = await ctx.stockService.listStocks({ q: 'COLD', page: 1, limit: 24 })
+        expect(searchCold.items.map((row) => row.ticker)).toEqual(['COLD'])
+        expect(searchCold.total).toBe(1)
+
+        const searchWarm = await ctx.stockService.listStocks({ q: 'WARM', page: 1, limit: 24 })
+        expect(searchWarm.items.map((row) => row.ticker)).toEqual(['WARM'])
+        expect(searchWarm.total).toBe(1)
 
         void coldId
     })

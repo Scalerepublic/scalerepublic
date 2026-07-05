@@ -256,8 +256,8 @@ export class StockService {
             const chunk = rows.slice(offset, offset + METRICS_REFRESH_CHUNK)
             await this.ctx.db.execute(sql`
                 UPDATE stock AS s SET
-                    period_change_percent = v.period_change_percent,
-                    day_change_percent = v.day_change_percent,
+                    period_change_percent = v.period_change_percent::numeric,
+                    day_change_percent = v.day_change_percent::numeric,
                     metrics_updated_at = ${metricsUpdatedAt}
                 FROM (VALUES ${sql.join(
                     chunk.map((row) => sql`(
