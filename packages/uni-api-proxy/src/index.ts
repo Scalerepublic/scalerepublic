@@ -3,7 +3,28 @@ export type ProxyEnv = {
     UNI_API_PROXY_SECRET: string
 }
 
-const normalizeOrigin = (origin: string): string => origin.replace(/\/$/, '')
+const ipv4Pattern = /^\d{1,3}(?:\.\d{1,3}){3}$/
+
+const resolveUpstreamOrigin = (origin: string): string => {
+    const trimmed = origin.replace(/\/$/, '')
+    let parsed: URL
+    try {
+        parsed = new URL(trimmed.includes('://') ? trimmed : `http://${trimmed}`)
+    } catch {
+        return trimmed
+    }
+
+    if (parsed.protocol === 'https:' && ipv4Pattern.test(parsed.hostname)) {
+        parsed.protocol = 'http:'
+    }
+
+    if (ipv4Pattern.test(parsed.hostname)) {
+        const nipHost = parsed.hostname.replace(/\./g, '-')
+        return `${parsed.protocol}//${nipHost}.nip.io${parsed.port ? `:${parsed.port}` : ''}`
+    }
+
+    return `${parsed.protocol}//${parsed.host}`
+}
 
 const isAuthorized = (request: Request, secret: string): boolean => {
     const configured = secret.trim()
@@ -12,6 +33,8 @@ const isAuthorized = (request: Request, secret: string): boolean => {
     }
     return request.headers.get('X-Uni-Proxy-Secret') === configured
 }
+
+const redactTarget = (url: string): string => url.replace(/token=[^&]+/gi, 'token=[redacted]')
 
 export default {
     async fetch(request: Request, env: ProxyEnv): Promise<Response> {
@@ -28,15 +51,36 @@ export default {
             return new Response('Not Found', { status: 404 })
         }
 
-        const origin = normalizeOrigin(env.UNI_API_ORIGIN)
+        const origin = resolveUpstreamOrigin(env.UNI_API_ORIGIN)
         const target = `${origin}${incoming.pathname}${incoming.search}`
 
-        const upstream = await fetch(target, {
-            method: request.method,
-            headers: {
-                Accept: 'application/json',
-            },
-        })
+        let upstream: Response
+        try {
+            upstream = await fetch(target, {
+                method: request.method,
+                headers: {
+                    Accept: 'application/json',
+                },
+            })
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.error(`[uni-proxy] fetch failed ${redactTarget(target)}: ${message}`)
+            return new Response('Bad Gateway', { status: 502 })
+        }
+
+        if (!upstream.ok) {
+            const body = await upstream.text()
+            console.error(
+                `[uni-proxy] upstream ${upstream.status} ${redactTarget(target)}: ${body.slice(0, 300)}`,
+            )
+            return new Response(body, {
+                status: upstream.status,
+                statusText: upstream.statusText,
+                headers: upstream.headers.get('Content-Type')
+                    ? { 'Content-Type': upstream.headers.get('Content-Type')! }
+                    : undefined,
+            })
+        }
 
         const headers = new Headers()
         const contentType = upstream.headers.get('Content-Type')

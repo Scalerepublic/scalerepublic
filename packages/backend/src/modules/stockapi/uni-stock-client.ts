@@ -25,6 +25,8 @@ export type UniApiSubfetch = (
     init?: RequestInit,
 ) => Promise<Response>
 
+const UNI_API_PROXY_BASE_URL = 'https://uni-api.internal'
+
 export class UniStockClient implements StockDataClient {
     readonly source = 'uni_api'
     private readonly token: string
@@ -36,9 +38,14 @@ export class UniStockClient implements StockDataClient {
         if (t === undefined || t === '') throw new Error('UNI_API_TOKEN env var is required for the uni stock client')
         this.token = t
 
-        const u = baseUrl ?? process.env['UNI_API_BASE_URL']
-        if (u === undefined || u === '') throw new Error('UNI_API_BASE_URL env var is required')
-        this.baseUrl = this.normalizeBaseUrl(u)
+        if (subfetch !== undefined) {
+            const u = baseUrl ?? process.env['UNI_API_BASE_URL'] ?? UNI_API_PROXY_BASE_URL
+            this.baseUrl = this.normalizeBaseUrl(u)
+        } else {
+            const u = baseUrl ?? process.env['UNI_API_BASE_URL']
+            if (u === undefined || u === '') throw new Error('UNI_API_BASE_URL env var is required')
+            this.baseUrl = this.normalizeBaseUrl(u)
+        }
         this.subfetch = subfetch
     }
 
