@@ -47,20 +47,6 @@ export class MockStockDataClient implements StockDataClient {
         return { symbol, price, tradingDay: new Date() }
     }
 
-    async getQuotes(symbols: string[]): Promise<StockQuote[]> {
-        const tradingDay = new Date()
-        const quotes: StockQuote[] = []
-
-        for (const symbol of symbols) {
-            const normalized = symbol.trim().toUpperCase()
-            const price = this.quotes.get(normalized)
-            if (price === undefined) continue
-            quotes.push({ symbol: normalized, price, tradingDay })
-        }
-
-        return quotes
-    }
-
     async getStockMeta(symbol: string): Promise<StockMeta | null> {
         return this.meta.get(symbol) ?? null
     }

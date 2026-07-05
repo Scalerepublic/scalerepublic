@@ -85,7 +85,7 @@ This section describes how stock prices, company names, and chart history are lo
 
 We use two related but separate sync flows:
 
-1. **Price sync**: random quotes for holdings, seed tickers (`SYNC_TICKERS`), and trending names — capped by `SYNC_MAX_TICKERS`.
+1. **Price sync**: batch synthetic quotes for every stock with a daily bar or prior price in Postgres.
 2. **Catalog backfill**: gradually fills the full imported ticker list (~12k symbols) with company names and 30 days of daily bars for the market tab.
 
 Both flows read from the **uni stock API** and write into Postgres. The frontend always reads from our API and database, never from the uni API directly.
@@ -145,19 +145,12 @@ Imported tickers start with `company_name = ticker` and no bars. Backfill replac
 
 **Code:** `src/modules/sync/sync.service.ts`
 
-**Ticker set (each run, priority order, deduped, capped at `SYNC_MAX_TICKERS`):**
+Each run:
 
-1. All symbols with open holdings across portfolios
-2. Seed list from `SYNC_TICKERS` (defaults to 10 liquid names)
-3. Current trending symbols (`SYNC_TRENDING_LIMIT`, default 24)
-
-**Per ticker, each run:**
-
-1. Ensure `stock` row exists (create from API metadata if missing).
-2. Read latest `stock_daily_bar` (or last `stock_price` as fallback).
-3. Random price between bar low/high (or ±0.5% jitter around last price).
-4. Insert `stock_price` with `source: synthetic`.
-5. Recompute and persist list metrics on `stock`.
+1. Select all active stocks with a daily bar or prior `stock_price`.
+2. Compute a random price between bar low/high (or ±0.5% jitter around last price).
+3. Batch-insert into `stock_price` with `source: synthetic`.
+4. Refresh cached metrics on `stock` in batch.
 
 No uni API call per quote. Daily bars come from catalog backfill.
 
@@ -260,9 +253,6 @@ The frontend polls `/detail` with exponential backoff when history is still empt
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SYNC_TICKERS` | 10 demo symbols | Seed list merged into each price-sync run |
-| `SYNC_MAX_TICKERS` | `500` | Max symbols per price-sync run |
-| `SYNC_TRENDING_LIMIT` | `24` | Trending symbols to include when under the cap |
 | `SYNC_INTERVAL_MS` | `3600000` (prod), `60000` (staging), `20000` in `.env.example` | Minimum time between successful price sync runs |
 | `SYNC_CHECK_INTERVAL_MS` | `60000` / `5000` | Poll interval for local scheduler only |
 | `SYNC_STALE_LOCK_MS` | `max(10min, 5× interval)` | Reclaim a stuck `running` lock after this age |

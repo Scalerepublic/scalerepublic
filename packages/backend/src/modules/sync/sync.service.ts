@@ -1,5 +1,4 @@
 import { and, eq, lt, or } from 'drizzle-orm'
-import { z } from 'zod'
 
 import type { AppVars } from '../../context.ts'
 import { syncJob } from '../../db/schema/sync.ts'
@@ -9,8 +8,6 @@ import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 const JOB_ID = 'stock-price-sync'
 const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 1000
-const DEFAULT_SYNC_MAX_TICKERS = 500
-const DEFAULT_SYNC_TRENDING_LIMIT = 24
 const CATALOG_BACKFILL_BATCH_SIZE = 5
 const CATALOG_BACKFILL_BATCH_INTERVAL_MS = 5000
 const DEFAULT_NAMES_BACKFILL_BATCH = 20
@@ -19,28 +16,6 @@ const DEFAULT_HISTORY_BARS_PER_STOCK = 10
 const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 40
 const DEFAULT_CATALOG_BACKFILL_MIN_INTERVAL_MS = 5 * 60 * 1000
 const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000
-
-const DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V', 'UNH']
-
-const TickerSchema = z.string().regex(/^[A-Z]{1,5}$/, 'must be 1–5 uppercase letters')
-
-export const parseSeedTickers = (): string[] => {
-    const raw = process.env['SYNC_TICKERS']
-    if (raw === undefined || raw.trim() === '') return DEFAULT_TICKERS
-
-    const candidates = raw.split(',').map(t => t.trim().toUpperCase()).filter(Boolean)
-    if (candidates.length === 0) return DEFAULT_TICKERS
-
-    const result = z.array(TickerSchema).min(1).safeParse(candidates)
-    if (!result.success) {
-        const invalid = result.error.issues.map(i => candidates[i.path[0] as number])
-        throw new Error(`Invalid ticker symbols in SYNC_TICKERS: ${invalid.join(', ')}`)
-    }
-
-    return result.data
-}
-
-export const parseTrackedTickers = parseSeedTickers
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
@@ -56,85 +31,12 @@ export class SyncService {
         return this.lockId
     }
 
-    async resolvePriceSyncTickers(): Promise<string[]> {
-        const maxTickers = readEnvNumber('SYNC_MAX_TICKERS', DEFAULT_SYNC_MAX_TICKERS)
-        const trendingLimit = readEnvNumber('SYNC_TRENDING_LIMIT', DEFAULT_SYNC_TRENDING_LIMIT)
-
-        const heldStockIds = await this.ctx.tradesService.listHeldStockIds()
-        const heldTickers = [...(await this.ctx.stockService.getTickersByStockIds(heldStockIds)).values()]
-        const seedTickers = parseSeedTickers()
-        const trendingTickers = (await this.ctx.stockService.getTrending(trendingLimit)).map((row) => row.ticker)
-
-        const seen = new Set<string>()
-        const tickers: string[] = []
-
-        for (const ticker of [...heldTickers, ...seedTickers, ...trendingTickers]) {
-            const normalized = ticker.trim().toUpperCase()
-            if (normalized === '' || seen.has(normalized)) continue
-            seen.add(normalized)
-            tickers.push(normalized)
-            if (tickers.length >= maxTickers) break
-        }
-
-        return tickers
-    }
-
-    private async ensureStock(ticker: string): Promise<string | null> {
-        const existing = await this.ctx.stockService.getStockId(ticker)
-        if (existing !== null) return existing
-
-        const meta = await this.ctx.stockDataClient.getStockMeta(ticker)
-        if (!meta) {
-            console.warn(`[sync] No metadata found for "${ticker}" — skipping`)
-            return null
-        }
-
-        return this.ctx.stockService.createStock(ticker, meta.name, meta.exchange, meta.currency)
-    }
-
-    private async syncTicker(ticker: string): Promise<boolean> {
-        const stockId = await this.ensureStock(ticker)
-        if (stockId === null) return false
-
-        if (!await this.ctx.stockService.insertSyntheticQuote(stockId)) {
-            console.warn(`[sync] ${ticker}: no daily bar or prior price — skipping quote`)
-            return false
-        }
-
-        await this.ctx.stockService.refreshStockMetrics(stockId)
-
-        console.log(`[sync] ${ticker}: synthetic quote stored`)
-        return true
-    }
-
-    private async runSyncTickers(tickers: string[]): Promise<void> {
-        if (tickers.length === 0) {
-            return
-        }
-
-        let succeeded = 0
-        for (const ticker of tickers) {
-            try {
-                if (await this.syncTicker(ticker)) {
-                    succeeded += 1
-                }
-            } catch (err) {
-                console.error(`[sync] ${ticker} failed: ${err instanceof Error ? err.message : err}`)
-            }
-        }
-
-        if (succeeded === 0) {
-            throw new Error(`Price sync failed for all ${tickers.length} tracked tickers`)
-        }
-    }
-
     private async runSync(): Promise<void> {
         if (isMarketDebugEnabled()) {
             console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
             return
         }
 
-        // TODO: switch to stockDataClient.getQuotes() for live provider quotes once Uni/Vantage batch API is wired
         const { inserted, stockIds } = await this.ctx.stockService.insertSyntheticQuotesForAllEligible()
         if (inserted === 0) {
             console.warn('[sync] No eligible stocks with market data — skipping quote sync')
@@ -144,15 +46,6 @@ export class SyncService {
         console.log(`[sync] Stored ${inserted} synthetic quotes across ${stockIds.length} stocks`)
 
         await this.ctx.stockService.refreshStockMetricsBatch(stockIds)
-    }
-
-    private async runSyncLegacy(tickers: string[]): Promise<void> {
-        if (isMarketDebugEnabled()) {
-            console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
-            return
-        }
-
-        await this.runSyncTickers(tickers)
     }
 
     private readBackfillConfig(): {
@@ -318,12 +211,7 @@ export class SyncService {
         return claimed.length > 0
     }
 
-    async syncOnce(tickers?: string[]): Promise<void> {
-        if (tickers !== undefined) {
-            await this.runSyncLegacy(tickers)
-            return
-        }
-
+    async syncOnce(): Promise<void> {
         await this.runSync()
     }
 

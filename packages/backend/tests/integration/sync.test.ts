@@ -7,7 +7,7 @@ import { db } from '../../src/db/index.ts'
 import { stockPrice } from '../../src/db/schema/stock/market.ts'
 import { stock } from '../../src/db/schema/stock/stock.ts'
 import { MockStockDataClient } from '../../src/modules/stockapi/mock-stock-client.ts'
-import { resetDb, seedDailyBar, seedPortfolio, seedPrice, seedStock } from '../helpers/db.ts'
+import { resetDb, seedDailyBar, seedPrice, seedStock } from '../helpers/db.ts'
 
 const mockClient = new MockStockDataClient()
 const ctx = createAppContext()
@@ -26,7 +26,7 @@ describe('SyncService.syncOnce', () => {
         await seedDailyBar(aapl.stockId, { low: 140, high: 160, close: 150 })
         await seedDailyBar(tsla.stockId, { low: 190, high: 210, close: 200 })
 
-        await ctx.syncService.syncOnce(['AAPL', 'TSLA'])
+        await ctx.syncService.syncOnce()
 
         for (const ticker of ['AAPL', 'TSLA']) {
             const [row] = await db.select().from(stock).where(eq(stock.ticker, ticker))
@@ -47,8 +47,8 @@ describe('SyncService.syncOnce', () => {
         const { stockId } = await seedStock({ ticker: 'AAPL' })
         await seedDailyBar(stockId, { low: 140, high: 160, close: 150 })
 
-        await ctx.syncService.syncOnce(['AAPL'])
-        await ctx.syncService.syncOnce(['AAPL'])
+        await ctx.syncService.syncOnce()
+        await ctx.syncService.syncOnce()
 
         const prices = await db.select().from(stockPrice).where(eq(stockPrice.stockId, stockId))
         expect(prices).toHaveLength(2)
@@ -63,7 +63,7 @@ describe('SyncService.syncOnce', () => {
         const { stockId } = await seedStock({ ticker: 'COIN' })
         await seedPrice(stockId, 100)
 
-        await ctx.syncService.syncOnce(['COIN'])
+        await ctx.syncService.syncOnce()
 
         const prices = await db.select().from(stockPrice).where(eq(stockPrice.stockId, stockId))
         expect(prices).toHaveLength(2)
@@ -72,10 +72,13 @@ describe('SyncService.syncOnce', () => {
         expect(latest).toBeLessThanOrEqual(100.5)
     })
 
-    test('throws when every tracked ticker fails', async () => {
-        await expect(ctx.syncService.syncOnce(['UNKNOWN'])).rejects.toThrow(
-            'Price sync failed for all 1 tracked tickers',
-        )
+    test('skips when no eligible stocks exist', async () => {
+        await seedStock({ ticker: 'VOID' })
+
+        await ctx.syncService.syncOnce()
+
+        const prices = await db.select().from(stockPrice)
+        expect(prices).toHaveLength(0)
     })
 
     test('batch sync stores synthetic prices for every eligible stock', async () => {
@@ -94,18 +97,5 @@ describe('SyncService.syncOnce', () => {
         expect(aaplPrices).toHaveLength(1)
         expect(tslaPrices).toHaveLength(1)
         expect(voidPrices).toHaveLength(0)
-    })
-})
-
-describe('SyncService.resolvePriceSyncTickers', () => {
-    test('prioritizes held symbols before seed list', async () => {
-        const { portfolioId } = await seedPortfolio()
-        const { stockId } = await seedStock({ ticker: 'GME' })
-        await ctx.tradesService.executeBuy(portfolioId, stockId, 10, 25)
-
-        const tickers = await ctx.syncService.resolvePriceSyncTickers()
-
-        expect(tickers[0]).toBe('GME')
-        expect(tickers).toContain('AAPL')
     })
 })

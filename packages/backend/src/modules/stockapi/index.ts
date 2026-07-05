@@ -1,7 +1,6 @@
 export { AlphaVantageClient, createAlphaVantageClient } from './vantage/vantage.client.ts'
 export { AlphaVantageStockClient } from './vantage/vantage-stock-client.ts'
 export { UniStockClient } from './uni-stock-client.ts'
-export { fetchQuotesInBatches } from './stock-data-client.ts'
 export type { StockDataClient, StockMeta, StockQuote } from './stock-data-client.ts'
 export type {
     Daily,

@@ -34,21 +34,6 @@ export class TradesService {
         return rows.filter((r) => r.quantity > 0);
     }
 
-    async listHeldStockIds(): Promise<string[]> {
-        const rows = await this.ctx.db
-            .select({
-                stockId: trade.stockId,
-                quantity: sql<number>`
-                    sum(case when ${trade.tradeType} = 'BUY' then ${trade.quantity} else -${trade.quantity} end)
-                `.as('quantity'),
-            })
-            .from(trade)
-            .where(eq(trade.status, 'EXECUTED'))
-            .groupBy(trade.stockId);
-
-        return rows.filter((row) => row.quantity > 0).map((row) => row.stockId);
-    }
-
     async getHoldingsByPortfolioIds(portfolioIds: string[]): Promise<Map<string, Holding[]>> {
         if (portfolioIds.length === 0) {
             return new Map();

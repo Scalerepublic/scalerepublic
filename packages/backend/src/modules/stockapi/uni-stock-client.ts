@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { UNI_API_PROXY_BASE_URL } from '../../lib/uni-api-proxy.ts'
 
-import { fetchQuotesInBatches, type StockDataClient, type StockDailyBar, type StockMeta, type StockQuote } from './stock-data-client.ts'
+import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from './stock-data-client.ts'
 
 const DailyResponseSchema = z.object({
     stock_symbol: z.string(),
@@ -113,10 +113,6 @@ export class UniStockClient implements StockDataClient {
             console.warn(`[uniapi] getQuote ${symbol} failed: ${message}`)
             return null
         }
-    }
-
-    async getQuotes(symbols: string[]): Promise<StockQuote[]> {
-        return fetchQuotesInBatches(this, symbols)
     }
 
     private formatDateParam(date: Date): string {

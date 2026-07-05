@@ -878,38 +878,6 @@ export class StockService {
         return latestPrice * (0.995 + Math.random() * 0.01)
     }
 
-    async insertSyntheticQuote(stockId: string): Promise<boolean> {
-        const [bar] = await this.ctx.db
-            .select({
-                tradingDate: stockDailyBar.tradingDate,
-                high: stockDailyBar.high,
-                low: stockDailyBar.low,
-                close: stockDailyBar.close,
-            })
-            .from(stockDailyBar)
-            .where(eq(stockDailyBar.stockId, stockId))
-            .orderBy(desc(stockDailyBar.tradingDate))
-            .limit(1)
-
-        let price: number
-        if (bar !== undefined) {
-            price = this.computeSyntheticPrice(
-                parseFloat(bar.high),
-                parseFloat(bar.low),
-                parseFloat(bar.close),
-            )
-        } else {
-            const latestPrice = await this.getLatestPriceByStockId(stockId)
-            if (latestPrice === null || latestPrice <= 0) return false
-            price = this.computeSyntheticPriceFromLatest(latestPrice)
-        }
-
-        if (price <= 0) return false
-
-        await this.insertPrice(stockId, price, SYNTHETIC_PRICE_SOURCE, new Date())
-        return true
-    }
-
     async insertSyntheticQuotesForAllEligible(): Promise<{ inserted: number; stockIds: string[] }> {
         const recordedAt = new Date()
         const barRows = await this.ctx.db

@@ -69,9 +69,7 @@ Cron (Worker) → SyncService.runSync()
 - Fallback ohne Bar → Jitter um den letzten gespeicherten Preis
 - Quelle in `stock_price.source`: `synthetic`
 
-Legacy-Pfad für Tests und einzelne Ticker: `SyncService.syncOnce(['AAPL', …])` → `insertSyntheticQuote()` pro Symbol.
-
-**Geplant:** Live-Quotes über `StockDataClient.getQuotes()` (gebatcht), sobald Uni/Vantage im Sync angebunden sind — siehe TODO in `sync.service.ts`.
+**Geplant:** Live-Quotes über `StockDataClient.getQuote()` (gebatcht), sobald Uni/Vantage im Sync angebunden sind.
 
 ### 2. Catalog Backfill (Namen + 30 Tage Daily Bars)
 
@@ -85,18 +83,13 @@ Erst mit ausreichend Daily Bars erscheint ein Ticker im Browse (`catalogListedFi
 
 ## Market-Data-Client (`StockDataClient`)
 
-Externer API-Client für **Metadaten, History und (später) Live-Quotes** — nicht für den aktuellen synthetischen Price-Sync:
+Externer API-Client für **Metadaten und History** — nicht für den aktuellen synthetischen Price-Sync:
 
 | Methode | Zweck |
 |---------|--------|
 | `getStockMeta` | Firmenname (Backfill) |
 | `getDailyBar` | OHLC pro Tag (Backfill, Charts) |
-| `getQuote` / `getQuotes` | Live-Quote pro Symbol; `getQuotes` batcht via `fetchQuotesInBatches()` |
-
-**Batching** (`stock-data-client.ts`):
-
-- `SYNC_QUOTE_BATCH_SIZE` (Default 50) — Symbole pro Parallel-Batch
-- `SYNC_QUOTE_BATCH_DELAY_MS` (Default 0) — Pause zwischen Batches (für Live-APIs z. B. 1000 ms)
+| `getQuote` | Live-Quote pro Symbol (später im Sync, gebatcht) |
 
 Konfiguration: `STOCK_API_PROVIDER=uni` auf Staging/Production. Worker erreicht die Uni-API über **Service Binding** → `scalerepublic-uni-proxy` (nip.io für IP-Origins).
 
@@ -128,9 +121,8 @@ Konfiguration: `STOCK_API_PROVIDER=uni` auf Staging/Production. Worker erreicht 
 
 | Variable | Rolle |
 |----------|--------|
-| `STOCK_API_PROVIDER` | `uni` — Bars/Meta/Backfill (und später Live-Quotes) |
+| `STOCK_API_PROVIDER` | `uni` — Bars/Meta/Backfill |
 | `SYNC_INTERVAL_MS` | Mindestabstand zwischen Price-Sync-Läufen |
-| `SYNC_QUOTE_BATCH_SIZE` / `SYNC_QUOTE_BATCH_DELAY_MS` | Batch-Größe und Delay für `StockDataClient.getQuotes()` |
 | `CATALOG_BACKFILL_ON_CRON` | `false` auf Staging — kein Backfill im Worker-Cron |
 | `CATALOG_BACKFILL_MAX_API_CALLS` | API-Budget pro Backfill-Pass (Worker ≤40) |
 
