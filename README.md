@@ -51,6 +51,7 @@ Press `Ctrl+C` to stop backend and frontend. Postgres keeps running until you ru
 | `just up-docker` | Run backend **in Docker** (rebuilds image) |
 | `just test` | Backend integration tests |
 | `just lint` | Lint backend and frontend |
+| `just docs` | Run the API documentation site (VitePress) |
 
 Package-specific recipes live in `packages/backend/justfile` and `packages/frontend/justfile`.
 
@@ -72,6 +73,8 @@ Copy from `.env.example` on first run (`just setup`).
 | `UNI_API_*` / `ALPHAVANTAGE_API_KEY` | if using live prices | Stock API credentials |
 | `SYNC_INTERVAL_MS` | no | Price sync interval (Bun scheduler only) |
 | `MIN_NET_WORTH_THRESHOLD` | no | Net worth below this triggers portfolio default (default `1.00`) |
+| `API_KEY_RATE_LIMIT_WINDOW_MS` | no | Public API rate-limit window in ms (default `60000`) |
+| `API_KEY_RATE_LIMIT_MAX_REQUESTS` | no | Max requests per key per window (default `120`) |
 
 Inside Docker Compose, the backend container uses an internal `DATABASE_URL` (`postgres:5432`). Host-side commands always use `localhost:50025`.
 

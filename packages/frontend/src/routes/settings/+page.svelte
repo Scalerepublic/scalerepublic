@@ -5,6 +5,7 @@
 	import SecurityTab from './SecurityTab.svelte';
 	import AppearanceTab from './AppearanceTab.svelte';
 	import NotificationsTab from './NotificationsTab.svelte';
+	import DeveloperTab from './DeveloperTab.svelte';
 	import { cn } from '$lib/utils';
 
 	const tabs = [
@@ -12,7 +13,8 @@
 		{ id: 'account', label: 'Account', component: AccountTab },
 		{ id: 'security', label: 'Security', component: SecurityTab },
 		{ id: 'appearance', label: 'Appearance', component: AppearanceTab },
-		{ id: 'notifications', label: 'Notifications', component: NotificationsTab }
+		{ id: 'notifications', label: 'Notifications', component: NotificationsTab },
+		{ id: 'developer', label: 'Developer', component: DeveloperTab }
 	];
 
 	let activeTab = $state(tabs[0]);

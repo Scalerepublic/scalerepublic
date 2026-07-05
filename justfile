@@ -1,6 +1,7 @@
 root := justfile_directory()
 backend := root / "packages/backend"
 frontend := root / "packages/frontend"
+docs := root / "packages/docs"
 
 default:
     @just --list
@@ -67,3 +68,6 @@ test:
 lint:
     cd "{{backend}}" && bun run lint
     cd "{{frontend}}" && bun run lint
+
+docs:
+    cd "{{docs}}" && bun install && bun run dev

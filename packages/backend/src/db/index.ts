@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import * as authSchema from "./schema/auth-schema.ts";
+import * as developerSchema from "./schema/developer/index.ts";
 import * as portfolioSchema from "./schema/portfolio/index.ts";
 import * as stockSchema from "./schema/stock/index.ts";
 import { syncJob } from "./schema/sync.ts";
@@ -11,6 +12,7 @@ import { userProfile } from "./schema/user-profile.ts";
 const schema = {
   userProfile,
   ...authSchema,
+  ...developerSchema,
   ...stockSchema,
   ...portfolioSchema,
   ...tradeSchema,
@@ -47,3 +49,4 @@ export const client = singleton?.client as DbClient;
 
 export * from "./schema/auth-schema.ts";
 export * from "./schema/user-profile.ts";
+export * from "./schema/developer/index.ts";
