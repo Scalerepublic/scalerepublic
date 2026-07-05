@@ -406,6 +406,15 @@ export class StockService {
     }
 
     private catalogListedFilter(): SQL {
+        if (isMarketDebugEnabled()) {
+            return sql`exists (
+                select 1
+                from ${stockPrice}
+                where ${stockPrice.stockId} = ${stock.id}
+                  and ${stockPrice.source} in (${DEBUG_MARKET_PRICE_SOURCE}, ${DEBUG_MARKET_CRASH_SOURCE})
+            )`
+        }
+
         const fromDate = this.formatUtcDate(this.addUtcDays(new Date(), -(HISTORY_DAYS - 1)))
         return sql`exists (
             select 1
