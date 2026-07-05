@@ -112,7 +112,7 @@ Frontend (market tab, detail sheet, portfolio)
 | `GET /stocks/{symbol}?token=...&date=YYYY-MM-DD` | Daily bar (open, high, low, close) and `stock_name` |
 | `GET /stocks/{symbol}/price?token=...` | Live price (not used; rate limit is too strict) |
 
-`getQuote()` uses `stock_close` from the daily endpoint.
+`getQuote()` derives a synthetic price as a random value between the day's low and high (not a real market quote).
 
 Configuration:
 

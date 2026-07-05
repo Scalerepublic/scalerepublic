@@ -97,9 +97,13 @@ export class UniStockClient implements StockDataClient {
     async getQuote(symbol: string): Promise<StockQuote> {
         const raw = await this.get(`/stocks/${symbol}`)
         const data = DailyResponseSchema.parse(raw)
+        const spread = data.stock_high - data.stock_low
+        const price = spread > 0
+            ? data.stock_low + Math.random() * spread
+            : data.stock_close
         return {
             symbol: data.stock_symbol,
-            price: data.stock_close,
+            price,
             tradingDay: new Date(data.date),
         }
     }

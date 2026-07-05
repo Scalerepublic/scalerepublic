@@ -1,5 +1,6 @@
 import { syncMarketClock } from '$lib/sync-market-clock';
 import { marketStore } from '$lib/stores/market.svelte';
+import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
 import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
 
@@ -18,7 +19,8 @@ function refreshQuotes() {
 	void Promise.all([
 		syncMarketClock(),
 		marketStore.loadTrending({ silent: true }),
-		portfolioStore.load({ silent: true })
+		portfolioStore.load({ silent: true }),
+		performanceStore.load(undefined, { silent: true })
 	]);
 }
 

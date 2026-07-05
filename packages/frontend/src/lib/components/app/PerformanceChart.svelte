@@ -2,8 +2,10 @@
 	import { cn, formatCurrency, formatPercent } from '$lib/utils';
 	import {
 		filterPerformanceByGranularity,
+		getPerformanceWindowBounds,
 		granularityLabels,
 		granularityPeriodLabels,
+		parsePerformancePointMs,
 		type PerformanceChartMode,
 		type PerformanceGranularity,
 		type PerformancePoint
@@ -87,12 +89,16 @@
 		return max * 1.008;
 	});
 
+	const windowBounds = $derived(getPerformanceWindowBounds(granularity));
+
 	const plotPoints = $derived(
-		points.map((d, i) => {
-			const x = pad.l + (points.length <= 1 ? 0 : (i / (points.length - 1)) * innerW);
+		points.map((d) => {
+			const ms = parsePerformancePointMs(d.date);
+			const span = windowBounds.endMs - windowBounds.startMs;
+			const x = pad.l + (span <= 0 ? 0 : ((ms - windowBounds.startMs) / span) * innerW);
 			const range = maxY - minY;
 			const y = pad.t + innerH - (range === 0 ? 0.5 : (d.value - minY) / range) * innerH;
-			return { ...d, x, y };
+			return { ...d, x, y, ms };
 		})
 	);
 
@@ -110,36 +116,45 @@
 
 	const xAxisLabels = $derived.by(() => {
 		if (points.length === 0) return [] as { date: string; position: 'start' | 'center' | 'end' }[];
-		if (points.length === 1) {
-			return [{ date: points[0]!.date, position: 'start' as const }];
-		}
 
-		const startMs = new Date(`${points[0]!.date}T12:00:00.000Z`).getTime();
-		const endMs = new Date(`${points[points.length - 1]!.date}T12:00:00.000Z`).getTime();
-		const midMs = startMs + (endMs - startMs) / 2;
+		const span = windowBounds.endMs - windowBounds.startMs;
+		const midMs = windowBounds.startMs + span / 2;
 
-		let midIndex = 0;
-		let bestDiff = Number.POSITIVE_INFINITY;
-		for (let i = 0; i < points.length; i++) {
-			const ms = new Date(`${points[i]!.date}T12:00:00.000Z`).getTime();
-			const diff = Math.abs(ms - midMs);
-			if (diff < bestDiff) {
-				bestDiff = diff;
-				midIndex = i;
+		if (granularity === 'daily') {
+			if (points.length === 1) {
+				return [{ date: points[0]!.date, position: 'start' as const }];
 			}
-		}
 
-		if (midIndex === 0 || midIndex === points.length - 1) {
+			let midIndex = 0;
+			let bestDiff = Number.POSITIVE_INFINITY;
+			for (let i = 0; i < points.length; i++) {
+				const ms = parsePerformancePointMs(points[i]!.date);
+				const diff = Math.abs(ms - midMs);
+				if (diff < bestDiff) {
+					bestDiff = diff;
+					midIndex = i;
+				}
+			}
+
+			if (midIndex === 0 || midIndex === points.length - 1) {
+				return [
+					{ date: points[0]!.date, position: 'start' as const },
+					{ date: points[points.length - 1]!.date, position: 'end' as const }
+				];
+			}
+
 			return [
 				{ date: points[0]!.date, position: 'start' as const },
+				{ date: points[midIndex]!.date, position: 'center' as const },
 				{ date: points[points.length - 1]!.date, position: 'end' as const }
 			];
 		}
 
+		const midIso = new Date(midMs).toISOString().slice(0, 10);
 		return [
-			{ date: points[0]!.date, position: 'start' as const },
-			{ date: points[midIndex]!.date, position: 'center' as const },
-			{ date: points[points.length - 1]!.date, position: 'end' as const }
+			{ date: windowBounds.startIso, position: 'start' as const },
+			{ date: midIso, position: 'center' as const },
+			{ date: windowBounds.endIso, position: 'end' as const }
 		];
 	});
 
@@ -161,7 +176,14 @@
 	const activePoint = $derived(activeIndex !== null ? plotPoints[activeIndex] : null);
 
 	function formatAxisDate(iso: string): string {
-		return new Date(`${iso}T12:00:00.000Z`).toLocaleDateString('en-GB', {
+		const date = new Date(iso.length === 10 ? `${iso}T12:00:00.000Z` : iso);
+		if (iso.length > 10) {
+			return date.toLocaleTimeString('en-GB', {
+				hour: '2-digit',
+				minute: '2-digit'
+			});
+		}
+		return date.toLocaleDateString('en-GB', {
 			day: 'numeric',
 			month: 'short'
 		});
@@ -181,8 +203,19 @@
 			activeIndex = null;
 			return;
 		}
-		const ratio = innerX / innerW;
-		activeIndex = Math.round(ratio * (points.length - 1));
+
+		const span = windowBounds.endMs - windowBounds.startMs;
+		const targetMs = windowBounds.startMs + (innerX / innerW) * span;
+		let bestIndex = 0;
+		let bestDiff = Number.POSITIVE_INFINITY;
+		for (let i = 0; i < plotPoints.length; i++) {
+			const diff = Math.abs(plotPoints[i]!.ms - targetMs);
+			if (diff < bestDiff) {
+				bestDiff = diff;
+				bestIndex = i;
+			}
+		}
+		activeIndex = bestIndex;
 	}
 
 	function handlePointerLeave() {
