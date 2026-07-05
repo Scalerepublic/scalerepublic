@@ -3,7 +3,7 @@ export type ProxyEnv = {
     UNI_API_PROXY_SECRET: string
 }
 
-const ipv4Pattern = /^\d{1,3}(?:\.\d{1,3}){3}$/
+const ipv4Pattern = /^(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}$/
 
 const resolveUpstreamOrigin = (origin: string): string => {
     const trimmed = origin.replace(/\/$/, '')
@@ -31,7 +31,15 @@ const isAuthorized = (request: Request, secret: string): boolean => {
     if (configured === '') {
         return false
     }
-    return request.headers.get('X-Uni-Proxy-Secret') === configured
+    const provided = request.headers.get('X-Uni-Proxy-Secret') ?? ''
+    if (provided.length !== configured.length) {
+        return false
+    }
+    let mismatch = 0
+    for (let i = 0; i < configured.length; i += 1) {
+        mismatch |= configured.charCodeAt(i) ^ provided.charCodeAt(i)
+    }
+    return mismatch === 0
 }
 
 const redactTarget = (url: string): string => url.replace(/token=[^&]+/gi, 'token=[redacted]')
@@ -73,12 +81,8 @@ export default {
             console.error(
                 `[uni-proxy] upstream ${upstream.status} ${redactTarget(target)}: ${body.slice(0, 300)}`,
             )
-            return new Response(body, {
-                status: upstream.status,
-                statusText: upstream.statusText,
-                headers: upstream.headers.get('Content-Type')
-                    ? { 'Content-Type': upstream.headers.get('Content-Type')! }
-                    : undefined,
+            return new Response('Upstream request failed', {
+                status: upstream.status === 403 ? 403 : 502,
             })
         }
 

@@ -93,8 +93,8 @@ Both flows read from the **uni stock API** and write into Postgres. The frontend
 ```
 uni API (GET /stocks/{symbol})
         |
-        |  Bun / GitHub Actions (works)
-        |  Cloudflare Worker cron (cannot reach uni API in production, see below)
+        |  scalerepublic-uni-proxy (service binding + nip.io for IP origins)
+        |  Bun / GitHub Actions (direct to UNI_API_BASE_URL)
         v
 Postgres (stock, stock_price, stock_daily_bar)
         |
@@ -112,15 +112,17 @@ Frontend (market tab, detail sheet, portfolio)
 | `GET /stocks/{symbol}?token=...&date=YYYY-MM-DD` | Daily bar (open, high, low, close) and `stock_name` |
 | `GET /stocks/{symbol}/price?token=...` | Live price (not used; rate limit is too strict) |
 
-We use the daily endpoint for quotes as well: `getQuote()` derives a price from the day high/low range.
+`getQuote()` uses `stock_close` from the daily endpoint.
 
-Configuration (Worker secrets or local `.env`):
+Configuration:
 
-| Variable | Description |
-|----------|-------------|
-| `STOCK_API_PROVIDER` | Set to `uni` in staging/production |
-| `UNI_API_BASE_URL` | e.g. `http://123.123.123.123:2026` |
-| `UNI_API_TOKEN` | API token |
+| Variable | Where | Description |
+|----------|-------|-------------|
+| `STOCK_API_PROVIDER` | Worker var / `.env` | Set to `uni` in staging/production |
+| `UNI_API_TOKEN` | Secret | API token |
+| `UNI_API_BASE_URL` | Worker var / `.env` | `https://uni-api.internal` on Workers (service binding); direct URL for Bun/GHA |
+| `UNI_API_PROXY_SECRET` | Worker secret (backend + proxy) | Must match on both workers |
+| `UNI_API_ORIGIN` | Proxy worker secret | Upstream origin, e.g. `http://34.32.82.167:51810` (proxy rewrites IP to nip.io) |
 
 Rate limit from the provider: about **60 requests per minute**. Catalog backfill respects a per-run API budget (default 55 calls on the Worker, higher in GitHub Actions).
 
@@ -169,33 +171,23 @@ Imported tickers start with `company_name = ticker` and no bars. Backfill replac
 Each backfill pass, in order:
 
 1. **Names:** Stocks where `company_name = ticker`. One API call each, up to `CATALOG_BACKFILL_NAMES_PER_TICK`.
-2. **History:** Stocks with fewer than 30 bars in the rolling window. Up to `CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK` stocks, each receiving up to `CATALOG_BACKFILL_BARS_PER_STOCK` new bars.
+2. **History:** Stocks with fewer than ~22 bars in the rolling 30-day window (approx. trading days). Up to `CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK` stocks, each receiving up to `CATALOG_BACKFILL_BARS_PER_STOCK` new bars.
 
 A hard cap `CATALOG_BACKFILL_MAX_API_CALLS` limits total uni API calls per run. Calls are spaced out (~1s) to stay under the provider rate limit.
 
-**Priority:** When a user opens `/api/v1/stocks/{ticker}/detail` and cached history is missing, we set `stock.backfill_requested_at`. The next backfill pass prefers those tickers over alphabetical order.
+**Priority:** When a user opens `/api/v1/stocks/{ticker}/detail` and cached history is missing, we set `stock.backfill_requested_at`. The next backfill pass prefers those tickers. `/detail` is read-only; it does not prefetch bars on the request path.
 
-### Cloudflare Worker limitation (important)
+### Worker uni API access
 
-Deployed Workers **cannot** call the uni API at `http://<ip>:51810` in production:
-
-- Outbound `fetch()` does not use custom ports on arbitrary hosts.
-- Requests to bare IPs are restricted.
-
-The Worker **does** log `[uniapi] GET ...` before `fetch`, so logs can look successful even when no data is returned. `getDailyBar()` then returns `null` and nothing is written.
-
-**Implication:**
+Deployed Workers reach the uni API through the **uni-api-proxy** worker via service binding (`UNI_API_PROXY`). The backend calls `https://uni-api.internal/stocks/...`; the proxy forwards to `UNI_API_ORIGIN` and rewrites bare IPv4 hosts to nip.io to avoid Cloudflare error 1003.
 
 | Action | Works on Worker? |
 |--------|------------------|
 | Read `/detail` from Postgres after backfill | Yes |
-| Live fetch on first market-tab click | No (until uni API is on HTTPS port 443 with a hostname) |
-| Worker hourly cron calling uni API | No |
-| GitHub Actions / local Bun backfill | Yes |
+| Worker hourly cron (tracked sync + catalog backfill) | Yes (via proxy) |
+| GitHub Actions / local Bun backfill | Yes (direct URL) |
 
-Catalog backfill for staging/production must run **outside** the Worker (see below). The Worker cron still runs tracked-ticker logic and attempts catalog backfill, but only the DB read path is reliable in production today.
-
-**Long-term fix:** Put the uni API behind a domain on port 443 (reverse proxy or tunnel) and point `UNI_API_BASE_URL` at that URL. Then on-demand `/detail` prefetch and Worker cron can call the API directly.
+GitHub Actions remains useful for higher throughput (400 API calls per 15 minutes vs 55 per Worker cron hour).
 
 ### GitHub Actions (staging catalog backfill)
 
@@ -240,14 +232,14 @@ bun run db:import-tickers:staging
 
 **Code:** `StockService.getStockDetail()`
 
-1. Load `stock` row.
-2. If fewer than 2 cached daily bars: mark `backfill_requested_at`, attempt prefetch (works on Bun, not on Worker against `:51810`).
-3. Resolve company name if still placeholder.
-4. Build `priceHistory` from `stock_daily_bar` (and any `stock_price` rows in range).
-5. Seed `stock_price` from the latest bar close if no price exists.
-6. Return performance metrics and history JSON.
+Read-only handler:
 
-The frontend polls `/detail` for up to two minutes when history is still empty, so data can appear shortly after a GitHub Actions backfill without a full page reload.
+1. Load `stock` row.
+2. If fewer than 2 cached daily bars: mark `backfill_requested_at` for the next catalog backfill pass.
+3. Build `priceHistory` from `stock_daily_bar` (and any `stock_price` rows in range).
+4. Return performance metrics and history JSON from cache.
+
+The frontend polls `/detail` with exponential backoff when history is still empty, so data can appear after Worker cron or GitHub Actions backfill without a full page reload.
 
 ### Environment variables
 

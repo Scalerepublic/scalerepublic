@@ -23,6 +23,7 @@
 				"CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK": "8",
 				"CATALOG_BACKFILL_BARS_PER_STOCK": "10",
 				"CATALOG_BACKFILL_MAX_API_CALLS": "55",
+				"DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES": "0",
 				"UNI_API_BASE_URL": "https://uni-api.internal"
 			},
 			"hyperdrive": [
@@ -60,6 +61,7 @@
 				"CATALOG_BACKFILL_HISTORY_STOCKS_PER_TICK": "8",
 				"CATALOG_BACKFILL_BARS_PER_STOCK": "10",
 				"CATALOG_BACKFILL_MAX_API_CALLS": "55",
+				"DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES": "0",
 				"UNI_API_BASE_URL": "https://uni-api.internal"
 			},
 			"hyperdrive": [

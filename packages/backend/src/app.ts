@@ -9,6 +9,7 @@ import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.rou
 import { registerMarketDebugRoutes } from "./modules/market-debug/index.ts";
 import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
 import { registerStockRoutes } from "./modules/stock/stock.routes.ts";
+import { UNI_API_PROXY_BASE_URL } from "./lib/uni-api-proxy.ts";
 import type { UniApiSubfetch } from "./modules/stockapi/uni-stock-client.ts";
 import { registerUserRoutes } from "./modules/user/user.routes.ts";
 
@@ -32,8 +33,6 @@ const createUniApiSubfetch = (proxy: Fetcher | undefined): UniApiSubfetch | unde
         return proxy.fetch(request) as Promise<Response>;
     };
 };
-
-const UNI_API_PROXY_BASE_URL = 'https://uni-api.internal';
 
 const hasConnectionString = (env: unknown): env is WorkerBindings =>
     typeof (env as Partial<WorkerBindings> | undefined)?.HYPERDRIVE?.connectionString === "string"

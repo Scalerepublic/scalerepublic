@@ -76,7 +76,8 @@ export const API_CACHE_TTL_MS = {
 	stocksTrending: Number(import.meta.env.VITE_STOCKS_TRENDING_CACHE_TTL_MS ?? 60_000),
 	stocksSectors: Number(import.meta.env.VITE_STOCKS_SECTORS_CACHE_TTL_MS ?? 600_000),
 	portfolio: Number(import.meta.env.VITE_PORTFOLIO_CACHE_TTL_MS ?? 15_000),
-	marketClock: Number(import.meta.env.VITE_MARKET_CLOCK_CACHE_TTL_MS ?? 60_000)
+	marketClock: Number(import.meta.env.VITE_MARKET_CLOCK_CACHE_TTL_MS ?? 60_000),
+	leaderboard: Number(import.meta.env.VITE_LEADERBOARD_CACHE_TTL_MS ?? 30_000)
 } as const;
 
 export function buildStocksListCacheKey(options: {

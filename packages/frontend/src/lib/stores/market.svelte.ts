@@ -13,6 +13,7 @@ import {
 import { api, parseApiData } from '$lib/api/client';
 import { mapStockSummary } from '$lib/api/mappers';
 import { getCachedStockDetail } from '$lib/stores/stock-detail-cache';
+import { periodChangeToAmount } from '$lib/stock-performance';
 import type { Stock } from '$lib/types';
 
 const TRENDING_CACHE_KEY = 'v1/stocks/trending';
@@ -37,7 +38,7 @@ function withPerformanceMetrics(
 	}
 
 	const displayPercent = periodChangePercent;
-	const displayChange = stock.currentPrice - stock.currentPrice / (1 + displayPercent / 100);
+	const displayChange = periodChangeToAmount(stock.currentPrice, displayPercent);
 
 	return {
 		...stock,
@@ -169,7 +170,9 @@ class MarketStore {
 			this.rememberStocks(this.trending);
 			this.error = null;
 		} catch (e) {
-			this.error = e instanceof Error ? e.message : 'Failed to load trending stocks';
+			if (!silent) {
+				this.error = e instanceof Error ? e.message : 'Failed to load trending stocks';
+			}
 		} finally {
 			if (!silent) {
 				this.loadingTrending = false;
@@ -280,7 +283,9 @@ class MarketStore {
 			if (requestId !== this.browseRequestId) {
 				return;
 			}
-			this.error = e instanceof Error ? e.message : 'Failed to load stocks';
+			if (!silent) {
+				this.error = e instanceof Error ? e.message : 'Failed to load stocks';
+			}
 		} finally {
 			if (requestId === this.browseRequestId && !silent) {
 				this.loadingBrowse = false;

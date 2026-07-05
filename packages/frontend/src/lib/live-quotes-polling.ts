@@ -3,8 +3,13 @@ import { marketStore } from '$lib/stores/market.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
 import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
 
-const POLL_MS = Number(import.meta.env.VITE_LIVE_QUOTES_POLL_MS ?? 15_000);
-const LEADERBOARD_POLL_MS = Number(import.meta.env.VITE_LEADERBOARD_POLL_MS ?? 30_000);
+const readPollMs = (value: string | undefined, fallback: number): number => {
+	const parsed = Number(value ?? fallback);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const POLL_MS = readPollMs(import.meta.env.VITE_LIVE_QUOTES_POLL_MS, 15_000);
+const LEADERBOARD_POLL_MS = readPollMs(import.meta.env.VITE_LEADERBOARD_POLL_MS, 30_000);
 
 function refreshQuotes() {
 	if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {

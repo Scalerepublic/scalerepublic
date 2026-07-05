@@ -2,27 +2,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { createDb } from '../src/db/index.ts'
+import { resolveDatabaseUrl } from '../src/lib/resolve-database-url.ts'
 
 const BATCH_SIZE = 500
 const TICKERS_PATH = resolve(import.meta.dir, '../data/uni-tickers.json')
-
-const resolveDatabaseUrl = (url: string): string => {
-    try {
-        const parsed = new URL(url.replace(/^postgresql:/, 'postgres:'))
-        const isRemotePostgres =
-            parsed.hostname !== 'localhost'
-            && parsed.hostname !== '127.0.0.1'
-            && parsed.hostname !== 'postgres'
-
-        if (isRemotePostgres && !parsed.searchParams.has('sslmode')) {
-            parsed.searchParams.set('sslmode', 'require')
-        }
-
-        return parsed.toString().replace(/^postgres:/, 'postgresql:')
-    } catch {
-        return url
-    }
-}
 
 const loadTickers = (): string[] => {
     const raw = readFileSync(TICKERS_PATH, 'utf8')

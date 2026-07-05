@@ -61,5 +61,6 @@ export const stock = pgTable(
     },
     (table) => [
         index("stock_ticker_idx").on(table.ticker),
+        index("stock_backfill_requested_at_idx").on(table.backfillRequestedAt),
     ],
 );

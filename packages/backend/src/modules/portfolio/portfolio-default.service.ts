@@ -34,8 +34,15 @@ export class PortfolioDefaultService {
             .from(portfolio)
             .where(eq(portfolio.status, 'ACTIVE'));
 
-        for (const row of activePortfolios) {
-            await this.checkPortfolio(row.id);
+        const results = await Promise.allSettled(
+            activePortfolios.map((row) => this.checkPortfolio(row.id)),
+        )
+
+        for (const result of results) {
+            if (result.status === 'rejected') {
+                const message = result.reason instanceof Error ? result.reason.message : String(result.reason)
+                console.error(`[portfolio-default] check failed: ${message}`)
+            }
         }
     }
 

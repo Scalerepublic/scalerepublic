@@ -1,14 +1,7 @@
 import { z } from 'zod'
 
 import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from './stock-data-client.ts'
-
-
-// Endpoint currently unused because of the rate limit
-// const PriceResponseSchema = z.object({
-//     stock_symbol: z.string(),
-//     stock_name: z.string(),
-//     stock_price: z.number(),
-// })
+import { UNI_API_PROXY_BASE_URL } from '../../lib/uni-api-proxy.ts'
 
 const DailyResponseSchema = z.object({
     stock_symbol: z.string(),
@@ -25,8 +18,6 @@ export type UniApiSubfetch = (
     init?: RequestInit,
 ) => Promise<Response>
 
-const UNI_API_PROXY_BASE_URL = 'https://uni-api.internal'
-
 export class UniStockClient implements StockDataClient {
     readonly source = 'uni_api'
     private readonly token: string
@@ -39,6 +30,10 @@ export class UniStockClient implements StockDataClient {
         this.token = t
 
         if (subfetch !== undefined) {
+            const proxySecret = process.env['UNI_API_PROXY_SECRET']?.trim()
+            if (proxySecret === undefined || proxySecret === '') {
+                throw new Error('UNI_API_PROXY_SECRET env var is required when using the uni API proxy binding')
+            }
             const u = baseUrl ?? process.env['UNI_API_BASE_URL'] ?? UNI_API_PROXY_BASE_URL
             this.baseUrl = this.normalizeBaseUrl(u)
         } else {
@@ -96,26 +91,17 @@ export class UniStockClient implements StockDataClient {
             const detail = body.length > 0 ? `: ${body.slice(0, 500)}` : ''
             throw new Error(`Uni API error: ${res.status} ${res.statusText}${detail}`)
         }
-        const json = await res.json()
-        if (query['date'] !== undefined) {
-            console.log(`[uniapi] response ${path} date=${query['date']} ${JSON.stringify(json)}`)
-        }
-        return json
+        return res.json()
     }
 
     async getQuote(symbol: string): Promise<StockQuote> {
-        // The /price endpoint is rate-limited to 1 request per hor per symbol which is
-        // atrocious for testing. Since it just returns a random number between that days
-        // high and low, we just replicate it here.
         const raw = await this.get(`/stocks/${symbol}`)
         const data = DailyResponseSchema.parse(raw)
-        const price = data.stock_low + Math.random() * (data.stock_high - data.stock_low)
-        return { symbol: data.stock_symbol, price, tradingDay: new Date(data.date) }
-
-        // Original price endpoint. We may want to enable this in production
-        // const raw = await this.get(`/stocks/${symbol}/price`)
-        // const data = PriceResponseSchema.parse(raw)
-        // return { symbol: data.stock_symbol, price: data.stock_price, tradingDay: new Date() }
+        return {
+            symbol: data.stock_symbol,
+            price: data.stock_close,
+            tradingDay: new Date(data.date),
+        }
     }
 
     private formatDateParam(date: Date): string {
@@ -124,7 +110,8 @@ export class UniStockClient implements StockDataClient {
 
     async getDailyBar(symbol: string, date?: Date): Promise<StockDailyBar | null> {
         try {
-            const query = date === undefined ? {} : { date: this.formatDateParam(date) }
+            const query: Record<string, string> =
+                date === undefined ? {} : { date: this.formatDateParam(date) }
             const raw = await this.get(`/stocks/${symbol}`, query)
             const data = DailyResponseSchema.parse(raw)
             return {
@@ -154,7 +141,7 @@ export class UniStockClient implements StockDataClient {
                 description: data.stock_name,
             }
         } catch {
-            return { name: symbol, exchange: 'UNKNOWN', currency: 'USD', description: symbol }
+            return null
         }
     }
 }

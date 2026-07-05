@@ -8,6 +8,7 @@
 	import type { PerformanceGranularity, PerformancePoint } from '$lib/performance-history';
 	import { getCachedStockDetail, setCachedStockDetail } from '$lib/stores/stock-detail-cache';
 	import { marketStore } from '$lib/stores/market.svelte';
+	import { periodChangeToAmount } from '$lib/stock-performance';
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
 	import { portal } from '$lib/actions/portal';
@@ -37,6 +38,7 @@
 	let chartGranularity = $state<PerformanceGranularity>('daily');
 
 	const STOCK_CHART_HISTORY_DAYS = 30;
+	const MAX_DETAIL_POLL_ATTEMPTS = 12;
 
 	function resolveDetailPrice(loaded: BackendStockDetail | null, fallbackPrice: number): number {
 		if (loaded?.performance.latestPrice != null) {
@@ -58,14 +60,11 @@
 	const displayChangePercent = $derived(periodChangePercent ?? dayChangePercent);
 	const displayChangeAmount = $derived.by(() => {
 		if (periodChangePercent !== null) {
-			return displayPrice - displayPrice / (1 + periodChangePercent / 100);
+			return periodChangeToAmount(displayPrice, periodChangePercent);
 		}
 		return dayChange;
 	});
-	const description = $derived(
-		detail?.stock.description?.trim() ||
-			`this stock (${detail?.stock.companyName ?? stock.name}) is good because i like it`
-	);
+	const description = $derived(detail?.stock.description?.trim() || null);
 
 	const chartData = $derived.by((): PerformancePoint[] => {
 		const history = detail?.priceHistory ?? [];
@@ -74,7 +73,12 @@
 
 	const showChart = $derived(chartData.length >= 2);
 	const missingMarketData = $derived(!loading && !error && (detail?.priceHistory.length ?? 0) < 2);
+	const canTrade = $derived(showChart && !loading && !missingMarketData);
 	let pollAttempts = $state(0);
+
+	function pollDelayMs(attempt: number): number {
+		return Math.min(5_000 * 2 ** attempt, 30_000);
+	}
 
 	$effect(() => {
 		if (!open || !missingMarketData) {
@@ -82,7 +86,7 @@
 			return;
 		}
 
-		if (pollAttempts >= 24) {
+		if (pollAttempts >= MAX_DETAIL_POLL_ATTEMPTS) {
 			return;
 		}
 
@@ -90,7 +94,7 @@
 		const timeout = window.setTimeout(() => {
 			pollAttempts += 1;
 			void loadDetail(ticker, { silent: true });
-		}, 5000);
+		}, pollDelayMs(pollAttempts));
 
 		return () => window.clearTimeout(timeout);
 	});
@@ -150,7 +154,9 @@
 			});
 		} catch (e) {
 			if (activeTicker !== ticker) return;
-			error = e instanceof Error ? e.message : 'Could not load stock details.';
+			if (!options?.silent) {
+				error = e instanceof Error ? e.message : 'Could not load stock details.';
+			}
 		} finally {
 			if (activeTicker === ticker) {
 				loading = false;
@@ -159,12 +165,18 @@
 	}
 
 	function close() {
+		tradeOpen = false;
 		open = false;
 		activeTicker = null;
 	}
 
 	function onBackdropKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') close();
+		if (event.key !== 'Escape') return;
+		if (tradeOpen) {
+			tradeOpen = false;
+			return;
+		}
+		close();
 	}
 </script>
 
@@ -256,7 +268,7 @@
 							</div>
 						{:else if missingMarketData}
 							<p class="text-sm text-muted-foreground">
-								{#if pollAttempts < 24}
+								{#if pollAttempts < MAX_DETAIL_POLL_ATTEMPTS}
 									Loading market data from backfill queue…
 								{:else}
 									Market data is not cached yet. Open again later or run a catalog backfill for this
@@ -265,12 +277,14 @@
 							</p>
 						{/if}
 
-						<div>
-							<p class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-								About
-							</p>
-							<p class="mt-2 text-sm leading-relaxed text-foreground/90">{description}</p>
-						</div>
+						{#if description}
+							<div>
+								<p class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+									About
+								</p>
+								<p class="mt-2 text-sm leading-relaxed text-foreground/90">{description}</p>
+							</div>
+						{/if}
 
 						{#if detail?.stock.isAccumulating !== null && detail?.stock.isAccumulating !== undefined}
 							<div>
@@ -287,7 +301,12 @@
 			</div>
 
 			<div class="border-t border-border px-5 py-4">
-				<NobleButton type="button" class="h-10 w-full" onclick={() => (tradeOpen = true)}>
+				<NobleButton
+					type="button"
+					class="h-10 w-full"
+					disabled={!canTrade}
+					onclick={() => (tradeOpen = true)}
+				>
 					Buy {stock.ticker}
 				</NobleButton>
 			</div>
