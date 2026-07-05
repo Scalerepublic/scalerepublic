@@ -4,6 +4,7 @@ import { type App, type AppEnv, type AppVars, createAppContext, useCtx } from ".
 import { createDb, type DbClient } from "./db/index.ts";
 import { isMarketDebugEnabled } from "./lib/market-debug.ts";
 import { registerAuthRoutes } from "./modules/auth/auth.routes.ts";
+import { registerAutoTradeRoutes } from "./modules/autotrade/autotrade.routes.ts";
 import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.routes.ts";
 import { registerMarketDebugRoutes } from "./modules/market-debug/index.ts";
 import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
@@ -88,6 +89,7 @@ export const createApp = (staticCtx?: AppVars): App => {
     registerUserRoutes(app);
     registerLeaderboardRoutes(app);
     registerPortfolioRoutes(app);
+    registerAutoTradeRoutes(app);
     // Always registered: the /api/v1/market/clock endpoint must exist even when
     // market debug is disabled (it returns the real, non-simulated date). The
     // /api/v1/debug/* endpoints self-gate via requireMarketDebugOperator.
