@@ -134,11 +134,7 @@
 </div>
 
 {#if sellTarget && !readOnly}
-	<SellTradeSheet
-		bind:open={sellOpen}
-		stock={sellTarget.stock}
-		maxQuantity={sellTarget.shares}
-	/>
+	<SellTradeSheet bind:open={sellOpen} stock={sellTarget.stock} maxQuantity={sellTarget.shares} />
 {/if}
 
 {#if detailStock}

@@ -50,7 +50,7 @@
 	{maxQuantity}
 	confirmLabel="Confirm sell"
 	submitDisabled={exceedsHoldings || quantity < 1}
-	getQuantityError={getQuantityError}
+	{getQuantityError}
 	onsubmit={submit}
 >
 	{#snippet marketPrice()}
@@ -65,7 +65,8 @@
 	{#snippet summary()}
 		<div class="space-y-2">
 			<p class="text-xs text-muted-foreground">
-				You can sell {maxQuantity} {maxQuantity === 1 ? 'share' : 'shares'}
+				You can sell {maxQuantity}
+				{maxQuantity === 1 ? 'share' : 'shares'}
 			</p>
 			<div class="flex items-center justify-between gap-3">
 				<p class="text-sm text-muted-foreground">Estimated Sum:</p>

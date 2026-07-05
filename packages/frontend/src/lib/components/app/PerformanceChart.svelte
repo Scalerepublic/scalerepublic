@@ -62,8 +62,7 @@
 							p != null && typeof p.date === 'string' && Number.isFinite(p.value)
 					)
 				: [],
-			granularity,
-			mode
+			granularity
 		)
 	);
 

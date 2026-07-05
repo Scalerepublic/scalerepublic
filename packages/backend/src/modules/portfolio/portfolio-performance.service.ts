@@ -145,9 +145,7 @@ export class PortfolioPerformanceService {
             new Date(dayStart.getTime() - 1),
         );
 
-        const stockIds = [...openingHoldings.entries()]
-            .filter(([, quantity]) => quantity > 0)
-            .map(([stockId]) => stockId);
+        const stockIds = [...new Set(trades.map((row) => row.stockId))];
 
         const priceSeries = stockIds.length > 0
             ? await this.ctx.stockService.getPriceSnapshotsByStockIds(stockIds, dayStart, dayEnd)
