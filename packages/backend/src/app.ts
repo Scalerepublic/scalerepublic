@@ -1,3 +1,4 @@
+import type { Fetcher } from "@cloudflare/workers-types";
 import { Hono } from "hono";
 
 import { type App, type AppEnv, type AppVars, createAppContext, useCtx } from "./context.ts";
@@ -8,6 +9,7 @@ import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.rou
 import { registerMarketDebugRoutes } from "./modules/market-debug/index.ts";
 import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
 import { registerStockRoutes } from "./modules/stock/stock.routes.ts";
+import type { UniApiSubfetch } from "./modules/stockapi/uni-stock-client.ts";
 import { registerUserRoutes } from "./modules/user/user.routes.ts";
 
 /**
@@ -16,8 +18,19 @@ import { registerUserRoutes } from "./modules/user/user.routes.ts";
  */
 export type WorkerBindings = {
     HYPERDRIVE: { connectionString: string };
+    UNI_API_PROXY?: Fetcher;
     BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_URL?: string;
+};
+
+const createUniApiSubfetch = (proxy: Fetcher | undefined): UniApiSubfetch | undefined => {
+    if (proxy === undefined) {
+        return undefined;
+    }
+    return (input: string | URL | Request, init?: RequestInit) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        return proxy.fetch(request) as Promise<Response>;
+    };
 };
 
 const hasConnectionString = (env: unknown): env is WorkerBindings =>
@@ -38,6 +51,7 @@ export const createWorkerContext = (env: WorkerBindings): { ctx: AppVars; client
             secret: env.BETTER_AUTH_SECRET,
             baseURL: env.BETTER_AUTH_URL,
         },
+        uniApiSubfetch: createUniApiSubfetch(env.UNI_API_PROXY),
     });
     return { ctx, client };
 };

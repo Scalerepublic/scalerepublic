@@ -20,12 +20,18 @@ const DailyResponseSchema = z.object({
     date: z.string(),
 })
 
+export type UniApiSubfetch = (
+    input: string | URL | Request,
+    init?: RequestInit,
+) => Promise<Response>
+
 export class UniStockClient implements StockDataClient {
     readonly source = 'uni_api'
     private readonly token: string
     private readonly baseUrl: string
+    private readonly subfetch: UniApiSubfetch | undefined
 
-    constructor(token?: string, baseUrl?: string) {
+    constructor(token?: string, baseUrl?: string, subfetch?: UniApiSubfetch) {
         const t = token ?? process.env['UNI_API_TOKEN']
         if (t === undefined || t === '') throw new Error('UNI_API_TOKEN env var is required for the uni stock client')
         this.token = t
@@ -33,6 +39,11 @@ export class UniStockClient implements StockDataClient {
         const u = baseUrl ?? process.env['UNI_API_BASE_URL']
         if (u === undefined || u === '') throw new Error('UNI_API_BASE_URL env var is required')
         this.baseUrl = this.normalizeBaseUrl(u)
+        this.subfetch = subfetch
+    }
+
+    private resolveFetch(): UniApiSubfetch {
+        return this.subfetch ?? fetch
     }
 
     private normalizeBaseUrl(url: string): string {
@@ -56,6 +67,14 @@ export class UniStockClient implements StockDataClient {
         return copy.toString()
     }
 
+    private proxyRequestHeaders(): Record<string, string> {
+        const secret = process.env['UNI_API_PROXY_SECRET']?.trim()
+        if (secret === undefined || secret === '') {
+            return {}
+        }
+        return { 'X-Uni-Proxy-Secret': secret }
+    }
+
     private async get(path: string, query: Record<string, string> = {}): Promise<unknown> {
         const url = new URL(`${this.baseUrl}${path}`)
         for (const [key, value] of Object.entries(query)) {
@@ -63,7 +82,7 @@ export class UniStockClient implements StockDataClient {
         }
         url.searchParams.set('token', this.token)
         console.log(`[uniapi] GET ${this.redactRequestUrl(url)}`)
-        const res = await fetch(url.toString())
+        const res = await this.resolveFetch()(url.toString(), { headers: this.proxyRequestHeaders() })
         if (!res.ok) {
             const body = await res.text()
             const detail = body.length > 0 ? `: ${body.slice(0, 500)}` : ''
