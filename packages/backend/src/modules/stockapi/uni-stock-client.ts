@@ -81,7 +81,8 @@ export class UniStockClient implements StockDataClient {
             url.searchParams.set(key, value)
         }
         url.searchParams.set('token', this.token)
-        console.log(`[uniapi] GET ${this.redactRequestUrl(url)}`)
+        const transport = this.subfetch !== undefined ? 'service-binding' : 'direct'
+        console.log(`[uniapi] GET ${this.redactRequestUrl(url)} via ${transport}`)
         const res = await this.resolveFetch()(url.toString(), { headers: this.proxyRequestHeaders() })
         if (!res.ok) {
             const body = await res.text()

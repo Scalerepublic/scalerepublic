@@ -16,8 +16,8 @@ type CronController = { cron: string; scheduledTime: number };
 type CronExecutionContext = { waitUntil(promise: Promise<unknown>): void };
 
 export default {
-    // Cloudflare Workers and Bun both consume this `fetch` handler.
-    fetch: app.fetch,
+    fetch: (request: Request, env: WorkerBindings, ctx: ExecutionContext) =>
+        app.fetch(request, env, ctx),
     // `port`/`hostname` are used by Bun and ignored by the Workers runtime.
     port: Number(process.env.PORT ?? 3000),
     hostname: "0.0.0.0",

@@ -33,6 +33,8 @@ const createUniApiSubfetch = (proxy: Fetcher | undefined): UniApiSubfetch | unde
     };
 };
 
+const UNI_API_PROXY_BASE_URL = 'https://uni-api.internal';
+
 const hasConnectionString = (env: unknown): env is WorkerBindings =>
     typeof (env as Partial<WorkerBindings> | undefined)?.HYPERDRIVE?.connectionString === "string"
     && (env as WorkerBindings).HYPERDRIVE.connectionString !== "";
@@ -46,12 +48,20 @@ const hasConnectionString = (env: unknown): env is WorkerBindings =>
  */
 export const createWorkerContext = (env: WorkerBindings): { ctx: AppVars; client: DbClient } => {
     const { db, client } = createDb(env.HYPERDRIVE.connectionString);
+    const uniApiSubfetch = createUniApiSubfetch(env.UNI_API_PROXY);
+    if (uniApiSubfetch === undefined) {
+        const baseUrl = process.env['UNI_API_BASE_URL'] ?? '';
+        if (/:\/\/\d{1,3}(?:\.\d{1,3}){3}/.test(baseUrl)) {
+            console.warn('[uniapi] UNI_API_PROXY binding missing while UNI_API_BASE_URL points at an IP; fetches will fail on Workers');
+        }
+    }
     const ctx = createAppContext(db, {
         auth: {
             secret: env.BETTER_AUTH_SECRET,
             baseURL: env.BETTER_AUTH_URL,
         },
-        uniApiSubfetch: createUniApiSubfetch(env.UNI_API_PROXY),
+        uniApiSubfetch,
+        uniApiBaseUrl: uniApiSubfetch !== undefined ? UNI_API_PROXY_BASE_URL : undefined,
     });
     return { ctx, client };
 };

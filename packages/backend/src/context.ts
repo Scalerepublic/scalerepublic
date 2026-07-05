@@ -45,6 +45,7 @@ export const useCtx = (c: AppContext): AppVars => c.get('ctx')
 export type AppContextOptions = {
     auth?: AuthOptions
     uniApiSubfetch?: UniApiSubfetch
+    uniApiBaseUrl?: string
 }
 
 export const createAppContext = (
@@ -58,7 +59,11 @@ export const createAppContext = (
     if (process.env.NODE_ENV === 'test') {
         ctx.stockDataClient = new MockStockDataClient()
     } else if (process.env['STOCK_API_PROVIDER'] === 'uni') {
-        ctx.stockDataClient = new UniStockClient(undefined, undefined, options.uniApiSubfetch)
+        ctx.stockDataClient = new UniStockClient(
+            undefined,
+            options.uniApiBaseUrl,
+            options.uniApiSubfetch,
+        )
     } else {
         ctx.stockDataClient = new AlphaVantageStockClient()
     }
