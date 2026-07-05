@@ -12,8 +12,19 @@ import { getSectorTickers, MARKET_SECTORS, type MarketSectorId } from './market-
 
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
-const ON_DEMAND_DETAIL_BAR_FETCHES = HISTORY_DAYS
 const MIN_BARS_FOR_METRICS = 2
+
+const readDetailOnDemandPrefetchMaxFetches = (): number => {
+    const raw = process.env['DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES']
+    if (raw === undefined || raw.trim() === '') {
+        return HISTORY_DAYS
+    }
+    const parsed = Number(raw)
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return HISTORY_DAYS
+    }
+    return Math.floor(parsed)
+}
 
 export { HISTORY_DAYS, MAX_DAILY_BAR_FETCHES }
 
@@ -981,29 +992,14 @@ export class StockService {
         stockId: string,
         ticker: string,
         days: number,
+        maxFetches: number,
     ): Promise<string | null> {
-        const first = await this.cacheMissingDailyBars(
+        const { resolvedName } = await this.cacheMissingDailyBars(
             stockId,
             ticker,
             days,
-            ON_DEMAND_DETAIL_BAR_FETCHES,
+            maxFetches,
         )
-        let resolvedName = first.resolvedName
-
-        const history = await this.getCachedDailyBarHistory(stockId, days)
-        if (history.length >= Math.min(days, MIN_BARS_FOR_METRICS)) {
-            return resolvedName
-        }
-
-        const second = await this.cacheMissingDailyBars(
-            stockId,
-            ticker,
-            days,
-            ON_DEMAND_DETAIL_BAR_FETCHES,
-        )
-        if (second.resolvedName !== null) {
-            resolvedName = second.resolvedName
-        }
         return resolvedName
     }
 
@@ -1053,13 +1049,17 @@ export class StockService {
         const cache = await this.detailCacheIsWarm(stockRow.id, historyDays)
         if (!cache.warm) {
             await this.requestBackfillPriority(stockRow.id)
-            const resolvedName = await this.prefetchDetailHistoryReturningName(
-                stockRow.id,
-                stockRow.ticker,
-                historyDays,
-            )
-            if (resolvedName !== null && resolvedName !== '') {
-                await this.applyResolvedName(stockRow.id, stockRow.ticker, resolvedName)
+            const maxPrefetch = readDetailOnDemandPrefetchMaxFetches()
+            if (maxPrefetch > 0) {
+                const resolvedName = await this.prefetchDetailHistoryReturningName(
+                    stockRow.id,
+                    stockRow.ticker,
+                    historyDays,
+                    maxPrefetch,
+                )
+                if (resolvedName !== null && resolvedName !== '') {
+                    await this.applyResolvedName(stockRow.id, stockRow.ticker, resolvedName)
+                }
             }
         }
 
