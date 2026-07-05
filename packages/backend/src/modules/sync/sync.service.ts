@@ -12,6 +12,7 @@ const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 1000
 const RATE_LIMIT_BATCH_SIZE = 5
 const RATE_LIMIT_WINDOW_MS = 1000
+const AUTO_TRADE_BATCH_SIZE = 20
 // Time after which a new instance is allowed to retake a taken lock
 // Essentially the maximum time the sync should take. Longer and we
 // assume another instance crashed while holding the lock
@@ -128,6 +129,31 @@ export class SyncService {
         await this.runSync(tickers)
     }
 
+    async checkAllAutoTrades(): Promise<void> {
+        const expired = await this.ctx.autoTradeService.expireAutoTrades()
+        if (expired > 0) console.log(`[autotrade] Expired ${expired} rule(s)`)
+
+        const rules = await this.ctx.autoTradeService.getActiveAutoTrades()
+        if (rules.length === 0) return
+
+        console.log(`[autotrade] Evaluating ${rules.length} active rule(s)`)
+        const batches = chunk(rules, AUTO_TRADE_BATCH_SIZE)
+        for (const batch of batches) {
+            const results = await Promise.allSettled(
+                batch.map(rule => this.ctx.autoTradeService.executeAutoTrade(rule)),
+            )
+            results.forEach((r, i) => {
+                const rule = batch[i]!
+                if (r.status === 'fulfilled') {
+                    if (r.value) console.log(`[autotrade] Rule ${rule.id} triggered → trade ${r.value.id}`)
+                } else {
+                    const message = r.reason instanceof Error ? r.reason.message : String(r.reason)
+                    console.error(`[autotrade] Rule ${rule.id} failed: ${message}`)
+                }
+            })
+        }
+    }
+
     /**
      * Runs a single scheduler tick: claims the DB lock, syncs if due, and
      * releases the lock. Safe to invoke from a Cloudflare Cron Trigger
@@ -160,6 +186,8 @@ export class SyncService {
                     lockedBy: null,
                 }).where(eq(syncJob.id, JOB_ID))
                 console.log('[sync] Completed successfully')
+                // Auto-trades first (they move cash/holdings), then defaults on the result.
+                await this.checkAllAutoTrades()
                 await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)

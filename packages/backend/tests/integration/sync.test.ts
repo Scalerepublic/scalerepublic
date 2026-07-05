@@ -6,8 +6,10 @@ import { createAppContext } from '../../src/context.ts'
 import { db } from '../../src/db/index.ts'
 import { stockPrice } from '../../src/db/schema/stock/market.ts'
 import { stock } from '../../src/db/schema/stock/stock.ts'
+import { autoTradeRule } from '../../src/db/schema/trade/autoTrade.ts'
+import { trade } from '../../src/db/schema/trade/trade.ts'
 import { MockStockDataClient } from '../../src/modules/stockapi/mock-stock-client.ts'
-import { resetDb } from '../helpers/db.ts'
+import { resetDb, seedPortfolio, seedPrice, seedStock } from '../helpers/db.ts'
 
 const mockClient = new MockStockDataClient()
 const ctx = createAppContext()
@@ -45,6 +47,9 @@ describe('SyncService.syncOnce', () => {
 
         await ctx.syncService.syncOnce(['AAPL'])
 
+        // Age the first tick so the re-sync records a distinct recordedAt
+        await db.update(stockPrice).set({ recordedAt: new Date(Date.now() - 60 * 60 * 1000) })
+
         mockClient.setQuote('AAPL', 175)
         await ctx.syncService.syncOnce(['AAPL'])
 
@@ -64,5 +69,48 @@ describe('SyncService.syncOnce', () => {
 
         const stocks = await db.select().from(stock)
         expect(stocks).toHaveLength(0)
+    })
+})
+
+describe('SyncService.runDueTick executes auto-trades', () => {
+    const getRule = async (id: string) => {
+        const [row] = await db.select().from(autoTradeRule).where(eq(autoTradeRule.id, id))
+        return row
+    }
+
+    test('triggers a rule whose threshold is met and records the linked trade', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { stockId } = await seedStock()
+        await seedPrice(stockId, 20)
+
+        const rule = await ctx.autoTradeService.createAutoTrade({
+            portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 5,
+        })
+
+        // Empty ticker list: no external price sync, just the auto-trade pass.
+        await ctx.syncService.runDueTick([])
+
+        expect((await getRule(rule.id))!.status).toBe('TRIGGERED')
+
+        const trades = await db.select().from(trade).where(eq(trade.portfolioId, portfolioId))
+        expect(trades).toHaveLength(1)
+        expect(trades[0]!.autoTradeRuleId).toBe(rule.id)
+    })
+
+    test('leaves a rule whose threshold is unmet ACTIVE', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { stockId } = await seedStock()
+        await seedPrice(stockId, 25) // Above the BUY threshold
+
+        const rule = await ctx.autoTradeService.createAutoTrade({
+            portfolioId, stockId, ruleType: 'BUY', priceThreshold: 20, quantity: 1,
+        })
+
+        await ctx.syncService.runDueTick([])
+
+        expect((await getRule(rule.id))!.status).toBe('ACTIVE')
+
+        const trades = await db.select().from(trade).where(eq(trade.portfolioId, portfolioId))
+        expect(trades).toHaveLength(0)
     })
 })
