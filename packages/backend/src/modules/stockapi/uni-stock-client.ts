@@ -95,17 +95,23 @@ export class UniStockClient implements StockDataClient {
         return res.json()
     }
 
-    async getQuote(symbol: string): Promise<StockQuote> {
-        const raw = await this.get(`/stocks/${symbol}`)
-        const data = DailyResponseSchema.parse(raw)
-        const spread = data.stock_high - data.stock_low
-        const price = spread > 0
-            ? data.stock_low + Math.random() * spread
-            : data.stock_close
-        return {
-            symbol: data.stock_symbol,
-            price,
-            tradingDay: new Date(data.date),
+    async getQuote(symbol: string): Promise<StockQuote | null> {
+        try {
+            const raw = await this.get(`/stocks/${symbol}`)
+            const data = DailyResponseSchema.parse(raw)
+            const spread = data.stock_high - data.stock_low
+            const price = spread > 0
+                ? data.stock_low + Math.random() * spread
+                : data.stock_close
+            return {
+                symbol: data.stock_symbol,
+                price,
+                tradingDay: new Date(data.date),
+            }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.warn(`[uniapi] getQuote ${symbol} failed: ${message}`)
+            return null
         }
     }
 

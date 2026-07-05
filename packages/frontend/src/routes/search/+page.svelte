@@ -193,7 +193,7 @@
 				</div>
 			</div>
 
-			<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+			<div class="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
 				<button
 					type="button"
 					class="market-category-card group relative flex min-h-[9.5rem] w-full flex-col justify-between overflow-hidden border border-border bg-card p-5 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/35 md:col-span-2 xl:col-span-3"
@@ -228,7 +228,7 @@
 				</button>
 
 				{#each marketStore.sectors as sector, index (sector.id)}
-					<div class="market-fade-up" style={`animation-delay: ${index * 55}ms`}>
+					<div class="market-fade-up h-full" style={`animation-delay: ${index * 55}ms`}>
 						<MarketCategoryCard
 							label={sector.label}
 							description={sector.description}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
+	import type { RouteId } from '$app/types';
+	import { appResolve } from '$lib/app-resolve';
 	import { cn } from '$lib/utils';
 	import type { Component } from 'svelte';
 
@@ -11,7 +12,7 @@
 		mobile = false,
 		collapsed = false
 	}: {
-		href: string;
+		href: RouteId;
 		label: string;
 		icon: Component<{ class?: string; style?: string }>;
 		mobile?: boolean;
@@ -23,7 +24,7 @@
 
 {#if mobile}
 	<a
-		href={resolve(href as '/')}
+		href={appResolve(href)}
 		class={cn(
 			'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-semibold tracking-widest uppercase transition-colors',
 			isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
@@ -36,7 +37,7 @@
 	</a>
 {:else}
 	<a
-		href={resolve(href as '/')}
+		href={appResolve(href)}
 		title={collapsed ? label : undefined}
 		class={cn(
 			'group flex items-center py-2 text-sm transition-colors duration-100',

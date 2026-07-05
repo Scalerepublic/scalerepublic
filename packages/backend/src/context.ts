@@ -54,8 +54,6 @@ export const createAppContext = (
     db: DbConnection = defaultDb,
     options: AppContextOptions = {},
 ): AppVars => {
-    // Services receive ctx by reference. ctx.xService properties are populated
-    // before any method can be called, so cross-service access is always safe.
     const ctx = { db } as AppVars
     ctx.auth = createAuth(db, options.auth)
     if (process.env.NODE_ENV === 'test') {

@@ -3,6 +3,7 @@
 	import {
 		filterPerformanceByGranularity,
 		getPerformanceWindowBounds,
+		getPerformanceWindowEndIso,
 		granularityLabels,
 		granularityPeriodLabels,
 		parsePerformancePointMs,
@@ -10,6 +11,13 @@
 		type PerformanceGranularity,
 		type PerformancePoint
 	} from '$lib/performance-history';
+	import {
+		formatMarketTime,
+		getMarketSessionBounds,
+		MARKET_CLOSE_HOUR,
+		marketSessionOpenIso,
+		zonedWallTimeToUtc
+	} from '$lib/market-session';
 
 	let {
 		data,
@@ -120,32 +128,17 @@
 		const midMs = windowBounds.startMs + span / 2;
 
 		if (granularity === 'daily') {
-			if (points.length === 1) {
-				return [{ date: points[0]!.date, position: 'start' as const }];
-			}
-
-			let midIndex = 0;
-			let bestDiff = Number.POSITIVE_INFINITY;
-			for (let i = 0; i < points.length; i++) {
-				const ms = parsePerformancePointMs(points[i]!.date);
-				const diff = Math.abs(ms - midMs);
-				if (diff < bestDiff) {
-					bestDiff = diff;
-					midIndex = i;
-				}
-			}
-
-			if (midIndex === 0 || midIndex === points.length - 1) {
-				return [
-					{ date: points[0]!.date, position: 'start' as const },
-					{ date: points[points.length - 1]!.date, position: 'end' as const }
-				];
-			}
+			const endIso = getPerformanceWindowEndIso();
+			const { endMs } = getMarketSessionBounds(endIso);
+			const closeLabel = new Date(zonedWallTimeToUtc(endIso, MARKET_CLOSE_HOUR, 0)).toISOString();
+			const endLabel =
+				endMs < zonedWallTimeToUtc(endIso, MARKET_CLOSE_HOUR, 0)
+					? new Date(endMs).toISOString()
+					: closeLabel;
 
 			return [
-				{ date: points[0]!.date, position: 'start' as const },
-				{ date: points[midIndex]!.date, position: 'center' as const },
-				{ date: points[points.length - 1]!.date, position: 'end' as const }
+				{ date: marketSessionOpenIso(endIso), position: 'start' as const },
+				{ date: endLabel, position: 'end' as const }
 			];
 		}
 
@@ -175,13 +168,10 @@
 	const activePoint = $derived(activeIndex !== null ? plotPoints[activeIndex] : null);
 
 	function formatAxisDate(iso: string): string {
-		const date = new Date(iso.length === 10 ? `${iso}T12:00:00.000Z` : iso);
 		if (iso.length > 10) {
-			return date.toLocaleTimeString('en-GB', {
-				hour: '2-digit',
-				minute: '2-digit'
-			});
+			return formatMarketTime(iso);
 		}
+		const date = new Date(`${iso}T12:00:00.000Z`);
 		return date.toLocaleDateString('en-GB', {
 			day: 'numeric',
 			month: 'short'

@@ -41,9 +41,9 @@ export class MockStockDataClient implements StockDataClient {
         this.meta.set(symbol, meta)
     }
 
-    async getQuote(symbol: string): Promise<StockQuote> {
+    async getQuote(symbol: string): Promise<StockQuote | null> {
         const price = this.quotes.get(symbol)
-        if (price === undefined) throw new Error(`MockStockDataClient: no quote seeded for ${symbol}`)
+        if (price === undefined) return null
         return { symbol, price, tradingDay: new Date() }
     }
 
