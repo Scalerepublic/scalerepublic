@@ -503,19 +503,25 @@ export class StockService {
         }
     }
 
+    // Based on the last attempt timestamp (set on success AND failure) so that
+    // stocks without a findable Wikidata entry don't clog every backfill batch.
     private needsCompanyFactsRefresh(
-        stockRow: Pick<
-            typeof stock.$inferSelect,
-            'companyFacts' | 'companyFactsUpdatedAt'
-        >,
+        stockRow: Pick<typeof stock.$inferSelect, 'companyFactsUpdatedAt'>,
         refreshOlderThanDays: number,
     ): boolean {
-        if (stockRow.companyFacts === null || stockRow.companyFactsUpdatedAt === null) {
-            return true
-        }
+        if (stockRow.companyFactsUpdatedAt === null) return true
 
         const threshold = Date.now() - refreshOlderThanDays * 24 * 60 * 60 * 1000
         return stockRow.companyFactsUpdatedAt.getTime() < threshold
+    }
+
+    private shuffled<T>(items: T[]): T[] {
+        const result = [...items]
+        for (let i = result.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1))
+            ;[result[i], result[j]] = [result[j]!, result[i]!]
+        }
+        return result
     }
 
     async backfillMissingCompanyFacts(
@@ -533,7 +539,6 @@ export class StockService {
                 id: stock.id,
                 ticker: stock.ticker,
                 companyName: stock.companyName,
-                companyFacts: stock.companyFacts,
                 companyFactsUpdatedAt: stock.companyFactsUpdatedAt,
             })
             .from(stock)
@@ -548,35 +553,44 @@ export class StockService {
         let failed = 0
 
         for (const row of batch) {
+            let facts: CompanyFacts | null = null
+            let companyName = row.companyName
+
             try {
-                let companyName = row.companyName
                 if (row.companyName === row.ticker) {
                     const meta = await this.ctx.stockDataClient.getStockMeta(row.ticker)
                     companyName = meta?.name ?? companyName
                 }
 
                 const summary = await this.wikipediaClient.searchSummary(companyName, row.ticker)
-                if (summary?.wikidataId === null || summary?.wikidataId === undefined) {
-                    failed += 1
-                    continue
+                if (summary?.wikidataId !== null && summary?.wikidataId !== undefined) {
+                    facts = await this.wikidataClient.getCompanyFacts(summary.wikidataId)
                 }
+            } catch {
+                facts = null
+            }
 
-                const facts = await this.wikidataClient.getCompanyFacts(summary.wikidataId)
-                if (facts === null || facts.metrics.length === 0) {
+            try {
+                if (facts !== null && facts.metrics.length > 0) {
+                    await this.ctx.db
+                        .update(stock)
+                        .set({
+                            companyName,
+                            wikidataId: facts.wikidataId,
+                            companyFacts: { metrics: facts.metrics },
+                            companyFactsUpdatedAt: new Date(),
+                        })
+                        .where(eq(stock.id, row.id))
+                    updated += 1
+                } else {
+                    // Record the failed attempt so this stock is retried after the
+                    // refresh window instead of blocking every batch.
+                    await this.ctx.db
+                        .update(stock)
+                        .set({ companyFactsUpdatedAt: new Date() })
+                        .where(eq(stock.id, row.id))
                     failed += 1
-                    continue
                 }
-
-                await this.ctx.db
-                    .update(stock)
-                    .set({
-                        wikidataId: facts.wikidataId,
-                        companyFacts: { metrics: facts.metrics },
-                        companyFactsUpdatedAt: new Date(),
-                    })
-                    .where(eq(stock.id, row.id))
-
-                updated += 1
             } catch {
                 failed += 1
             }
@@ -608,7 +622,11 @@ export class StockService {
             .where(eq(stock.isActive, true))
 
         const pendingRows = rows.filter((row) => this.isPlaceholderDescription(row.description))
-        const batch = limit === undefined ? pendingRows : pendingRows.slice(0, limit)
+        // Shuffle so stocks without a findable article can't permanently occupy
+        // every limited batch and starve the rest.
+        const batch = limit === undefined
+            ? pendingRows
+            : this.shuffled(pendingRows).slice(0, limit)
 
         let updated = 0
         let failed = 0
@@ -654,41 +672,6 @@ export class StockService {
         const next = new Date(date)
         next.setUTCDate(next.getUTCDate() + days)
         return next
-    }
-
-    private async ensureStockMetadata(
-        stockRow: typeof stock.$inferSelect,
-    ): Promise<typeof stock.$inferSelect> {
-        if (!this.isPlaceholderDescription(stockRow.description)) {
-            return stockRow
-        }
-
-        let companyName = stockRow.companyName
-        if (stockRow.companyName === stockRow.ticker) {
-            const meta = await this.ctx.stockDataClient.getStockMeta(stockRow.ticker)
-            companyName = meta?.name ?? companyName
-        }
-
-        const description = await this.fetchWikipediaDescription(companyName, stockRow.ticker)
-        if (description === null) {
-            return stockRow.companyName === companyName
-                ? stockRow
-                : { ...stockRow, companyName }
-        }
-
-        await this.ctx.db
-            .update(stock)
-            .set({
-                companyName,
-                description,
-            })
-            .where(eq(stock.id, stockRow.id))
-
-        return {
-            ...stockRow,
-            companyName,
-            description,
-        }
     }
 
     private async cacheMissingDailyBars(
@@ -787,14 +770,12 @@ export class StockService {
 
         if (!stockRow) return null
 
-        const enrichedStock = await this.ensureStockMetadata(stockRow)
+        await this.ensureDetailDailyBarHistory(stockRow.id, stockRow.ticker, historyDays)
+        let priceHistory = await this.getCachedDailyBarHistory(stockRow.id, historyDays)
 
-        await this.ensureDetailDailyBarHistory(enrichedStock.id, enrichedStock.ticker, historyDays)
-        let priceHistory = await this.getCachedDailyBarHistory(enrichedStock.id, historyDays)
-
-        const latestPrice = await this.getLatestPriceByStockId(enrichedStock.id)
+        const latestPrice = await this.getLatestPriceByStockId(stockRow.id)
         const priceTablePreviousClose = await this.getLatestPriceByStockId(
-            enrichedStock.id,
+            stockRow.id,
             this.previousDayEnd(),
         )
 
@@ -814,22 +795,22 @@ export class StockService {
         )
 
         if (priceHistory.length >= MIN_BARS_FOR_METRICS) {
-            await this.persistStockMetrics(enrichedStock.id, performance)
+            await this.persistStockMetrics(stockRow.id, performance)
         }
 
         return {
             stock: {
-                id: enrichedStock.id,
-                ticker: enrichedStock.ticker,
-                companyName: enrichedStock.companyName,
-                exchange: enrichedStock.exchange,
-                currency: enrichedStock.currency,
-                description: this.normalizeDescription(enrichedStock.description),
-                isAccumulating: enrichedStock.isAccumulating,
+                id: stockRow.id,
+                ticker: stockRow.ticker,
+                companyName: stockRow.companyName,
+                exchange: stockRow.exchange,
+                currency: stockRow.currency,
+                description: this.normalizeDescription(stockRow.description),
+                isAccumulating: stockRow.isAccumulating,
             },
             performance,
             priceHistory,
-            companyFacts: this.parseStoredCompanyFacts(enrichedStock),
+            companyFacts: this.parseStoredCompanyFacts(stockRow),
         }
     }
 }

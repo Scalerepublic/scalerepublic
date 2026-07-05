@@ -62,6 +62,11 @@ export const createAppContext = (
             && process.env['UNI_API_TOKEN'] !== ''
             && process.env['UNI_API_BASE_URL'] !== undefined
             && process.env['UNI_API_BASE_URL'] !== ''
+        if (!hasUniCredentials) {
+            console.warn(
+                '[context] UNI_API_TOKEN/UNI_API_BASE_URL missing - falling back to MockStockDataClient',
+            )
+        }
         ctx.stockDataClient = hasUniCredentials
             ? new UniStockClient()
             : new MockStockDataClient()
@@ -69,6 +74,11 @@ export const createAppContext = (
         const hasVantageKey =
             process.env['ALPHAVANTAGE_API_KEY'] !== undefined
             && process.env['ALPHAVANTAGE_API_KEY'] !== ''
+        if (!hasVantageKey) {
+            console.warn(
+                '[context] ALPHAVANTAGE_API_KEY missing - falling back to MockStockDataClient',
+            )
+        }
         ctx.stockDataClient = hasVantageKey
             ? new AlphaVantageStockClient()
             : new MockStockDataClient()

@@ -4,7 +4,7 @@ import { WikipediaClient } from '../src/modules/wikipedia/wikipedia-client.ts'
 
 describe('WikipediaClient', () => {
     it('returns summary when search and page lookup succeed', async () => {
-        const fetchFn = async (input: RequestInfo | URL) => {
+        const fetchFn = async (input: string | URL) => {
             const url = input.toString()
 
             if (url.includes('action=opensearch') === true) {
@@ -40,7 +40,7 @@ describe('WikipediaClient', () => {
 
     it('tries alternate search queries when the first query has no match', async () => {
         const seenQueries: string[] = []
-        const fetchFn = async (input: RequestInfo | URL) => {
+        const fetchFn = async (input: string | URL) => {
             const url = new URL(input.toString())
             const query = url.searchParams.get('search')
 

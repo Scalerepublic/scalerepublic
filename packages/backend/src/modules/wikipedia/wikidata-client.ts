@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import type { FetchLike } from './wikipedia-client.ts'
+
 const EntityResponseSchema = z.object({
     entities: z.record(
         z.string(),
@@ -23,13 +25,27 @@ export type CompanyFacts = {
     metrics: CompanyFactMetric[]
 }
 
+// Wikidata entity IDs for currencies used as quantity units.
 const CURRENCY_UNITS: Record<string, string> = {
     Q4917: 'USD',
     Q4916: 'EUR',
-    Q4918: 'GBP',
+    Q25224: 'GBP',
+    Q8146: 'JPY',
+    Q25344: 'CHF',
+    Q39099: 'CNY',
+    Q31015: 'HKD',
+    Q1104069: 'CAD',
+    Q259502: 'AUD',
+    Q122922: 'SEK',
+    Q132643: 'NOK',
+    Q25417: 'DKK',
+    Q202040: 'KRW',
+    Q80524: 'INR',
+    Q208526: 'TWD',
 }
 
 type WikidataClaim = {
+    rank?: string
     mainsnak: {
         datavalue?: {
             type: string
@@ -40,7 +56,7 @@ type WikidataClaim = {
 }
 
 export class WikidataClient {
-    constructor(private readonly fetchFn: typeof fetch = fetch) {}
+    constructor(private readonly fetchFn: FetchLike = fetch) {}
 
     async getCompanyFacts(wikidataId: string): Promise<CompanyFacts | null> {
         const entity = await this.fetchEntity(wikidataId)
@@ -182,7 +198,10 @@ export class WikidataClient {
         const parsed = claims
             .map((claim) => this.parseAmountClaim(claim as WikidataClaim))
             .filter((claim): claim is NonNullable<typeof claim> => claim !== null)
-            .sort((a, b) => (b.sortKey ?? '').localeCompare(a.sortKey ?? ''))
+            .sort((a, b) => {
+                if (a.preferred !== b.preferred) return a.preferred ? -1 : 1
+                return (b.asOf ?? '').localeCompare(a.asOf ?? '')
+            })
 
         if (parsed.length === 0) return null
 
@@ -198,8 +217,10 @@ export class WikidataClient {
         amount: number
         unitId: string | null
         asOf: string | null
-        sortKey: string | null
+        preferred: boolean
     } | null {
+        if (claim.rank === 'deprecated') return null
+
         const value = claim.mainsnak.datavalue?.value
         if (typeof value !== 'object' || value === null || !('amount' in value)) return null
 
@@ -209,9 +230,8 @@ export class WikidataClient {
         const unitUrl = (value as { unit?: string }).unit
         const unitId = unitUrl?.split('/').pop() ?? null
         const asOf = this.extractPointInTime(claim.qualifiers)
-        const sortKey = asOf ?? String(amount)
 
-        return { amount, unitId, asOf, sortKey }
+        return { amount, unitId, asOf, preferred: claim.rank === 'preferred' }
     }
 
     private pickTimeClaim(claims: unknown[] | undefined): string | null {
@@ -262,12 +282,21 @@ export class WikidataClient {
             return new Intl.NumberFormat('de-DE').format(amount)
         }
 
-        const currency = CURRENCY_UNITS[unitId] ?? 'USD'
+        const compactOptions: Intl.NumberFormatOptions = {
+            notation: Math.abs(amount) >= 1_000_000_000 ? 'compact' : 'standard',
+            maximumFractionDigits: 1,
+        }
+
+        const currency = CURRENCY_UNITS[unitId]
+        if (currency === undefined) {
+            // Unknown unit: show the bare number rather than guessing a wrong currency symbol.
+            return new Intl.NumberFormat('de-DE', compactOptions).format(amount)
+        }
+
         return new Intl.NumberFormat('de-DE', {
             style: 'currency',
             currency,
-            notation: Math.abs(amount) >= 1_000_000_000 ? 'compact' : 'standard',
-            maximumFractionDigits: 1,
+            ...compactOptions,
         }).format(amount)
     }
 }

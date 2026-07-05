@@ -25,11 +25,13 @@ export type WikipediaSummary = {
     wikidataId: string | null
 }
 
+export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>
+
 const COMPANY_SUFFIX_PATTERN =
     /\s*,?\s*(Inc\.?|Corp\.?|Corporation|Company|Co\.?|Ltd\.?|Limited|PLC|N\.?V\.?|S\.?A\.?|AG|SE|Group|Holdings?)\s*$/i
 
 export class WikipediaClient {
-    constructor(private readonly fetchFn: typeof fetch = fetch) {}
+    constructor(private readonly fetchFn: FetchLike = fetch) {}
 
     private normalizeSearchQuery(companyName: string): string {
         return companyName.replace(COMPANY_SUFFIX_PATTERN, '').trim()
