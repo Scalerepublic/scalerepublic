@@ -7,7 +7,8 @@ import { stockPrice } from '../../src/db/schema/stock/market.ts'
 import { stock } from '../../src/db/schema/stock/stock.ts'
 
 export const resetDb = async (): Promise<void> => {
-    await db.execute(sql`TRUNCATE TABLE "user", stock, sync_job CASCADE`)
+    // CASCADE handles all FK-dependent tables (portfolio, trade, stock_price, etc.)
+    await db.execute(sql`TRUNCATE TABLE "user", stock CASCADE`)
 }
 
 export const seedPortfolio = async (opts?: {

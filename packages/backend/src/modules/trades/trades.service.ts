@@ -15,8 +15,8 @@ export type Holding = {
 export class TradesService {
     constructor(private readonly ctx: AppVars) {}
 
-    async getHoldingsByPortfolioId(portfolioId: string, db: DbOrTx = this.ctx.db): Promise<Holding[]> {
-        const rows = await db
+    async getHoldingsByPortfolioId(portfolioId: string): Promise<Holding[]> {
+        const rows = await this.ctx.db
             .select({
                 stockId: trade.stockId,
                 quantity: sql<number>`
