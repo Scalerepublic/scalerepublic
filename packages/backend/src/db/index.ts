@@ -11,8 +11,9 @@ const schema = {
 
 export type DbConnection = ReturnType<typeof createDb>["db"];
 export type DbClient = ReturnType<typeof createDb>["client"];
-export type DbTransaction = Parameters<Parameters<DbConnection["transaction"]>[0]>[0];
-export type DbOrTx = DbConnection | DbTransaction;
+export type DbOrTx =
+  | DbConnection
+  | Parameters<Parameters<DbConnection["transaction"]>[0]>[0];
 
 export const createDb = (connectionString: string) => {
   const client = postgres(connectionString, {

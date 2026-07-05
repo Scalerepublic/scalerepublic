@@ -2,7 +2,6 @@ import type { Context, Hono } from 'hono'
 
 import { db as defaultDb, type DbConnection } from './db/index.ts'
 import { type Auth, type AuthOptions, createAuth } from './lib/auth.ts'
-import { AutoTradeService } from './modules/autotrade/index.ts'
 import { LeaderboardService } from './modules/leaderboard/leaderboard.service.ts'
 import { MarketDebugService } from './modules/market-debug/market-debug.service.ts'
 import { PortfolioDefaultService } from './modules/portfolio/portfolio-default.service.ts'
@@ -30,7 +29,6 @@ export type AppVars = {
     portfolioDefaultService: PortfolioDefaultService
     portfolioPerformanceService: PortfolioPerformanceService
     tradesService: TradesService
-    autoTradeService: AutoTradeService
 }
 
 export type AppEnv = {
@@ -72,6 +70,5 @@ export const createAppContext = (
     ctx.portfolioDefaultService = new PortfolioDefaultService(ctx)
     ctx.portfolioPerformanceService = new PortfolioPerformanceService(ctx)
     ctx.tradesService = new TradesService(ctx)
-    ctx.autoTradeService = new AutoTradeService(ctx)
     return ctx
 }

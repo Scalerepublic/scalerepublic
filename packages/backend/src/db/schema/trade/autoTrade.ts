@@ -22,11 +22,6 @@ export const autoTradeRuleTypeEnum = pgEnum("auto_trade_rule_type", [
     "SELL",
 ]);
 
-export const autoTradeTriggerDirectionEnum = pgEnum("auto_trade_trigger_direction", [
-    "AT_OR_ABOVE",
-    "AT_OR_BELOW",
-]);
-
 export const autoTradeRuleStatusEnum = pgEnum("auto_trade_rule_status", [
     /**
      * Rule is active and will be evaluated on each price tick.
@@ -85,9 +80,11 @@ export const autoTradeRule = pgTable(
                 onDelete: "cascade",
             }),
 
+        /**
+         * BUY  → trigger when price ≤ price_threshold
+         * SELL → trigger when price ≥ price_threshold
+         */
         ruleType: autoTradeRuleTypeEnum("rule_type").notNull(),
-
-        triggerDirection: autoTradeTriggerDirectionEnum("trigger_direction").notNull(),
 
         /**
          * Price in the stock's native currency at which the rule fires.
