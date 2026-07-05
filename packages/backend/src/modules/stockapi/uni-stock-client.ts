@@ -64,7 +64,11 @@ export class UniStockClient implements StockDataClient {
         url.searchParams.set('token', this.token)
         console.log(`[uniapi] GET ${this.redactRequestUrl(url)}`)
         const res = await fetch(url.toString())
-        if (!res.ok) throw new Error(`Uni API error: ${res.status} ${res.statusText}`)
+        if (!res.ok) {
+            const body = await res.text()
+            const detail = body.length > 0 ? `: ${body.slice(0, 500)}` : ''
+            throw new Error(`Uni API error: ${res.status} ${res.statusText}${detail}`)
+        }
         const json = await res.json()
         if (query['date'] !== undefined) {
             console.log(`[uniapi] response ${path} date=${query['date']} ${JSON.stringify(json)}`)
