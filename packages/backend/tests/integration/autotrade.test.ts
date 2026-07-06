@@ -7,7 +7,12 @@ import { portfolio } from '../../src/db/schema/portfolio/portfolio.ts'
 import { autoTradeRule } from '../../src/db/schema/trade/autoTrade.ts'
 import { trade } from '../../src/db/schema/trade/trade.ts'
 import { AutoTradeNotFoundError, InvalidAutoTradeError } from '../../src/modules/autotrade/index.ts'
-import { PortfolioDefaultedError, PortfolioNotFoundError } from '../../src/modules/portfolio/errors.ts'
+import {
+    InsufficientFundsError,
+    InsufficientHoldingsError,
+    PortfolioDefaultedError,
+    PortfolioNotFoundError,
+} from '../../src/modules/portfolio/errors.ts'
 import { resetDb, seedPortfolio, seedPrice, seedStock } from '../helpers/db.ts'
 
 const ctx = createAppContext()
@@ -77,6 +82,54 @@ describe('AutoTradeService.createAutoTrade', () => {
         await expect(
             ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1 }),
         ).rejects.toBeInstanceOf(PortfolioDefaultedError)
+    })
+
+    test('rejects a BUY the portfolio cannot currently afford', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '50.00' })
+        const { stockId } = await seedStock()
+
+        await expect(
+            // 5 × 20 = 100 > 50 available
+            ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 5 }),
+        ).rejects.toBeInstanceOf(InsufficientFundsError)
+    })
+
+    test('allows a BUY the portfolio can afford at the threshold', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '100.00' })
+        const { stockId } = await seedStock()
+
+        const rule = await ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 5 })
+        expect(rule.status).toBe('ACTIVE')
+    })
+
+    test('rejects a SELL exceeding current holdings', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { stockId } = await seedStock()
+        await seedPrice(stockId, 100)
+        await ctx.portfolioService.buy(portfolioId, stockId, 3, 100) // Hold 3
+
+        await expect(
+            ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_ABOVE', priceThreshold: 150, quantity: 5 }),
+        ).rejects.toBeInstanceOf(InsufficientHoldingsError)
+    })
+
+    test('rejects a SELL when the portfolio holds none of the stock', async () => {
+        const { portfolioId } = await seedPortfolio()
+        const { stockId } = await seedStock()
+
+        await expect(
+            ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1 }),
+        ).rejects.toBeInstanceOf(InsufficientHoldingsError)
+    })
+
+    test('allows a SELL within current holdings', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { stockId } = await seedStock()
+        await seedPrice(stockId, 100)
+        await ctx.portfolioService.buy(portfolioId, stockId, 10, 100)
+
+        const rule = await ctx.autoTradeService.createAutoTrade({ portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_ABOVE', priceThreshold: 150, quantity: 4 })
+        expect(rule.status).toBe('ACTIVE')
     })
 })
 
@@ -223,18 +276,22 @@ describe('AutoTradeService.executeAutoTrade', () => {
         expect((await getRule(rule.id))!.status).toBe('ACTIVE')
     })
 
-    test('leaves the rule ACTIVE and records no trade on insufficient funds', async () => {
-        const { portfolioId } = await seedPortfolio({ cashBalance: '10.00' })
+    test('leaves the rule ACTIVE and records no trade when funds run out before it fires', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '100.00' })
         const { stockId } = await seedStock()
         await seedPrice(stockId, 20)
 
+        // Affordable at creation (5 × 20 = 100)...
         const rule = await ctx.autoTradeService.createAutoTrade({
             portfolioId,
             stockId,
             ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW',
             priceThreshold: 20,
-            quantity: 5, // Costs 100, only 10 available
+            quantity: 5,
         })
+
+        // ...but cash is spent elsewhere before the rule triggers.
+        await db.update(portfolio).set({ cashBalance: '10.00' }).where(eq(portfolio.id, portfolioId))
 
         expect(await ctx.autoTradeService.executeAutoTrade(rule)).toBeNull()
         expect((await getRule(rule.id))!.status).toBe('ACTIVE')

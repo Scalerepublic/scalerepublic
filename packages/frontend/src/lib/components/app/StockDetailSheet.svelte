@@ -3,6 +3,7 @@
 	import NobleButton from './NobleButton.svelte';
 	import PerformanceChart from './PerformanceChart.svelte';
 	import BuyTradeSheet from './BuyTradeSheet.svelte';
+	import LimitOrderSheet from './LimitOrderSheet.svelte';
 	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendStockDetail } from '$lib/api/backend-types';
 	import type { PerformanceGranularity, PerformancePoint } from '$lib/performance-history';
@@ -34,6 +35,7 @@
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let tradeOpen = $state(false);
+	let limitOpen = $state(false);
 	let activeTicker = $state<string | null>(null);
 	let chartGranularity = $state<PerformanceGranularity>('monthly');
 
@@ -166,6 +168,7 @@
 
 	function close() {
 		tradeOpen = false;
+		limitOpen = false;
 		open = false;
 		activeTicker = null;
 	}
@@ -174,6 +177,10 @@
 		if (event.key !== 'Escape') return;
 		if (tradeOpen) {
 			tradeOpen = false;
+			return;
+		}
+		if (limitOpen) {
+			limitOpen = false;
 			return;
 		}
 		close();
@@ -300,10 +307,19 @@
 				{/if}
 			</div>
 
-			<div class="border-t border-border px-5 py-4">
+			<div class="flex gap-2 border-t border-border px-5 py-4">
+				<NobleButton
+					variant="secondary"
+					type="button"
+					class="h-10 flex-1"
+					disabled={!canTrade}
+					onclick={() => (limitOpen = true)}
+				>
+					Limit order
+				</NobleButton>
 				<NobleButton
 					type="button"
-					class="h-10 w-full"
+					class="h-10 flex-1"
 					disabled={!canTrade}
 					onclick={() => (tradeOpen = true)}
 				>
@@ -315,3 +331,4 @@
 {/if}
 
 <BuyTradeSheet bind:open={tradeOpen} {stock} />
+<LimitOrderSheet bind:open={limitOpen} {stock} />

@@ -6,9 +6,14 @@
 	import StatCard from '$lib/components/app/StatCard.svelte';
 	import PerformanceChart from '$lib/components/app/PerformanceChart.svelte';
 	import HoldingsTable from '$lib/components/app/HoldingsTable.svelte';
+	import LimitOrdersSection from '$lib/components/app/LimitOrdersSection.svelte';
 	import NobleButton from '$lib/components/app/NobleButton.svelte';
 	import { formatCurrency } from '$lib/utils';
 	import { Trophy } from '@lucide/svelte';
+
+	$effect(() => {
+		void portfolioStore.loadLimitOrders();
+	});
 
 	const today = new Date().toLocaleDateString('en-GB', {
 		weekday: 'long',
@@ -117,4 +122,6 @@
 			</div>
 		</div>
 	{/if}
+
+	<LimitOrdersSection />
 </div>

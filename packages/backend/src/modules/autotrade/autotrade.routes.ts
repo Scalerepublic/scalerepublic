@@ -2,7 +2,12 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 
 import { useCtx, type App, type AppContext, type AppEnv } from "../../context.ts";
-import { PortfolioDefaultedError, PortfolioNotFoundError } from "../portfolio/errors.ts";
+import {
+    InsufficientFundsError,
+    InsufficientHoldingsError,
+    PortfolioDefaultedError,
+    PortfolioNotFoundError,
+} from "../portfolio/errors.ts";
 
 import {
     autoTradeIdParamSchema,
@@ -16,6 +21,8 @@ const handleError = (c: AppContext, err: unknown) => {
     if (err instanceof AutoTradeNotFoundError) return c.json({ error: err.message }, 404);
     if (err instanceof PortfolioNotFoundError) return c.json({ error: err.message }, 404);
     if (err instanceof PortfolioDefaultedError) return c.json({ error: err.message }, 403);
+    if (err instanceof InsufficientFundsError) return c.json({ error: err.message }, 422);
+    if (err instanceof InsufficientHoldingsError) return c.json({ error: err.message }, 422);
     throw err;
 };
 
@@ -25,11 +32,17 @@ export const autoTradeRoutes = new Hono<AppEnv>()
         zValidator("param", autoTradePortfolioParamSchema),
         async (c) => {
             const { portfolioId } = c.req.valid("param");
-            const { autoTradeService } = useCtx(c);
+            const { autoTradeService, stockService } = useCtx(c);
 
             try {
                 const rules = await autoTradeService.getByPortfolioId(portfolioId);
-                return c.json({ data: rules });
+                const data = await Promise.all(
+                    rules.map(async (rule) => ({
+                        ...rule,
+                        ticker: await stockService.getTicker(rule.stockId),
+                    })),
+                );
+                return c.json({ data });
             } catch (err) {
                 return handleError(c, err);
             }
