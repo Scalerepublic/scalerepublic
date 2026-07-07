@@ -64,6 +64,13 @@
       "when": 1783268719929,
       "tag": "0008_autotrade_trigger_direction",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783423011201,
+      "tag": "0009_hard_stryfe",
+      "breakpoints": true
     }
   ]
 }

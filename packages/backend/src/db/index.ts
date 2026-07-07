@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import * as authSchema from "./schema/auth-schema.ts";
+import * as notificationSchema from "./schema/notification.ts";
 import * as portfolioSchema from "./schema/portfolio/index.ts";
 import * as stockSchema from "./schema/stock/index.ts";
 import { syncJob } from "./schema/sync.ts";
@@ -11,6 +12,7 @@ import { userProfile } from "./schema/user-profile.ts";
 const schema = {
   userProfile,
   ...authSchema,
+  ...notificationSchema,
   ...stockSchema,
   ...portfolioSchema,
   ...tradeSchema,

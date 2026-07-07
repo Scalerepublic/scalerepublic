@@ -6,6 +6,7 @@ import { isMarketDebugEnabled } from './lib/market-debug.ts'
 import { AutoTradeService } from './modules/autotrade/index.ts'
 import { LeaderboardService } from './modules/leaderboard/leaderboard.service.ts'
 import { MarketDebugService } from './modules/market-debug/market-debug.service.ts'
+import { NotificationService } from './modules/notification/index.ts'
 import { PortfolioDefaultService } from './modules/portfolio/portfolio-default.service.ts'
 import { PortfolioPerformanceService } from './modules/portfolio/portfolio-performance.service.ts'
 import { PortfolioService } from './modules/portfolio/portfolio.services.ts'
@@ -32,6 +33,7 @@ export type AppVars = {
     portfolioPerformanceService: PortfolioPerformanceService
     tradesService: TradesService
     autoTradeService: AutoTradeService
+    notificationService: NotificationService
 }
 
 export type AppEnv = {
@@ -77,6 +79,7 @@ export const createAppContext = (
     ctx.portfolioDefaultService = new PortfolioDefaultService(ctx)
     ctx.portfolioPerformanceService = new PortfolioPerformanceService(ctx)
     ctx.tradesService = new TradesService(ctx)
+    ctx.notificationService = new NotificationService(ctx)
     ctx.autoTradeService = new AutoTradeService(ctx)
     return ctx
 }
