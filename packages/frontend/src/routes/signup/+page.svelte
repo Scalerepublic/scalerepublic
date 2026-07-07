@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { Loader2 } from '@lucide/svelte';
+	import AuthShell from '$lib/components/app/AuthShell.svelte';
+	import FormAlert from '$lib/components/app/FormAlert.svelte';
+	import FormField from '$lib/components/app/FormField.svelte';
+	import SubmitButton from '$lib/components/app/SubmitButton.svelte';
 	import { signUp } from '$lib/auth-client';
+	import { firstIssue } from '$lib/validation';
 	import { emailSchema, passwordSchema } from 'backend/validation';
 	import { toast } from 'svelte-sonner';
 
@@ -13,16 +17,8 @@
 	let isSubmitting = $state(false);
 	let errorMessage = $state<string | null>(null);
 
-	const emailIssue = $derived(
-		email.trim().length === 0
-			? null
-			: (emailSchema.safeParse(email.trim()).error?.issues[0]?.message ?? null)
-	);
-	const passwordIssue = $derived(
-		password.length === 0
-			? null
-			: (passwordSchema.safeParse(password).error?.issues[0]?.message ?? null)
-	);
+	const emailIssue = $derived(firstIssue(emailSchema, email.trim()));
+	const passwordIssue = $derived(firstIssue(passwordSchema, password));
 	const passwordsMatch = $derived(password.length === 0 || password === confirmPassword);
 	const canSubmit = $derived(
 		name.trim().length > 0 &&
@@ -56,139 +52,72 @@
 	}
 </script>
 
-<svelte:head><title>Create account · ScaleRepublic</title></svelte:head>
+<AuthShell title="Create account" heading="Open an account">
+	<form class="space-y-4" onsubmit={handleSubmit} novalidate>
+		<FormField
+			id="name"
+			label="Full name"
+			type="text"
+			autocomplete="name"
+			required
+			bind:value={name}
+			disabled={isSubmitting}
+			placeholder="Jane Doe"
+		/>
 
-<div class="flex min-h-svh items-center justify-center bg-background px-4 py-10">
-	<div class="w-full max-w-sm">
-		<div class="mb-8 text-center">
-			<p class="font-sans text-xs font-bold tracking-[0.18em] text-muted-foreground uppercase">
-				ScaleRepublic
-			</p>
-			<div class="mt-2 flex items-center justify-center gap-3">
-				<div class="h-px flex-1 bg-border"></div>
-				<span class="text-[10px] font-semibold tracking-[0.22em] text-muted-foreground uppercase"
-					>Exchange</span
-				>
-				<div class="h-px flex-1 bg-border"></div>
-			</div>
-		</div>
+		<FormField
+			id="email"
+			label="Email"
+			type="email"
+			autocomplete="email"
+			required
+			bind:value={email}
+			disabled={isSubmitting}
+			error={emailIssue}
+			placeholder="you@example.com"
+		/>
 
-		<div class="border border-border bg-card p-7">
-			<header class="mb-6 border-b border-border pb-5">
-				<h1 class="font-serif text-2xl font-bold text-foreground">Open an account</h1>
-			</header>
+		<FormField
+			id="password"
+			label="Password"
+			type="password"
+			autocomplete="new-password"
+			required
+			minlength={8}
+			bind:value={password}
+			disabled={isSubmitting}
+			error={passwordIssue}
+			hint="Must be at least 8 characters."
+			placeholder="At least 8 characters"
+		/>
 
-			<form class="space-y-4" onsubmit={handleSubmit} novalidate>
-				<div class="space-y-1.5">
-					<label for="name" class="text-xs font-semibold tracking-wide text-foreground uppercase"
-						>Full name</label
-					>
-					<input
-						id="name"
-						type="text"
-						autocomplete="name"
-						required
-						bind:value={name}
-						disabled={isSubmitting}
-						placeholder="Jane Doe"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
-					/>
-				</div>
+		<FormField
+			id="confirm-password"
+			label="Confirm password"
+			type="password"
+			autocomplete="new-password"
+			required
+			bind:value={confirmPassword}
+			disabled={isSubmitting}
+			error={passwordsMatch ? null : 'Passwords don’t match.'}
+			placeholder="Repeat your password"
+		/>
 
-				<div class="space-y-1.5">
-					<label for="email" class="text-xs font-semibold tracking-wide text-foreground uppercase"
-						>Email</label
-					>
-					<input
-						id="email"
-						type="email"
-						autocomplete="email"
-						required
-						bind:value={email}
-						disabled={isSubmitting}
-						aria-invalid={emailIssue !== null}
-						placeholder="you@example.com"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
-					/>
-					{#if emailIssue}
-						<p class="text-xs font-medium text-destructive">{emailIssue}</p>
-					{/if}
-				</div>
+		<FormAlert message={errorMessage} />
 
-				<div class="space-y-1.5">
-					<label
-						for="password"
-						class="text-xs font-semibold tracking-wide text-foreground uppercase">Password</label
-					>
-					<input
-						id="password"
-						type="password"
-						autocomplete="new-password"
-						required
-						minlength={8}
-						bind:value={password}
-						disabled={isSubmitting}
-						placeholder="At least 8 characters"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
-					/>
-					{#if passwordIssue}
-						<p class="text-xs font-medium text-destructive">{passwordIssue}</p>
-					{:else}
-						<p class="text-xs text-muted-foreground">Must be at least 8 characters.</p>
-					{/if}
-				</div>
+		<SubmitButton
+			class="w-full"
+			label="Create account"
+			loadingLabel="Creating account…"
+			loading={isSubmitting}
+			disabled={!canSubmit}
+		/>
+	</form>
 
-				<div class="space-y-1.5">
-					<label
-						for="confirm-password"
-						class="text-xs font-semibold tracking-wide text-foreground uppercase"
-						>Confirm password</label
-					>
-					<input
-						id="confirm-password"
-						type="password"
-						autocomplete="new-password"
-						required
-						bind:value={confirmPassword}
-						disabled={isSubmitting}
-						aria-invalid={!passwordsMatch}
-						placeholder="Repeat your password"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
-					/>
-					{#if !passwordsMatch}
-						<p class="text-xs font-medium text-destructive">Passwords don&apos;t match.</p>
-					{/if}
-				</div>
-
-				{#if errorMessage}
-					<div
-						role="alert"
-						class="border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs font-medium text-destructive"
-					>
-						{errorMessage}
-					</div>
-				{/if}
-
-				<button
-					type="submit"
-					disabled={isSubmitting || !canSubmit}
-					class="btn-primary inline-flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold tracking-wide transition-colors disabled:pointer-events-none disabled:opacity-50"
-				>
-					{#if isSubmitting}
-						<Loader2 class="size-4 animate-spin" />
-						Creating account…
-					{:else}
-						Create account
-					{/if}
-				</button>
-			</form>
-		</div>
-
-		<p class="mt-5 text-center text-sm text-muted-foreground">
-			<a
-				href={resolve('/login')}
-				class="font-semibold text-foreground underline-offset-4 hover:underline">Sign in</a
-			>
-		</p>
-	</div>
-</div>
+	{#snippet footer()}
+		<a
+			href={resolve('/login')}
+			class="font-semibold text-foreground underline-offset-4 hover:underline">Sign in</a
+		>
+	{/snippet}
+</AuthShell>

@@ -3,6 +3,7 @@
 	import { marketStore, MARKET_PAGE_SIZE } from '$lib/stores/market.svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import StockCard from '$lib/components/app/StockCard.svelte';
+	import EmptyState from '$lib/components/app/EmptyState.svelte';
 	import MarketCategoryCard from '$lib/components/app/MarketCategoryCard.svelte';
 	import NobleButton from '$lib/components/app/NobleButton.svelte';
 	import { ArrowLeft, ChevronLeft, ChevronRight, Flame, Layers, Search } from '@lucide/svelte';
@@ -193,7 +194,7 @@
 				</div>
 			</div>
 
-			<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+			<div class="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
 				<button
 					type="button"
 					class="market-category-card group relative flex min-h-[9.5rem] w-full flex-col justify-between overflow-hidden border border-border bg-card p-5 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/35 md:col-span-2 xl:col-span-3"
@@ -228,7 +229,7 @@
 				</button>
 
 				{#each marketStore.sectors as sector, index (sector.id)}
-					<div class="market-fade-up" style={`animation-delay: ${index * 55}ms`}>
+					<div class="market-fade-up h-full" style={`animation-delay: ${index * 55}ms`}>
 						<MarketCategoryCard
 							label={sector.label}
 							description={sector.description}
@@ -273,14 +274,12 @@
 					{/each}
 				</div>
 			{:else if browse && browse.items.length === 0}
-				<div
-					class="flex flex-col items-center justify-center border border-dashed border-border py-16 text-center"
-				>
-					<Flame class="mb-3 size-7 text-muted-foreground/40" />
-					<p class="font-serif text-base font-semibold text-muted-foreground">No matches found</p>
-					<p class="mt-1 text-sm text-muted-foreground">Try another ticker or return to sectors.</p>
+				<EmptyState title="No matches found" description="Try another ticker or return to sectors.">
+					{#snippet icon()}
+						<Flame class="mb-3 size-7 text-muted-foreground/40" />
+					{/snippet}
 					<NobleButton type="button" class="mt-5 px-5" onclick={goHome}>Back to Market</NobleButton>
-				</div>
+				</EmptyState>
 			{:else if browse}
 				<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
 					{#each browse.items as stock (stock.ticker)}

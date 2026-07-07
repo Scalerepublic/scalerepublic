@@ -2,6 +2,7 @@ import type { Context, Hono } from 'hono'
 
 import { db as defaultDb, type DbConnection } from './db/index.ts'
 import { type Auth, type AuthOptions, createAuth } from './lib/auth.ts'
+import { isMarketDebugEnabled } from './lib/market-debug.ts'
 import { AutoTradeService } from './modules/autotrade/index.ts'
 import { LeaderboardService } from './modules/leaderboard/leaderboard.service.ts'
 import { MarketDebugService } from './modules/market-debug/market-debug.service.ts'
@@ -54,11 +55,9 @@ export const createAppContext = (
     db: DbConnection = defaultDb,
     options: AppContextOptions = {},
 ): AppVars => {
-    // Services receive ctx by reference. ctx.xService properties are populated
-    // before any method can be called, so cross-service access is always safe.
     const ctx = { db } as AppVars
     ctx.auth = createAuth(db, options.auth)
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env.NODE_ENV === 'test' || isMarketDebugEnabled()) {
         ctx.stockDataClient = new MockStockDataClient()
     } else if (process.env['STOCK_API_PROVIDER'] === 'uni') {
         ctx.stockDataClient = new UniStockClient(

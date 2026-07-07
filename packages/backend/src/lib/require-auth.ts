@@ -12,7 +12,7 @@ export type AuthSession = {
 
 const getSession = async (auth: Auth, c: AppContext): Promise<AuthSession | null> => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    if (session?.user.id === undefined || session.user.id === '') return null;
+    if (session === null || session.user.id === '') return null;
     return {
         user: {
             id: session.user.id,

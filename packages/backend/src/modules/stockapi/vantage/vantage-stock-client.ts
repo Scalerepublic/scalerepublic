@@ -6,9 +6,13 @@ export class AlphaVantageStockClient implements StockDataClient {
     readonly source = 'alpha_vantage'
     private readonly client = createAlphaVantageClient()
 
-    async getQuote(symbol: string): Promise<StockQuote> {
-        const q = await this.client.getGlobalQuote(symbol)
-        return { symbol: q.symbol, price: q.price, tradingDay: q.latestTradingDay }
+    async getQuote(symbol: string): Promise<StockQuote | null> {
+        try {
+            const q = await this.client.getGlobalQuote(symbol)
+            return { symbol: q.symbol, price: q.price, tradingDay: q.latestTradingDay }
+        } catch {
+            return null
+        }
     }
 
     async getStockMeta(symbol: string): Promise<StockMeta | null> {
