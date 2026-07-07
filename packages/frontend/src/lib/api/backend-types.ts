@@ -92,6 +92,21 @@ export type BackendPerformancePoint = {
 	value: number;
 };
 
+export type BackendNotificationType =
+	| 'AUTOTRADE_TRIGGERED'
+	| 'AUTOTRADE_EXPIRED'
+	| 'AUTOTRADE_FAILED';
+
+export type BackendNotification = {
+	id: string;
+	userId: string;
+	type: BackendNotificationType;
+	key: string;
+	data: Record<string, unknown> | null;
+	read: boolean;
+	createdAt: string;
+};
+
 export type BackendStockDetail = {
 	stock: {
 		id: string;
