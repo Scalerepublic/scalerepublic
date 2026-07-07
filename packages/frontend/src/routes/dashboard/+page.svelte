@@ -6,12 +6,17 @@
 	import StatCard from '$lib/components/app/StatCard.svelte';
 	import PerformanceChart from '$lib/components/app/PerformanceChart.svelte';
 	import HoldingsTable from '$lib/components/app/HoldingsTable.svelte';
+	import LimitOrdersSection from '$lib/components/app/LimitOrdersSection.svelte';
 	import NobleButton from '$lib/components/app/NobleButton.svelte';
 	import EmptyState from '$lib/components/app/EmptyState.svelte';
 	import PortfolioTotals from '$lib/components/app/PortfolioTotals.svelte';
 	import RankPill from '$lib/components/app/RankPill.svelte';
 	import SectionHeading from '$lib/components/app/SectionHeading.svelte';
 	import { formatCurrency } from '$lib/utils';
+
+	$effect(() => {
+		void portfolioStore.loadLimitOrders();
+	});
 
 	const today = new Date().toLocaleDateString('en-GB', {
 		weekday: 'long',
@@ -83,4 +88,6 @@
 			totalValue={portfolioStore.summary.totalValue}
 		/>
 	{/if}
+
+	<LimitOrdersSection />
 </div>

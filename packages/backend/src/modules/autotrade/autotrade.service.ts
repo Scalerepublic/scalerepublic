@@ -46,6 +46,19 @@ export class AutoTradeService {
         const p = await this.ctx.portfolioService.getById(portfolioId);
         if (p.status !== 'ACTIVE') throw new PortfolioDefaultedError(portfolioId);
 
+        // Reject orders the portfolio couldn't currently fulfil. For BUY we bill
+        // against the threshold — for a limit buy that's the worst-case fill price,
+        // so covering it guarantees the order is affordable when it fires.
+        if (ruleType === 'BUY') {
+            const cash = parseFloat(p.cashBalance);
+            const cost = quantity * priceThreshold;
+            if (cash < cost) throw new InsufficientFundsError(cash, cost);
+        } else {
+            const holdings = await this.ctx.tradesService.getHoldingsByPortfolioId(portfolioId);
+            const available = holdings.find((h) => h.stockId === stockId)?.quantity ?? 0;
+            if (available < quantity) throw new InsufficientHoldingsError(stockId, available, quantity);
+        }
+
         const rows = await this.ctx.db
             .insert(autoTradeRule)
             .values({

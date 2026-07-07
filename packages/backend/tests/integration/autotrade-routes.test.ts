@@ -6,9 +6,10 @@ import { createApp } from '../../src/app.ts'
 import { createAppContext } from '../../src/context.ts'
 import { db } from '../../src/db/index.ts'
 import { portfolio } from '../../src/db/schema/portfolio/portfolio.ts'
-import { resetDb, seedPortfolio, seedStock } from '../helpers/db.ts'
+import { resetDb, seedPortfolio, seedPrice, seedStock } from '../helpers/db.ts'
 
-const app = createApp(createAppContext())
+const ctx = createAppContext()
+const app = createApp(ctx)
 
 const post = (path: string, body: unknown) =>
     app.request(path, {
@@ -35,8 +36,10 @@ beforeEach(resetDb)
 
 describe('POST /api/v1/autotrade', () => {
     test('creates an ACTIVE stop-loss rule and returns 201', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
         const { stockId } = await seedStock()
+        await seedPrice(stockId, 100)
+        await ctx.portfolioService.buy(portfolioId, stockId, 10, 100) // Hold 10 to sell against
 
         const res = await post('/api/v1/autotrade', {
             portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 5,
@@ -107,13 +110,37 @@ describe('POST /api/v1/autotrade', () => {
         expect(res.status).toBe(403)
         errorResponse.parse(await res.json())
     })
+
+    test('returns 422 for a BUY the portfolio cannot afford', async () => {
+        const { portfolioId } = await seedPortfolio({ cashBalance: '50.00' })
+        const { stockId } = await seedStock()
+
+        const res = await post('/api/v1/autotrade', {
+            portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 5,
+        })
+        expect(res.status).toBe(422)
+        errorResponse.parse(await res.json())
+    })
+
+    test('returns 422 for a SELL exceeding holdings', async () => {
+        const { portfolioId } = await seedPortfolio()
+        const { stockId } = await seedStock()
+
+        const res = await post('/api/v1/autotrade', {
+            portfolioId, stockId, ruleType: 'SELL', triggerDirection: 'AT_OR_ABOVE', priceThreshold: 20, quantity: 1,
+        })
+        expect(res.status).toBe(422)
+        errorResponse.parse(await res.json())
+    })
 })
 
 describe('GET /api/v1/portfolio/:portfolioId/autotrades', () => {
     test('lists the rules for a portfolio', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
         const { stockId: s1 } = await seedStock({ ticker: 'AAA' })
         const { stockId: s2 } = await seedStock({ ticker: 'BBB' })
+        await seedPrice(s2, 25)
+        await ctx.portfolioService.buy(portfolioId, s2, 5, 25) // Hold s2 for the SELL rule
 
         const created = await Promise.all([
             post('/api/v1/autotrade', { portfolioId, stockId: s1, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 10, quantity: 1 }),
@@ -167,5 +194,28 @@ describe('POST /api/v1/autotrade/:ruleId/cancel', () => {
         const res = await post(`/api/v1/autotrade/${created.data.id}/cancel`, {})
         expect(res.status).toBe(404)
         errorResponse.parse(await res.json())
+    })
+
+    test('returns 404 for an unknown rule id', async () => {
+        const res = await post('/api/v1/autotrade/does-not-exist/cancel', {})
+        expect(res.status).toBe(404)
+        errorResponse.parse(await res.json())
+    })
+
+    test('the cancelled status is reflected in the list route', async () => {
+        const { portfolioId } = await seedPortfolio()
+        const { stockId } = await seedStock()
+        const created = ruleResponse.parse(
+            await (await post('/api/v1/autotrade', {
+                portfolioId, stockId, ruleType: 'BUY', triggerDirection: 'AT_OR_BELOW', priceThreshold: 20, quantity: 1,
+            })).json(),
+        )
+        await post(`/api/v1/autotrade/${created.data.id}/cancel`, {})
+
+        const { data } = rulesResponse.parse(
+            await (await app.request(`/api/v1/portfolio/${portfolioId}/autotrades`)).json(),
+        )
+        expect(data).toHaveLength(1)
+        expect(data[0]!.status).toBe('CANCELLED')
     })
 })
