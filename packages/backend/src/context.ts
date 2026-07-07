@@ -31,9 +31,12 @@ export type AppVars = {
     tradesService: TradesService
 }
 
+import type { AuthSession } from './lib/require-auth.ts'
+
 export type AppEnv = {
     Variables: {
         ctx: AppVars
+        authSession?: AuthSession
     }
 }
 

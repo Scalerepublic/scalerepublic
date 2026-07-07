@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 
 import { useCtx, type App, type AppContext, type AppEnv } from "../../context.ts";
-import { requireAuth } from "../../lib/require-auth.ts";
+import { getAuthSession, requirePortfolioOwnership } from "../../lib/require-auth.ts";
 import { userIdParamSchema } from "../user/user.schema.ts";
 
 import {
@@ -83,6 +83,9 @@ export const portfolioRoutes = new Hono<AppEnv>()
         zValidator("param", portfolioIdParamSchema),
         async (c) => {
             const { portfolioId } = c.req.valid("param");
+            const denied = await requirePortfolioOwnership(c, portfolioId);
+            if (denied) return denied;
+
             const { portfolioService } = useCtx(c);
 
             try {
@@ -101,6 +104,9 @@ export const portfolioRoutes = new Hono<AppEnv>()
         zValidator("json", tradeBodySchema),
         async (c) => {
             const { portfolioId, stockId, quantity, price } = c.req.valid("json");
+            const denied = await requirePortfolioOwnership(c, portfolioId);
+            if (denied) return denied;
+
             const { portfolioService } = useCtx(c);
 
             try {
@@ -116,6 +122,9 @@ export const portfolioRoutes = new Hono<AppEnv>()
         zValidator("json", tradeBodySchema),
         async (c) => {
             const { portfolioId, stockId, quantity, price } = c.req.valid("json");
+            const denied = await requirePortfolioOwnership(c, portfolioId);
+            if (denied) return denied;
+
             const { portfolioService } = useCtx(c);
 
             try {
@@ -131,6 +140,9 @@ export const portfolioRoutes = new Hono<AppEnv>()
         zValidator("param", portfolioIdParamSchema),
         async (c) => {
             const { portfolioId } = c.req.valid("param");
+            const denied = await requirePortfolioOwnership(c, portfolioId);
+            if (denied) return denied;
+
             const { portfolioService } = useCtx(c);
 
             try {
@@ -142,11 +154,13 @@ export const portfolioRoutes = new Hono<AppEnv>()
         },
     )
     .post("/api/v1/portfolio/default", async (c) => {
-        const authResult = await requireAuth(c);
-        if (authResult instanceof Response) return authResult;
+        const authSession = getAuthSession(c);
+        if (!authSession) {
+            return c.json({ error: 'Unauthorized' }, 401);
+        }
 
         const { portfolioService, portfolioDefaultService } = useCtx(c);
-        const userId = authResult.user.id;
+        const userId = authSession.user.id;
 
         try {
             const active = await portfolioService.getActiveForUser(userId);

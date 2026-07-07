@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import { type App, type AppEnv, type AppVars, createAppContext, useCtx } from "./context.ts";
+import { requireApiAuth } from "./lib/require-auth.ts";
 import { createDb, type DbClient } from "./db/index.ts";
 import { isMarketDebugEnabled } from "./lib/market-debug.ts";
 import { registerAuthRoutes } from "./modules/auth/auth.routes.ts";
@@ -87,6 +88,8 @@ export const createApp = (staticCtx?: AppVars): App => {
     app.get("/health", (c) => c.json({ status: "ok" }));
 
     app.on(["POST", "GET"], "/api/auth/*", (c) => useCtx(c).auth.handler(c.req.raw));
+
+    app.use("/api/v1/*", requireApiAuth);
 
     registerAuthRoutes(app);
     registerStockRoutes(app);

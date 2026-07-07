@@ -3,16 +3,28 @@ import { z } from 'zod'
 
 import { createApp } from '../../src/app.ts'
 import { createAppContext } from '../../src/context.ts'
+import { authHeadersFor } from '../helpers/auth.ts'
 import { resetDb, seedPortfolio, seedPrice, seedStock } from '../helpers/db.ts'
 
 const app = createApp(createAppContext())
 
-const post = (path: string, body: unknown) =>
-    app.request(path, {
+const post = async (path: string, body: unknown, email?: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (email !== undefined) {
+        Object.assign(headers, await authHeadersFor(app, email))
+    }
+
+    return app.request(path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
     })
+}
+
+const get = async (path: string, email?: string) => {
+    const headers = email !== undefined ? await authHeadersFor(app, email) : undefined
+    return app.request(path, { headers })
+}
 
 // Response schemas — z.coerce.number() handles postgres-js returning numeric aggregates as strings
 const portfolioResponseSchema = z.object({
@@ -53,9 +65,9 @@ beforeEach(resetDb)
 
 describe('GET /api/v1/portfolio/:portfolioId', () => {
     test('returns portfolio with empty holdings and zero value', async () => {
-        const { portfolioId } = await seedPortfolio({ cashBalance: '50000.00' })
+        const { email, portfolioId } = await seedPortfolio({ cashBalance: '50000.00' })
 
-        const res = await app.request(`/api/v1/portfolio/${portfolioId}`)
+        const res = await get(`/api/v1/portfolio/${portfolioId}`, email)
         expect(res.status).toBe(200)
 
         const { data } = portfolioResponseSchema.parse(await res.json())
@@ -65,8 +77,15 @@ describe('GET /api/v1/portfolio/:portfolioId', () => {
         expect(data.portfolioValue).toBe(0)
     })
 
+    test('returns 401 without authentication', async () => {
+        const { portfolioId } = await seedPortfolio()
+        const res = await get(`/api/v1/portfolio/${portfolioId}`)
+        expect(res.status).toBe(401)
+    })
+
     test('returns 404 for unknown portfolio', async () => {
-        const res = await app.request('/api/v1/portfolio/does-not-exist')
+        const { email } = await seedPortfolio()
+        const res = await get('/api/v1/portfolio/does-not-exist', email)
         expect(res.status).toBe(404)
         errorResponseSchema.parse(await res.json())
     })
@@ -74,16 +93,16 @@ describe('GET /api/v1/portfolio/:portfolioId', () => {
 
 describe('POST /api/v1/portfolio/buy', () => {
     test('deducts cash and creates a holding', async () => {
-        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { email, portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
         const { stockId } = await seedStock({ ticker: 'AAPL' })
         await seedPrice(stockId, 150)
 
-        const buyRes = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 150 })
+        const buyRes = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 150 }, email)
         expect(buyRes.status).toBe(200)
         tradeResponseSchema.parse(await buyRes.json())
 
         const { data } = portfolioResponseSchema.parse(
-            await (await app.request(`/api/v1/portfolio/${portfolioId}`)).json()
+            await (await get(`/api/v1/portfolio/${portfolioId}`, email)).json()
         )
         expect(parseFloat(data.portfolio.cashBalance)).toBe(8500)
         expect(data.holdings).toHaveLength(1)
@@ -91,54 +110,63 @@ describe('POST /api/v1/portfolio/buy', () => {
         expect(data.holdings[0]!.quantity).toBe(10)
     })
 
-    test('accumulates quantity and recalculates avg cost on repeated buys', async () => {
-        const { portfolioId } = await seedPortfolio({ cashBalance: '50000.00' })
+    test('returns 401 without authentication', async () => {
+        const { portfolioId } = await seedPortfolio()
         const { stockId } = await seedStock()
         await seedPrice(stockId, 100)
 
-        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 100 })
+        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 100 })
+        expect(res.status).toBe(401)
+    })
+
+    test('accumulates quantity and recalculates avg cost on repeated buys', async () => {
+        const { email, portfolioId } = await seedPortfolio({ cashBalance: '50000.00' })
+        const { stockId } = await seedStock()
+        await seedPrice(stockId, 100)
+
+        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 100 }, email)
 
         await seedPrice(stockId, 200)
-        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 200 })
+        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 200 }, email)
 
         const { data } = portfolioResponseSchema.parse(
-            await (await app.request(`/api/v1/portfolio/${portfolioId}`)).json()
+            await (await get(`/api/v1/portfolio/${portfolioId}`, email)).json()
         )
         expect(data.holdings[0]!.quantity).toBe(20)
         expect(data.holdings[0]!.avgCost).toBe(150)
     })
 
     test('returns 422 when cash balance is insufficient', async () => {
-        const { portfolioId } = await seedPortfolio({ cashBalance: '100.00' })
+        const { email, portfolioId } = await seedPortfolio({ cashBalance: '100.00' })
         const { stockId } = await seedStock()
         await seedPrice(stockId, 200)
 
-        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 200 })
+        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 200 }, email)
         expect(res.status).toBe(422)
         errorResponseSchema.parse(await res.json())
     })
 
     test('returns 422 when no price is available for the stock', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { email, portfolioId } = await seedPortfolio()
         const { stockId } = await seedStock()
 
-        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 100 })
+        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 100 }, email)
         expect(res.status).toBe(422)
         errorResponseSchema.parse(await res.json())
     })
 
     test('returns 409 when expected price does not match current price', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { email, portfolioId } = await seedPortfolio()
         const { stockId } = await seedStock()
         await seedPrice(stockId, 105)
 
-        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 100 })
+        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 100 }, email)
         expect(res.status).toBe(409)
         errorResponseSchema.parse(await res.json())
     })
 
     test('returns 403 when portfolio has defaulted', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { email, portfolioId } = await seedPortfolio()
         const { stockId } = await seedStock()
         await seedPrice(stockId, 10)
 
@@ -147,7 +175,7 @@ describe('POST /api/v1/portfolio/buy', () => {
         const { eq } = await import('drizzle-orm')
         await db.update(portfolio).set({ status: 'DEFAULTED' }).where(eq(portfolio.id, portfolioId))
 
-        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 10 })
+        const res = await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 10 }, email)
         expect(res.status).toBe(403)
         errorResponseSchema.parse(await res.json())
     })
@@ -155,18 +183,18 @@ describe('POST /api/v1/portfolio/buy', () => {
 
 describe('POST /api/v1/portfolio/sell', () => {
     test('adds proceeds and reduces holding quantity', async () => {
-        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { email, portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
         const { stockId } = await seedStock()
         await seedPrice(stockId, 100)
 
-        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 100 })
+        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 100 }, email)
 
         await seedPrice(stockId, 120)
-        const res = await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 4, price: 120 })
+        const res = await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 4, price: 120 }, email)
         expect(res.status).toBe(200)
 
         const { data } = portfolioResponseSchema.parse(
-            await (await app.request(`/api/v1/portfolio/${portfolioId}`)).json()
+            await (await get(`/api/v1/portfolio/${portfolioId}`, email)).json()
         )
         // 10000 - (10 * 100) + (4 * 120) = 9480
         expect(parseFloat(data.portfolio.cashBalance)).toBe(9480)
@@ -174,35 +202,35 @@ describe('POST /api/v1/portfolio/sell', () => {
     })
 
     test('returns 422 when trying to sell more than held', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { email, portfolioId } = await seedPortfolio()
         const { stockId } = await seedStock()
         await seedPrice(stockId, 100)
 
-        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 3, price: 100 })
-        const res = await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 5, price: 100 })
+        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 3, price: 100 }, email)
+        const res = await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 5, price: 100 }, email)
         expect(res.status).toBe(422)
         errorResponseSchema.parse(await res.json())
     })
 
     test('returns 422 when holding does not exist', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { email, portfolioId } = await seedPortfolio()
         const { stockId } = await seedStock()
         await seedPrice(stockId, 100)
 
-        const res = await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 1, price: 100 })
+        const res = await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 1, price: 100 }, email)
         expect(res.status).toBe(422)
         errorResponseSchema.parse(await res.json())
     })
 
     test('returns 409 when expected price does not match current price', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { email, portfolioId } = await seedPortfolio()
         const { stockId } = await seedStock()
         await seedPrice(stockId, 100)
 
-        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 100 })
+        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 100 }, email)
 
         await seedPrice(stockId, 110)
-        const res = await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 1, price: 100 })
+        const res = await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 1, price: 100 }, email)
         expect(res.status).toBe(409)
         errorResponseSchema.parse(await res.json())
     })
@@ -210,24 +238,24 @@ describe('POST /api/v1/portfolio/sell', () => {
 
 describe('GET /api/v1/portfolio/:portfolioId/value', () => {
     test('reflects latest seeded stock price', async () => {
-        const { portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
+        const { email, portfolioId } = await seedPortfolio({ cashBalance: '10000.00' })
         const { stockId } = await seedStock()
         await seedPrice(stockId, 100)
 
-        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 100 })
+        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 10, price: 100 }, email)
         await seedPrice(stockId, 200)
 
-        const res = await app.request(`/api/v1/portfolio/${portfolioId}/value`)
+        const res = await get(`/api/v1/portfolio/${portfolioId}/value`, email)
         expect(res.status).toBe(200)
         const { data } = valueResponseSchema.parse(await res.json())
         expect(data.portfolioValue).toBe(2000)
     })
 
     test('returns 0 when there are no holdings', async () => {
-        const { portfolioId } = await seedPortfolio()
+        const { email, portfolioId } = await seedPortfolio()
 
         const { data } = valueResponseSchema.parse(
-            await (await app.request(`/api/v1/portfolio/${portfolioId}/value`)).json()
+            await (await get(`/api/v1/portfolio/${portfolioId}/value`, email)).json()
         )
         expect(data.portfolioValue).toBe(0)
     })

@@ -6,16 +6,28 @@ import { createApp } from '../../src/app.ts'
 import { createAppContext } from '../../src/context.ts'
 import { db } from '../../src/db/index.ts'
 import { portfolio } from '../../src/db/schema/portfolio/portfolio.ts'
+import { authHeadersFor } from '../helpers/auth.ts'
 import { resetDb, seedPortfolio, seedPrice, seedStock } from '../helpers/db.ts'
 
 const app = createApp(createAppContext())
 
-const post = (path: string, body: unknown) =>
-    app.request(path, {
+const post = async (path: string, body: unknown, email?: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (email !== undefined) {
+        Object.assign(headers, await authHeadersFor(app, email))
+    }
+
+    return app.request(path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
     })
+}
+
+const get = async (path: string, email?: string) => {
+    const headers = email !== undefined ? await authHeadersFor(app, email) : undefined
+    return app.request(path, { headers })
+}
 
 beforeEach(resetDb)
 
@@ -61,13 +73,13 @@ describe('portfolio default flow', () => {
     })
 
     test('defaults portfolio after sell drives net worth below threshold', async () => {
-        const { userId, portfolioId } = await seedPortfolio({ cashBalance: '1000.00' })
+        const { email, userId, portfolioId } = await seedPortfolio({ cashBalance: '1000.00' })
         const { stockId } = await seedStock()
         await seedPrice(stockId, 1000)
 
-        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 1000 })
+        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 1, price: 1000 }, email)
         await seedPrice(stockId, 0.5)
-        await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 1, price: 0.5 })
+        await post('/api/v1/portfolio/sell', { portfolioId, stockId, quantity: 1, price: 0.5 }, email)
 
         const [oldRow] = await db.select().from(portfolio).where(eq(portfolio.id, portfolioId))
         expect(oldRow?.status).toBe('DEFAULTED')
@@ -91,7 +103,7 @@ describe('GET /api/v1/leaderboard', () => {
         const low = await seedPortfolio({ cashBalance: '500.00', name: 'Low Trader' })
         const high = await seedPortfolio({ cashBalance: '2500.00', name: 'High Trader' })
 
-        const res = await app.request('/api/v1/leaderboard?limit=10')
+        const res = await get('/api/v1/leaderboard?limit=10', high.email)
         expect(res.status).toBe(200)
 
         const schema = z.object({
@@ -111,14 +123,19 @@ describe('GET /api/v1/leaderboard', () => {
         expect(data[1]!.userId).toBe(low.userId)
         expect(data[1]!.rank).toBe(2)
     })
+
+    test('requires authentication', async () => {
+        const res = await get('/api/v1/leaderboard?limit=10')
+        expect(res.status).toBe(401)
+    })
 })
 
 describe('GET /api/v1/users/search', () => {
     test('finds users by name', async () => {
-        await seedPortfolio({ name: 'Alice Alpha', email: 'alice@test.com' })
+        const alice = await seedPortfolio({ name: 'Alice Alpha', email: 'alice@test.com' })
         await seedPortfolio({ name: 'Bob Beta', email: 'bob@test.com' })
 
-        const res = await app.request('/api/v1/users/search?q=Alice&limit=10')
+        const res = await get('/api/v1/users/search?q=Alice&limit=10', alice.email)
         expect(res.status).toBe(200)
 
         const schema = z.object({
@@ -136,12 +153,12 @@ describe('GET /api/v1/users/search', () => {
 
 describe('GET /api/v1/users/:id/performance', () => {
     test('returns performance points for active portfolio', async () => {
-        const { userId, portfolioId } = await seedPortfolio({ cashBalance: '1000.00' })
+        const { email, userId, portfolioId } = await seedPortfolio({ cashBalance: '1000.00' })
         const { stockId } = await seedStock()
         await seedPrice(stockId, 100)
-        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 2, price: 100 })
+        await post('/api/v1/portfolio/buy', { portfolioId, stockId, quantity: 2, price: 100 }, email)
 
-        const res = await app.request(`/api/v1/users/${userId}/performance`)
+        const res = await get(`/api/v1/users/${userId}/performance`, email)
         expect(res.status).toBe(200)
 
         const schema = z.object({

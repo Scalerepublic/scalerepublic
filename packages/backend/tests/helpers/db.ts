@@ -1,30 +1,47 @@
 import { sql } from 'drizzle-orm'
 
 import { db } from '../../src/db/index.ts'
-import { user } from '../../src/db/schema/auth-schema.ts'
+import { account, user } from '../../src/db/schema/auth-schema.ts'
+import { hashPassword } from '../../src/lib/password.ts'
 import { portfolio } from '../../src/db/schema/portfolio/portfolio.ts'
 import { stockPrice } from '../../src/db/schema/stock/market.ts'
 import { stock } from '../../src/db/schema/stock/stock.ts'
+
+export const TEST_PASSWORD = 'test-password-123'
 
 export const resetDb = async (): Promise<void> => {
     // CASCADE handles all FK-dependent tables (portfolio, trade, stock_price, etc.)
     await db.execute(sql`TRUNCATE TABLE "user", stock CASCADE`)
 }
 
+const seedCredentialAccount = async (userId: string): Promise<void> => {
+    const hashed = await hashPassword(TEST_PASSWORD)
+    await db.insert(account).values({
+        id: crypto.randomUUID(),
+        userId,
+        providerId: 'credential',
+        accountId: userId,
+        password: hashed,
+    })
+}
+
 export const seedPortfolio = async (opts?: {
     cashBalance?: string
     name?: string
     email?: string
-}): Promise<{ userId: string; portfolioId: string }> => {
+}): Promise<{ userId: string; portfolioId: string; email: string }> => {
     const userId = crypto.randomUUID()
     const portfolioId = crypto.randomUUID()
     const balance = opts?.cashBalance ?? '1000.00'
+    const email = opts?.email ?? `${userId}@test.com`
 
     await db.insert(user).values({
         id: userId,
         name: opts?.name ?? 'Test User',
-        email: opts?.email ?? `${userId}@test.com`,
+        email,
     })
+
+    await seedCredentialAccount(userId)
 
     await db.insert(portfolio).values({
         id: portfolioId,
@@ -34,7 +51,7 @@ export const seedPortfolio = async (opts?: {
         status: 'ACTIVE',
     })
 
-    return { userId, portfolioId }
+    return { userId, portfolioId, email }
 }
 
 export const seedStock = async (opts?: { ticker?: string }): Promise<{ stockId: string }> => {
