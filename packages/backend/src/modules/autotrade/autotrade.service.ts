@@ -113,7 +113,7 @@ export class AutoTradeService {
             .where(and(eq(autoTradeRule.status, 'ACTIVE'), lt(autoTradeRule.expiresAt, now)))
             .returning();
 
-        await Promise.all(rows.map((rule) => this.emitNotification(rule, 'AUTOTRADE_EXPIRED', 'expired')))
+        await Promise.all(rows.map((rule) => this.emitNotification(rule, 'AUTOTRADE_EXPIRED', 'expired')));
 
         return rows.length;
     }
