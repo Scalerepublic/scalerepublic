@@ -15,9 +15,9 @@
 			actionButton: 'btn-primary h-8 px-3 text-xs font-semibold tracking-wide',
 			cancelButton: 'btn-secondary h-8 px-3 text-xs font-semibold tracking-wide',
 			success:
-				'border-positive/30 bg-positive/8 [&_[data-title]]:text-positive [&_[data-icon]]:text-positive',
+				'border-positive/40 bg-card [&_[data-title]]:text-positive [&_[data-icon]]:text-positive',
 			error:
-				'border-destructive/30 bg-destructive/8 [&_[data-title]]:text-destructive [&_[data-icon]]:text-destructive',
+				'border-destructive/40 bg-card [&_[data-title]]:text-destructive [&_[data-icon]]:text-destructive',
 			warning:
 				'border-border bg-muted [&_[data-title]]:text-foreground [&_[data-icon]]:text-foreground',
 			info: 'border-accent/30 bg-card [&_[data-title]]:text-foreground [&_[data-icon]]:text-accent',
