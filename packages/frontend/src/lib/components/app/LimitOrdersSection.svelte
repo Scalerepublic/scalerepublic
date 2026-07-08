@@ -1,13 +1,14 @@
 <script lang="ts">
 	import ConfirmDialog from './ConfirmDialog.svelte';
 	import InfoDialog from './InfoDialog.svelte';
-	import { portfolioStore } from '$lib/stores/portfolio.svelte';
+	import { getLimitOrders } from '$lib/data/portfolio.svelte';
 	import { cn, formatCurrency, formatNumber } from '$lib/utils';
 	import type { ApiAutoTradeRule, AutoTradeStatus } from '$lib/types';
 	import { toast } from 'svelte-sonner';
 	import { AlertTriangle } from '@lucide/svelte';
 
-	const orders = $derived(portfolioStore.limitOrders);
+	const limitOrders = getLimitOrders();
+	const orders = $derived(limitOrders.orders);
 
 	function orderTypeLabel(rule: ApiAutoTradeRule): string {
 		if (rule.ruleType === 'BUY')
@@ -31,12 +32,12 @@
 		const name = rule.ticker ?? 'this stock';
 		if (rule.ruleType === 'BUY') {
 			const cost = rule.quantity * parseFloat(rule.priceThreshold);
-			const cash = portfolioStore.summary.cashBalance;
+			const cash = limitOrders.cashBalance;
 			if (cash < cost) {
 				return `This order needs ${formatCurrency(cost)} to buy ${rule.quantity} × ${name} at the threshold, but only ${formatCurrency(cash)} is available. It won't execute until you have enough cash.`;
 			}
 		} else {
-			const held = portfolioStore.holdings.find((h) => h.stock.id === rule.stockId)?.shares ?? 0;
+			const held = limitOrders.holdings.find((h) => h.stock.id === rule.stockId)?.shares ?? 0;
 			if (held < rule.quantity) {
 				return `This order sells ${rule.quantity} × ${name}, but you currently hold ${formatNumber(held)}. It won't execute until you hold enough shares.`;
 			}
@@ -46,7 +47,6 @@
 
 	let cancelTarget = $state<ApiAutoTradeRule | null>(null);
 	let cancelOpen = $state(false);
-	let cancelling = $state(false);
 
 	let infoOpen = $state(false);
 	let infoMessage = $state('');
@@ -58,16 +58,13 @@
 
 	async function confirmCancel() {
 		if (!cancelTarget) return;
-		cancelling = true;
 		try {
-			await portfolioStore.cancelLimitOrder(cancelTarget.id);
+			await limitOrders.cancel(cancelTarget.id);
 			toast.success('Limit order cancelled');
 			cancelOpen = false;
 			cancelTarget = null;
 		} catch (e) {
 			toast.error(e instanceof Error ? e.message : 'Could not cancel the order');
-		} finally {
-			cancelling = false;
 		}
 	}
 
@@ -89,11 +86,11 @@
 	{/if}
 </div>
 
-{#if portfolioStore.limitOrdersError}
+{#if limitOrders.isError}
 	<div
 		class="mt-4 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive"
 	>
-		{portfolioStore.limitOrdersError}
+		{limitOrders.error instanceof Error ? limitOrders.error.message : 'Could not load limit orders'}
 	</div>
 {:else if orders.length === 0}
 	<div
@@ -201,7 +198,7 @@
 		: ''}
 	confirmLabel="Cancel order"
 	cancelLabel="Keep order"
-	confirming={cancelling}
+	confirming={limitOrders.isCancelling}
 	onConfirm={confirmCancel}
 />
 

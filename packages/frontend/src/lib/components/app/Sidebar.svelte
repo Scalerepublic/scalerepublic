@@ -10,14 +10,17 @@
 		LogOut
 	} from '@lucide/svelte';
 	import NavItem from './NavItem.svelte';
-	import { userStore } from '$lib/stores/user.svelte';
+	import { getNotifications } from '$lib/data/notifications.svelte';
+	import { getUserProfile } from '$lib/data/user.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
-	import { notificationStore } from '$lib/stores/notification.svelte';
 	import { signOut } from '$lib/auth-client';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { getInitials, cn } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
+
+	const notifications = getNotifications({ unread: true });
+	const account = getUserProfile();
 
 	const navItems = [
 		{ href: '/dashboard', label: 'Portfolio', icon: LayoutDashboard },
@@ -60,9 +63,28 @@
 				sidebarStore.collapsed ? 'justify-center' : 'justify-between gap-3'
 			)}
 		>
-			{#if !sidebarStore.collapsed}
-				<p class="sidebar-brand">ScaleRepublic</p>
+			{#if sidebarStore.collapsed}
+				<img
+					src="/logo/scalerepublic-mark.svg"
+					alt="ScaleRepublic Logo"
+					class="h-7 w-auto dark:invert"
+				/>
+			{:else}
+				<div class="flex items-center gap-2">
+					<img
+						src="/logo/scalerepublic-mark.svg"
+						alt="ScaleRepublic Logo"
+						class="h-8 w-auto dark:invert"
+					/>
+
+					<div class="flex flex-col justify-center leading-none">
+						<p class="font-serif text-sm leading-5 font-semibold text-sidebar-foreground">
+							Scale Republic
+						</p>
+					</div>
+				</div>
 			{/if}
+
 			<button
 				type="button"
 				onclick={() => sidebarStore.toggle()}
@@ -85,7 +107,7 @@
 				label={item.label}
 				icon={item.icon}
 				collapsed={sidebarStore.collapsed}
-				badge={item.href === '/notifications' ? notificationStore.unreadCount : 0}
+				badge={item.href === '/notifications' ? notifications.count : 0}
 			/>
 		{/each}
 	</nav>
@@ -100,17 +122,17 @@
 			>
 				<div
 					class="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-bold text-foreground"
-					title={sidebarStore.collapsed ? userStore.profile.name : undefined}
+					title={sidebarStore.collapsed ? account.profile.name : undefined}
 				>
-					{getInitials(userStore.profile.name)}
+					{getInitials(account.profile.name)}
 				</div>
 				{#if !sidebarStore.collapsed}
 					<div class="min-w-0 flex-1">
 						<p class="truncate text-xs font-semibold text-sidebar-foreground">
-							{userStore.profile.name}
+							{account.profile.name}
 						</p>
 						<p class="truncate text-[10px] text-muted-foreground">
-							{userStore.profile.email}
+							{account.profile.email}
 						</p>
 					</div>
 					<button

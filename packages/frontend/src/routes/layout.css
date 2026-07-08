@@ -30,9 +30,60 @@
 	}
 }
 
-/* Single dark theme, styled after the reference dashboard: near-black
-   surfaces, subtle borders, green accent, serif headings. */
+/* Dual theme, styled after the reference dashboard: neutral surfaces, subtle
+   borders, green accent, serif headings. Light is the default; `.dark` (toggled
+   by mode-watcher via Settings → Appearance) mirrors it on near-black. */
 :root {
+	color-scheme: light;
+
+	--background: #faf9f7;
+	--foreground: #171717;
+	--card: #ffffff;
+	--card-foreground: #171717;
+	--popover: #ffffff;
+	--popover-foreground: #171717;
+
+	--primary: #171717;
+	--primary-foreground: #fafaf9;
+
+	--secondary: #f0efec;
+	--secondary-foreground: #3d3d3a;
+
+	--muted: #f2f1ee;
+	--muted-foreground: #71716c;
+
+	--accent: #16a34a;
+	--accent-foreground: #ffffff;
+
+	--destructive: #dc2626;
+	--border: #e6e5e1;
+	--input: #d9d8d3;
+	--ring: #16a34a;
+
+	--positive: #15803d;
+	--negative: #dc2626;
+	--warning: #a16207;
+
+	--radius: 12px;
+
+	--sidebar: #f5f4f1;
+	--sidebar-foreground: #171717;
+	--sidebar-primary: #e9e8e4;
+	--sidebar-primary-foreground: #171717;
+	--sidebar-accent: #e9e8e4;
+	--sidebar-accent-foreground: #171717;
+	--sidebar-border: #e6e5e1;
+	--sidebar-ring: #16a34a;
+
+	--chart-fill-top: rgba(22, 163, 74, 0.12);
+	--chart-fill-bottom: rgba(22, 163, 74, 0.01);
+	--chart-line-start: #16a34a;
+	--chart-line-end: #16a34a;
+	--chart-grid: #e9e8e4;
+	--chart-crosshair: rgba(0, 0, 0, 0.25);
+}
+
+.dark {
 	color-scheme: dark;
 
 	--background: #0a0a0a;

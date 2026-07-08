@@ -6,11 +6,12 @@
 	import { resolve } from '$app/paths';
 	import AppShell from '$lib/components/app/AppShell.svelte';
 	import AppToaster from '$lib/components/app/AppToaster.svelte';
+	import { QueryClientProvider } from '@tanstack/svelte-query';
 	import { signOut } from '$lib/auth-client';
-	import { bootstrapAppData, resetAppDataBootstrap } from '$lib/bootstrap-app-data';
+	import { queryClient } from '$lib/api/query-client';
 	import DemoDebugPanel from '$lib/components/app/DemoDebugPanel.svelte';
 	import { isMarketDebugOperator } from '$lib/market-debug-operator';
-	import { startLiveQuotesPolling } from '$lib/live-quotes-polling';
+	import { syncMarketClock } from '$lib/sync-market-clock';
 	import { authStore } from '$lib/stores/auth.svelte';
 
 	let { children } = $props();
@@ -39,13 +40,13 @@
 		}
 
 		if (authStore.error) {
-			resetAppDataBootstrap();
+			queryClient.clear();
 			void signOut();
 			return;
 		}
 
 		if (!authStore.isAuthenticated && !isPublicRoute) {
-			resetAppDataBootstrap();
+			queryClient.clear();
 			goto(resolve('/login'), { replaceState: true });
 			return;
 		}
@@ -54,18 +55,14 @@
 			goto(resolve('/dashboard'), { replaceState: true });
 			return;
 		}
-
-		if (authStore.isAuthenticated) {
-			bootstrapAppData();
-		}
 	});
 
 	$effect(() => {
-		if (!authStore.isAuthenticated || isPublicRoute) {
+		if (!authStore.isAuthenticated) {
 			return;
 		}
 
-		return startLiveQuotesPolling();
+		void syncMarketClock();
 	});
 </script>
 
@@ -73,25 +70,27 @@
 
 <AppToaster />
 
-{#if isPublicRoute}
-	{@render children()}
-{:else if authStore.isPending && !authTimedOut}
-	<div class="flex min-h-svh items-center justify-center bg-background">
-		<div
-			class="size-6 animate-spin border-2 border-muted-foreground/30 border-t-foreground"
-			aria-label="Loading"
-		></div>
-	</div>
-{:else if authStore.isAuthenticated}
-	<AppShell>{@render children()}</AppShell>
-	{#if isMarketDebugOperator(authStore.user?.email)}
-		<DemoDebugPanel />
+<QueryClientProvider client={queryClient}>
+	{#if isPublicRoute}
+		{@render children()}
+	{:else if authStore.isPending && !authTimedOut}
+		<div class="flex min-h-svh items-center justify-center bg-background">
+			<div
+				class="size-6 animate-spin border-2 border-muted-foreground/30 border-t-foreground"
+				aria-label="Loading"
+			></div>
+		</div>
+	{:else if authStore.isAuthenticated}
+		<AppShell>{@render children()}</AppShell>
+		{#if isMarketDebugOperator(authStore.user?.email)}
+			<DemoDebugPanel />
+		{/if}
+	{:else}
+		<div class="flex min-h-svh items-center justify-center bg-background">
+			<div
+				class="size-6 animate-spin border-2 border-muted-foreground/30 border-t-foreground"
+				aria-label="Loading"
+			></div>
+		</div>
 	{/if}
-{:else}
-	<div class="flex min-h-svh items-center justify-center bg-background">
-		<div
-			class="size-6 animate-spin border-2 border-muted-foreground/30 border-t-foreground"
-			aria-label="Loading"
-		></div>
-	</div>
-{/if}
+</QueryClientProvider>

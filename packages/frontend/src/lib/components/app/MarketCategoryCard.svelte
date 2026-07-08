@@ -5,11 +5,13 @@
 		label,
 		description,
 		count,
+		accent = 'var(--accent)',
 		onclick
 	}: {
 		label: string;
 		description: string;
 		count: number;
+		accent?: string;
 		onclick: () => void;
 	} = $props();
 </script>
@@ -17,9 +19,14 @@
 <button
 	type="button"
 	class="market-category-card group relative flex h-full min-h-[10.5rem] w-full flex-col overflow-hidden rounded-xl border border-border bg-card p-5 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/35"
+	style={`--sector-accent: ${accent}`}
 	{onclick}
 >
-	<div class="flex flex-1 flex-col">
+	<span
+		class="pointer-events-none absolute inset-y-0 left-0 w-1 rounded-l-xl bg-[var(--sector-accent)] transition-[width] duration-200 group-hover:w-1.5"
+		aria-hidden="true"
+	></span>
+	<div class="flex flex-1 flex-col pl-2">
 		<p
 			class="line-clamp-2 min-h-[3.25rem] font-serif text-xl font-semibold tracking-tight text-foreground"
 		>
