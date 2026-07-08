@@ -18,7 +18,7 @@
 	]);
 </script>
 
-<div class="mt-6 grid gap-0 border border-border sm:grid-cols-3">
+<div class="mt-6 grid gap-0 overflow-hidden rounded-xl border border-border bg-card sm:grid-cols-3">
 	{#each cells as cell, i (cell.label)}
 		<div
 			class={cn(
@@ -30,7 +30,7 @@
 			<p class="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
 				{cell.label}
 			</p>
-			<p class="mt-1.5 font-serif text-xl font-bold text-primary">
+			<p class="mt-1.5 text-xl font-semibold tracking-tight text-primary tabular-nums">
 				{formatCurrency(cell.value)}
 			</p>
 		</div>

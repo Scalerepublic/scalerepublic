@@ -25,10 +25,10 @@
 	}
 </script>
 
-<div class="overflow-x-auto border border-border">
+<div class="overflow-x-auto rounded-xl border border-border bg-card">
 	<table class="w-full border-collapse text-sm">
 		<thead>
-			<tr class="border-b border-border bg-muted">
+			<tr class="border-b border-border">
 				<th class="table-th text-left">Ticker</th>
 				<th class="table-th hidden text-left sm:table-cell">Name</th>
 				<th class="table-th text-right">Shares</th>
@@ -43,12 +43,9 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each holdings as h, i (h.ticker)}
+			{#each holdings as h (h.ticker)}
 				<tr
-					class={cn(
-						'cursor-pointer border-t border-border/60 transition-colors hover:bg-muted/40',
-						i % 2 !== 0 && 'bg-background'
-					)}
+					class="cursor-pointer border-t border-border/60 transition-colors hover:bg-muted/40"
 					onclick={() => openDetail(h)}
 				>
 					<td class="px-4 py-3.5">
@@ -78,18 +75,11 @@
 					</td>
 					<td
 						class={cn(
-							'hidden px-4 py-3.5 text-right font-mono sm:table-cell',
+							'hidden px-4 py-3.5 text-right font-mono text-xs font-semibold sm:table-cell',
 							h.pnl >= 0 ? 'text-positive' : 'text-negative'
 						)}
 					>
-						<span
-							class={cn(
-								'border px-1.5 py-0.5 text-xs font-semibold',
-								h.pnl >= 0 ? 'border-positive/30 bg-positive/8' : 'border-negative/30 bg-negative/8'
-							)}
-						>
-							{formatPercent(h.pnlPercent)}
-						</span>
+						{formatPercent(h.pnlPercent)}
 					</td>
 					<td class="px-4 py-3.5 text-right">
 						{#if !readOnly}

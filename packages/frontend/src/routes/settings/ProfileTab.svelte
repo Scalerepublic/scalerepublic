@@ -29,7 +29,7 @@
 	}
 </script>
 
-<section class="border border-border bg-card">
+<section class="rounded-xl border border-border bg-card">
 	<div class="p-5">
 		<div class="flex items-center gap-4">
 			<div
@@ -64,7 +64,7 @@
 		type="button"
 		onclick={handleSignOut}
 		disabled={isSigningOut}
-		class="flex w-full items-center justify-center gap-2 border border-destructive/30 bg-card px-4 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/5 disabled:pointer-events-none disabled:opacity-50"
+		class="flex w-full items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-card px-4 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/5 disabled:pointer-events-none disabled:opacity-50"
 	>
 		<LogOut class="size-4" />
 		{isSigningOut ? 'Signing out…' : 'Sign out'}

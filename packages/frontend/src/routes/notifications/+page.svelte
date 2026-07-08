@@ -115,7 +115,7 @@
 			type="button"
 			onclick={markAll}
 			disabled={!hasUnread || markingAll}
-			class="inline-flex items-center gap-1.5 border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+			class="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
 		>
 			<CheckCheck class="size-3.5" />
 			Mark all as read
@@ -123,7 +123,9 @@
 	</div>
 
 	{#if notificationStore.error}
-		<p class="mb-4 border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
+		<p
+			class="mb-4 rounded-lg border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative"
+		>
 			{notificationStore.error}
 		</p>
 	{/if}
@@ -147,7 +149,7 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<div class="border border-border">
+		<div class="overflow-hidden rounded-xl border border-border bg-card">
 			{#each items as notification (notification.id)}
 				{@const copy = describe(notification)}
 				{@const Icon = iconFor(notification.type)}
@@ -181,7 +183,7 @@
 						<button
 							type="button"
 							onclick={() => markOne(notification.id)}
-							class="inline-flex shrink-0 items-center gap-1 border border-border px-2 py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							class="inline-flex shrink-0 items-center gap-1 rounded-md border border-input px-2 py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 							aria-label="Mark as read"
 						>
 							<Check class="size-3" />

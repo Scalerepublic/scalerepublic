@@ -16,7 +16,7 @@
 </script>
 
 <div
-	class="flex flex-col items-center justify-center border border-dashed border-border py-16 text-center"
+	class="flex flex-col items-center justify-center rounded-xl border border-dashed border-input py-16 text-center"
 >
 	{#if icon}
 		{@render icon()}

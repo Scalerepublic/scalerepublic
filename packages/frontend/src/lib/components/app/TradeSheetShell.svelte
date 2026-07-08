@@ -115,7 +115,7 @@
 	>
 		<div transition:panelTransition class="relative w-full max-w-md">
 			<div
-				class="rounded-t-2xl border border-b-0 border-border bg-card p-5 shadow-xl sm:rounded-none sm:border-b"
+				class="rounded-t-2xl border border-b-0 border-border bg-card p-5 shadow-xl sm:rounded-2xl sm:border-b"
 				style="transform: translateY({dragOffset}px); transition: {isDragging
 					? 'none'
 					: 'transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)'}"
@@ -159,7 +159,7 @@
 						<div class="flex items-stretch gap-2">
 							<button
 								type="button"
-								class="flex h-10 w-12 items-center justify-center border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
+								class="flex h-10 w-12 items-center justify-center rounded-lg border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
 								onclick={() => (quantity = Math.max(1, quantity - 1))}
 								aria-label="Decrease quantity">−</button
 							>
@@ -169,11 +169,11 @@
 								min="1"
 								max={maxQuantity}
 								bind:value={quantity}
-								class="h-10 min-w-0 flex-1 border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
+								class="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
 							/>
 							<button
 								type="button"
-								class="flex h-10 w-12 items-center justify-center border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
+								class="flex h-10 w-12 items-center justify-center rounded-lg border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
 								onclick={() => (quantity = Math.min(maxQuantity, quantity + 1))}
 								aria-label="Increase quantity">+</button
 							>

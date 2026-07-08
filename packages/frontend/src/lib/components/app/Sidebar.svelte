@@ -66,7 +66,7 @@
 			<button
 				type="button"
 				onclick={() => sidebarStore.toggle()}
-				class="flex size-8 shrink-0 items-center justify-center border border-border text-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+				class="flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
 				aria-label={sidebarStore.collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 			>
 				{#if sidebarStore.collapsed}
@@ -99,7 +99,7 @@
 				)}
 			>
 				<div
-					class="flex size-7 shrink-0 items-center justify-center border border-border bg-muted text-[11px] font-bold text-foreground"
+					class="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-bold text-foreground"
 					title={sidebarStore.collapsed ? userStore.profile.name : undefined}
 				>
 					{getInitials(userStore.profile.name)}

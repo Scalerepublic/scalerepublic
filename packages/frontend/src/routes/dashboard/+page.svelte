@@ -44,7 +44,6 @@
 			value={formatCurrency(portfolioStore.summary.totalValue)}
 			change={portfolioStore.summary.dayChange}
 			changePct={portfolioStore.summary.dayChangePercent}
-			accent
 		/>
 		<StatCard label="Cash Available" value={formatCurrency(portfolioStore.summary.cashBalance)} />
 		<StatCard

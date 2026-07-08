@@ -212,7 +212,7 @@
 		></button>
 
 		<div
-			class="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col border border-border bg-card shadow-xl sm:max-h-[85vh]"
+			class="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card shadow-xl sm:max-h-[85vh] sm:rounded-2xl"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="stock-detail-title"
@@ -233,7 +233,7 @@
 				</div>
 				<button
 					type="button"
-					class="shrink-0 border border-border p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+					class="shrink-0 rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 					aria-label="Close"
 					onclick={close}
 				>
@@ -250,7 +250,7 @@
 				{:else if error && !detail}
 					<div
 						role="alert"
-						class="border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive"
+						class="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive"
 					>
 						{error}
 					</div>
@@ -273,7 +273,7 @@
 								<p class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
 									Recent performance
 								</p>
-								<div class="border border-border bg-muted/30 p-3">
+								<div class="rounded-xl border border-border bg-muted/30 p-3">
 									<PerformanceChart
 										data={chartData}
 										mode="stock"

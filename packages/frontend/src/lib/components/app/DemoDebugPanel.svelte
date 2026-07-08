@@ -23,7 +23,7 @@
 {#if demoMarketStore.enabled}
 	<div
 		class={cn(
-			'fixed right-4 bottom-4 z-50 w-72 border border-border bg-card shadow-lg',
+			'fixed right-4 bottom-4 z-50 w-72 rounded-xl border border-border bg-card shadow-lg',
 			demoMarketStore.loading && 'pointer-events-none opacity-70'
 		)}
 	>

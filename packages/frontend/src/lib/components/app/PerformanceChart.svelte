@@ -218,12 +218,10 @@
 	}
 </script>
 
-<article class="overflow-hidden border border-border bg-card">
+<article class="overflow-hidden rounded-xl border border-border bg-card">
 	<div class="flex flex-wrap items-end justify-between gap-4 border-b border-border px-5 py-4">
 		<div>
-			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-				Performance
-			</h2>
+			<h2 class="font-serif text-lg font-bold text-foreground">Performance</h2>
 			<p class="mt-0.5 text-xs text-muted-foreground">{chartSubtitle}</p>
 		</div>
 		<div class="text-right">
@@ -251,9 +249,9 @@
 				type="button"
 				onclick={() => selectGranularity(option.value)}
 				class={cn(
-					'px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase transition-colors',
+					'rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
 					granularity === option.value
-						? 'border border-border bg-muted text-foreground'
+						? 'bg-secondary text-foreground'
 						: 'text-muted-foreground hover:text-foreground'
 				)}
 			>
@@ -314,9 +312,9 @@
 					d={linePath}
 					fill="none"
 					stroke="var(--chart-line-start)"
-					stroke-width="1.5"
-					stroke-linecap="square"
-					stroke-linejoin="miter"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
 				/>
 
 				{#if activePoint && activeIndex !== null}
@@ -329,14 +327,13 @@
 						stroke-width="1"
 						stroke-dasharray="3 3"
 					/>
-					<rect
-						x={activePoint.x - 3}
-						y={activePoint.y - 3}
-						width="6"
-						height="6"
+					<circle
+						cx={activePoint.x}
+						cy={activePoint.y}
+						r="4"
 						fill="var(--card)"
-						stroke="var(--foreground)"
-						stroke-width="1.5"
+						stroke="var(--chart-line-start)"
+						stroke-width="2"
 					/>
 				{/if}
 			</svg>

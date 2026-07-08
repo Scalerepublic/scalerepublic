@@ -18,10 +18,10 @@
 </script>
 
 <div class={cn('section-heading', className)}>
-	<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{title}</h2>
+	<h2 class="font-serif text-lg font-bold text-foreground">{title}</h2>
 	{#if badge}
 		<span
-			class="border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+			class="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
 		>
 			{badge}
 		</span>

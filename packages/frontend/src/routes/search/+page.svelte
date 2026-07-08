@@ -10,15 +10,6 @@
 
 	type MarketView = 'home' | 'browse';
 
-	const SECTOR_ACCENTS: Record<string, string> = {
-		technology: '#1a3660',
-		media: '#7c2d12',
-		finance: '#14532d',
-		healthcare: '#831843',
-		energy: '#854d0e',
-		consumer: '#3f3f46'
-	};
-
 	let query = $state('');
 	let view = $state<MarketView>('home');
 	let activeSector = $state<string | null>(null);
@@ -150,7 +141,7 @@
 			value={query}
 			oninput={handleQueryInput}
 			placeholder="Search by ticker or company name…"
-			class="h-11 w-full border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
+			class="h-11 w-full rounded-lg border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
 		/>
 	</div>
 
@@ -158,9 +149,7 @@
 		<section class="market-section">
 			<div class="mb-5 flex items-end justify-between gap-4">
 				<div>
-					<h2 class="text-xs font-semibold tracking-[0.22em] text-muted-foreground uppercase">
-						Trending Today
-					</h2>
+					<h2 class="font-serif text-lg font-bold text-foreground">Trending Today</h2>
 					<p class="mt-0.5 text-xs text-muted-foreground">Top movers with live quotes</p>
 				</div>
 			</div>
@@ -168,7 +157,7 @@
 			{#if marketStore.loadingTrending && marketStore.trending.length === 0}
 				<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
 					{#each Array.from({ length: 6 }, (_, index) => index) as index (index)}
-						<div class="h-36 animate-pulse border border-border bg-muted/40"></div>
+						<div class="h-36 animate-pulse rounded-xl border border-border bg-muted/40"></div>
 					{/each}
 				</div>
 			{:else}
@@ -185,9 +174,7 @@
 		<section class="market-section mt-12">
 			<div class="mb-5 flex items-end justify-between gap-4">
 				<div>
-					<h2 class="text-xs font-semibold tracking-[0.22em] text-muted-foreground uppercase">
-						Browse by Sector
-					</h2>
+					<h2 class="font-serif text-lg font-bold text-foreground">Browse by Sector</h2>
 					<p class="mt-0.5 text-xs text-muted-foreground">
 						Curated lanes — paginated, never the full dump at once
 					</p>
@@ -197,16 +184,11 @@
 			<div class="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
 				<button
 					type="button"
-					class="market-category-card group relative flex min-h-[9.5rem] w-full flex-col justify-between overflow-hidden border border-border bg-card p-5 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/35 md:col-span-2 xl:col-span-3"
-					style="--sector-accent: var(--foreground)"
+					class="market-category-card group relative flex min-h-[9.5rem] w-full flex-col justify-between overflow-hidden rounded-xl border border-border bg-card p-5 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/35 md:col-span-2 xl:col-span-3"
 					onclick={() => openBrowse()}
 				>
-					<span
-						class="pointer-events-none absolute inset-y-0 left-0 w-1 bg-foreground transition-[width] duration-200 group-hover:w-1.5"
-						aria-hidden="true"
-					></span>
 					<div
-						class="flex flex-col gap-4 pl-2 min-[720px]:flex-row min-[720px]:items-end min-[720px]:justify-between"
+						class="flex flex-col gap-4 min-[720px]:flex-row min-[720px]:items-end min-[720px]:justify-between"
 					>
 						<div>
 							<div
@@ -234,7 +216,6 @@
 							label={sector.label}
 							description={sector.description}
 							count={sector.count}
-							accent={SECTOR_ACCENTS[sector.id] ?? 'var(--accent)'}
 							onclick={() => openBrowse(sector.id)}
 						/>
 					</div>
@@ -247,7 +228,7 @@
 				<div class="flex min-w-0 items-start gap-3">
 					<button
 						type="button"
-						class="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center border border-border bg-card text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
+						class="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
 						onclick={goHome}
 						aria-label="Back to market home"
 					>
@@ -260,7 +241,7 @@
 				</div>
 				{#if browse}
 					<span
-						class="border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+						class="rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
 					>
 						{browse.total.toLocaleString()} matches
 					</span>
@@ -270,7 +251,7 @@
 			{#if marketStore.loadingBrowse && (!browse || browse.items.length === 0)}
 				<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
 					{#each Array.from({ length: 6 }, (_, index) => index) as index (index)}
-						<div class="h-36 animate-pulse border border-border bg-muted/40"></div>
+						<div class="h-36 animate-pulse rounded-xl border border-border bg-muted/40"></div>
 					{/each}
 				</div>
 			{:else if browse && browse.items.length === 0}
@@ -297,7 +278,7 @@
 						<div class="flex items-center gap-2">
 							<button
 								type="button"
-								class="inline-flex h-9 items-center gap-1 border border-border bg-card px-3 text-xs font-medium text-foreground transition enabled:hover:border-foreground/30 disabled:opacity-40"
+								class="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition enabled:hover:border-foreground/30 disabled:opacity-40"
 								disabled={browse.page <= 1}
 								onclick={() => loadPage(browse.page - 1)}
 							>
@@ -306,7 +287,7 @@
 							</button>
 							<button
 								type="button"
-								class="inline-flex h-9 items-center gap-1 border border-border bg-card px-3 text-xs font-medium text-foreground transition enabled:hover:border-foreground/30 disabled:opacity-40"
+								class="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition enabled:hover:border-foreground/30 disabled:opacity-40"
 								disabled={browse.page >= totalPages}
 								onclick={() => loadPage(browse.page + 1)}
 							>

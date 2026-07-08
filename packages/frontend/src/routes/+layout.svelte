@@ -5,7 +5,6 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import AppShell from '$lib/components/app/AppShell.svelte';
-	import { ModeWatcher } from 'mode-watcher';
 	import AppToaster from '$lib/components/app/AppToaster.svelte';
 	import { signOut } from '$lib/auth-client';
 	import { bootstrapAppData, resetAppDataBootstrap } from '$lib/bootstrap-app-data';
@@ -72,7 +71,6 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<ModeWatcher />
 <AppToaster />
 
 {#if isPublicRoute}

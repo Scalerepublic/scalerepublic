@@ -82,7 +82,7 @@
 	}
 </script>
 
-<section class="border border-border bg-card">
+<section class="rounded-xl border border-border bg-card">
 	<dl class="divide-y divide-border/60">
 		{#if userStore.profile.startingCapital !== undefined}
 			<SettingsRow icon={Wallet} label="Starting Capital">
@@ -131,7 +131,7 @@
 	</dl>
 </section>
 
-<section class="mt-5 border border-destructive/30 bg-card">
+<section class="mt-5 rounded-xl border border-destructive/30 bg-card">
 	<div class="border-b border-destructive/20 px-5 py-4">
 		<div class="flex items-center gap-2">
 			<AlertTriangle class="size-4 text-destructive" />

@@ -94,14 +94,14 @@
 
 	<div class="mb-6 flex items-center gap-3">
 		<div
-			class="flex size-10 shrink-0 items-center justify-center border border-border bg-muted text-sm font-bold text-foreground"
+			class="flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-sm font-bold text-foreground"
 		>
 			{getInitials(data.profile.name)}
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
 			{#if data.profile.isDefaulted}
 				<span
-					class="inline-flex items-center gap-1 border border-negative/30 bg-negative/8 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-negative uppercase"
+					class="inline-flex items-center gap-1 rounded-md border border-negative/30 bg-negative/8 px-2 py-0.5 text-[10px] font-semibold tracking-widest text-negative uppercase"
 				>
 					<Shield class="size-3" />
 					Suspended
@@ -109,7 +109,7 @@
 			{/if}
 			{#if data.profile.penaltyCounter > 0}
 				<span
-					class="border border-border bg-muted px-2 py-0.5 font-mono text-xs font-bold text-foreground"
+					class="rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-xs font-bold text-foreground"
 				>
 					{data.profile.penaltyCounter} default{data.profile.penaltyCounter === 1 ? '' : 's'}
 				</span>
@@ -118,7 +118,7 @@
 	</div>
 
 	<div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-		<StatCard label="Net Worth" value={formatCurrency(summary.totalValue)} accent />
+		<StatCard label="Net Worth" value={formatCurrency(summary.totalValue)} />
 		<StatCard
 			label="Total Return"
 			value={formatCurrency(summary.totalPnl)}
@@ -135,9 +135,9 @@
 	</div>
 
 	<div class="section-heading">
-		<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Holdings</h2>
+		<h2 class="font-serif text-lg font-bold text-foreground">Holdings</h2>
 		<span
-			class="border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+			class="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
 		>
 			{holdings.length}
 			{holdings.length === 1 ? 'position' : 'positions'}
@@ -147,7 +147,7 @@
 	{#if holdings.length === 0}
 		<div
 			class={cn(
-				'flex flex-col items-center justify-center border border-dashed border-border py-16 text-center'
+				'flex flex-col items-center justify-center rounded-xl border border-dashed border-input py-16 text-center'
 			)}
 		>
 			<p class="font-serif text-base font-semibold text-muted-foreground">No open positions.</p>
