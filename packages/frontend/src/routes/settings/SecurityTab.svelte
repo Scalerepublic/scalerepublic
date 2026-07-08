@@ -2,9 +2,9 @@
 	import FormAlert from '$lib/components/app/FormAlert.svelte';
 	import FormField from '$lib/components/app/FormField.svelte';
 	import SubmitButton from '$lib/components/app/SubmitButton.svelte';
-	import { userStore } from '$lib/stores/user.svelte';
+	import { authStore } from '$lib/stores/auth.svelte';
+	import { checkEmailAvailable } from '$lib/api/queries';
 	import { changePassword, changeEmail } from '$lib/auth-client';
-	import { api, parseApiData } from '$lib/api/client';
 	import { firstIssue } from '$lib/validation';
 	import { emailSchema, passwordSchema } from 'backend/validation';
 	import { toast } from 'svelte-sonner';
@@ -63,7 +63,7 @@
 	const newEmailIssue = $derived(firstIssue(emailSchema, newEmail.trim()));
 	const canChangeEmail = $derived(
 		emailSchema.safeParse(newEmail.trim()).success &&
-			newEmail.trim().toLowerCase() !== userStore.profile.email.toLowerCase()
+			newEmail.trim().toLowerCase() !== (authStore.user?.email ?? '').toLowerCase()
 	);
 
 	async function handleChangeEmail(event: SubmitEvent) {
@@ -78,10 +78,7 @@
 		// better-auth reports success even when the email is already taken, so we
 		// check availability ourselves first to give meaningful feedback.
 		try {
-			const res = await api.api.v1.auth['email-available'].$get({
-				query: { email: trimmedEmail }
-			});
-			const { available } = await parseApiData<{ available: boolean }>(res);
+			const available = await checkEmailAvailable(trimmedEmail);
 			if (!available) {
 				emailError = 'That email address is already in use.';
 				toast.error(emailError);
@@ -177,7 +174,7 @@
 			<div>
 				<p class="text-sm font-semibold text-foreground">Change email</p>
 				<p class="text-xs text-muted-foreground">
-					Current: <span class="font-medium text-foreground">{userStore.profile.email}</span>
+					Current: <span class="font-medium text-foreground">{authStore.user?.email ?? ''}</span>
 				</p>
 			</div>
 		</header>
