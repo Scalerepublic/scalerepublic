@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { LayoutDashboard, Search, Settings, Trophy, Bell } from '@lucide/svelte';
 	import NavItem from './NavItem.svelte';
-	import { notificationStore } from '$lib/stores/notification.svelte';
+	import { getNotifications } from '$lib/data/notifications.svelte';
+
+	const notifications = getNotifications({ unread: true });
 
 	const navItems = [
 		{ href: '/dashboard', label: 'Portfolio', icon: LayoutDashboard },
@@ -21,7 +23,7 @@
 			label={item.label}
 			icon={item.icon}
 			mobile
-			badge={item.href === '/notifications' ? notificationStore.unreadCount : 0}
+			badge={item.href === '/notifications' ? notifications.count : 0}
 		/>
 	{/each}
 </nav>

@@ -1,4 +1,5 @@
 import { createApiClient } from 'backend/api-client';
+import type { ClientResponse } from 'hono/client';
 
 import { ApiError } from '$lib/api';
 
@@ -41,10 +42,17 @@ export const api = createApiClient(API_BASE, {
 	}
 });
 
-export async function parseApiData<T>(res: Response): Promise<T> {
-	let json: { data?: T; error?: string };
+type ApiData<R> =
+	R extends ClientResponse<infer O, number, 'json'>
+		? O extends { data: infer D }
+			? D
+			: never
+		: never;
+
+export async function parseApiData<R extends ClientResponse<unknown>>(res: R): Promise<ApiData<R>> {
+	let json: { data?: unknown; error?: unknown };
 	try {
-		json = (await res.json()) as { data?: T; error?: string };
+		json = (await res.json()) as { data?: unknown; error?: unknown };
 	} catch {
 		throw new ApiError('Invalid response from server', res.status);
 	}
@@ -58,5 +66,5 @@ export async function parseApiData<T>(res: Response): Promise<T> {
 		throw new ApiError('Response missing data', res.status);
 	}
 
-	return json.data;
+	return json.data as ApiData<R>;
 }

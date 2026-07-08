@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { marketStore, MARKET_PAGE_SIZE } from '$lib/stores/market.svelte';
+	import { getSectors, getStockList, getTrending } from '$lib/data/market.svelte';
+	import type { StocksListParams } from '$lib/api/queries';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import StockCard from '$lib/components/app/StockCard.svelte';
 	import EmptyState from '$lib/components/app/EmptyState.svelte';
@@ -19,13 +19,29 @@
 		consumer: '#3f3f46'
 	};
 
+	const MARKET_PAGE_SIZE = 24;
+
 	let query = $state('');
 	let view = $state<MarketView>('home');
 	let activeSector = $state<string | null>(null);
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
-	let lastSearchQuery = $state('');
+	let debouncedSearch = $state('');
+	let page = $state(1);
 
-	const browse = $derived(marketStore.browse);
+	const trending = getTrending();
+	const market = getSectors();
+
+	const browseParams = $derived<StocksListParams>({
+		q: debouncedSearch || undefined,
+		sector: activeSector ?? undefined,
+		page,
+		limit: MARKET_PAGE_SIZE
+	});
+	const browseList = getStockList(
+		() => browseParams,
+		() => view === 'browse'
+	);
+	const browse = $derived(browseList.result);
 	const totalPages = $derived(browse ? Math.max(1, Math.ceil(browse.total / browse.limit)) : 1);
 	const isSearchMode = $derived(query.trim().length > 0);
 	const browseTitle = $derived.by(() => {
@@ -33,7 +49,7 @@
 			return `Results for “${query.trim()}”`;
 		}
 		if (activeSector) {
-			return marketStore.sectors.find((sector) => sector.id === activeSector)?.label ?? 'Browse';
+			return market.sectors.find((sector) => sector.id === activeSector)?.label ?? 'Browse';
 		}
 		return 'All Listings';
 	});
@@ -42,7 +58,7 @@
 			return 'Server-side search across the full catalog';
 		}
 		if (activeSector) {
-			return marketStore.sectors.find((sector) => sector.id === activeSector)?.description ?? '';
+			return market.sectors.find((sector) => sector.id === activeSector)?.description ?? '';
 		}
 		return 'Alphabetical browse across every active ticker';
 	});
@@ -52,16 +68,11 @@
 			clearTimeout(searchTimer);
 			searchTimer = null;
 		}
-		lastSearchQuery = '';
 		query = '';
-		view = 'browse';
+		debouncedSearch = '';
+		page = 1;
 		activeSector = sector ?? null;
-		void marketStore.browseStocks({
-			sector: sector,
-			page: 1,
-			limit: MARKET_PAGE_SIZE,
-			force: true
-		});
+		view = 'browse';
 	}
 
 	function goHome() {
@@ -71,13 +82,13 @@
 		}
 		view = 'home';
 		activeSector = null;
-		lastSearchQuery = '';
+		debouncedSearch = '';
 		query = '';
+		page = 1;
 	}
 
 	function handleQueryInput(event: Event) {
 		const value = (event.currentTarget as HTMLInputElement).value;
-		const previousQuery = query.trim();
 		query = value;
 
 		if (searchTimer) {
@@ -87,33 +98,21 @@
 
 		const trimmed = value.trim();
 		if (trimmed.length === 0) {
-			if (previousQuery.length > 0 || lastSearchQuery.length > 0) {
-				lastSearchQuery = '';
-				if (activeSector) {
-					view = 'browse';
-					void marketStore.browseStocks({
-						sector: activeSector,
-						page: 1,
-						limit: MARKET_PAGE_SIZE,
-						force: true
-					});
-				} else {
-					goHome();
-				}
+			debouncedSearch = '';
+			if (activeSector) {
+				page = 1;
+				view = 'browse';
+			} else {
+				goHome();
 			}
 			return;
 		}
 
 		searchTimer = setTimeout(() => {
-			lastSearchQuery = trimmed;
-			view = 'browse';
+			debouncedSearch = trimmed;
 			activeSector = null;
-			void marketStore.browseStocks({
-				q: trimmed,
-				page: 1,
-				limit: MARKET_PAGE_SIZE,
-				force: true
-			});
+			page = 1;
+			view = 'browse';
 		}, 320);
 	}
 
@@ -121,19 +120,8 @@
 		if (nextPage < 1 || nextPage > totalPages) {
 			return;
 		}
-		void marketStore.browseStocks({
-			sector: activeSector ?? undefined,
-			q: query.trim() || undefined,
-			page: nextPage,
-			limit: MARKET_PAGE_SIZE,
-			silent: true,
-			force: true
-		});
+		page = nextPage;
 	}
-
-	onMount(() => {
-		void marketStore.loadSectors();
-	});
 </script>
 
 <div class="page-shell market-page">
@@ -165,7 +153,7 @@
 				</div>
 			</div>
 
-			{#if marketStore.loadingTrending && marketStore.trending.length === 0}
+			{#if trending.isLoading && trending.stocks.length === 0}
 				<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
 					{#each Array.from({ length: 6 }, (_, index) => index) as index (index)}
 						<div class="h-36 animate-pulse border border-border bg-muted/40"></div>
@@ -173,7 +161,7 @@
 				</div>
 			{:else}
 				<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
-					{#each marketStore.trending as stock, index (stock.ticker)}
+					{#each trending.stocks as stock, index (stock.ticker)}
 						<div class="market-fade-up" style={`animation-delay: ${index * 45}ms`}>
 							<StockCard {stock} />
 						</div>
@@ -223,12 +211,12 @@
 							</p>
 						</div>
 						<p class="font-mono text-sm tracking-widest text-muted-foreground uppercase">
-							{marketStore.totalListings.toLocaleString()} tickers
+							{market.totalListings.toLocaleString()} tickers
 						</p>
 					</div>
 				</button>
 
-				{#each marketStore.sectors as sector, index (sector.id)}
+				{#each market.sectors as sector, index (sector.id)}
 					<div class="market-fade-up h-full" style={`animation-delay: ${index * 55}ms`}>
 						<MarketCategoryCard
 							label={sector.label}
@@ -267,7 +255,7 @@
 				{/if}
 			</div>
 
-			{#if marketStore.loadingBrowse && (!browse || browse.items.length === 0)}
+			{#if browseList.isFetching && (!browse || browse.items.length === 0)}
 				<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
 					{#each Array.from({ length: 6 }, (_, index) => index) as index (index)}
 						<div class="h-36 animate-pulse border border-border bg-muted/40"></div>

@@ -1,128 +1,32 @@
-export type BackendStockSummary = {
-	id: string;
-	ticker: string;
-	companyName: string;
-	exchange: string;
-	currency: string;
-	latestPrice: number | null;
-	previousClose: number | null;
-	dayChange: number | null;
-	dayChangePercent: number | null;
-	periodChangePercent: number | null;
-};
+import type { ApiClient } from 'backend/api-client';
+import type { InferResponseType } from 'hono/client';
 
-export type BackendStockListResponse = {
-	items: BackendStockSummary[];
-	total: number;
-	page: number;
-	limit: number;
-};
+type Endpoints = ApiClient['api']['v1'];
 
-export type BackendMarketSector = {
-	id: string;
-	label: string;
-	description: string;
-	count: number;
-};
+type Data<T> =
+	Extract<InferResponseType<T>, { data: unknown }> extends { data: infer D } ? D : never;
 
-export type BackendMarketSectorCatalog = {
-	sectors: BackendMarketSector[];
-	totalListings: number;
-};
+export type BackendStockSummary = Data<Endpoints['stocks']['trending']['$get']>[number];
+export type BackendStockListResponse = Data<Endpoints['stocks']['$get']>;
+export type BackendMarketSectorCatalog = Data<Endpoints['stocks']['sectors']['$get']>;
+export type BackendMarketSector = BackendMarketSectorCatalog['sectors'][number];
+export type BackendStockDetail = Data<Endpoints['stocks'][':ticker']['detail']['$get']>;
 
-export type BackendPortfolioRow = {
-	id: string;
-	userId: string;
-	cashBalance: string;
-	startingCapital: string;
-	status: 'ACTIVE' | 'DEFAULTED';
-	defaultedAt: Date | string | null;
-	createdAt: Date | string;
-	updatedAt: Date | string;
-};
+export type BackendPortfolioPayload = Data<Endpoints['users'][':id']['portfolio']['$get']>;
+export type BackendPortfolioRow = BackendPortfolioPayload['portfolio'];
+export type BackendPortfolioPosition = BackendPortfolioPayload['holdings'][number];
 
-export type BackendPortfolioPosition = {
-	stockId: string;
-	ticker: string;
-	quantity: number;
-	avgCost: number;
-	currentPrice: number | null;
-	marketValue: number | null;
-};
+export type BackendAutoTradeRule = Data<
+	Endpoints['portfolio'][':portfolioId']['autotrades']['$get']
+>[number];
 
-export type BackendPortfolioPayload = {
-	portfolio: BackendPortfolioRow;
-	holdings: BackendPortfolioPosition[];
-	portfolioValue: number;
-};
+export type BackendLeaderboardEntry = Data<Endpoints['leaderboard']['$get']>[number];
 
-export type BackendLeaderboardEntry = {
-	rank: number;
-	userId: string;
-	name: string;
-	cashBalance: number;
-	portfolioValue: number;
-	netWorth: number;
-	startingCapital: number;
-	penaltyCounter: number;
-	lastDefaultedAt: string | null;
-	isDefaulted: boolean;
-};
+export type BackendUserProfile = Data<Endpoints['users'][':id']['$get']>;
+export type BackendUserSearchResult = Data<Endpoints['users']['search']['$get']>[number];
+export type BackendPerformancePoint = Data<
+	Endpoints['users'][':id']['performance']['$get']
+>[number];
 
-export type BackendUserProfile = {
-	userId: string;
-	name: string;
-	cashBalance: number;
-	netWorth: number;
-	startingCapital: number;
-	isDefaulted: boolean;
-	penaltyCounter: number;
-	rank: number | null;
-};
-
-export type BackendUserSearchResult = {
-	userId: string;
-	name: string;
-	rank: number | null;
-	netWorth: number | null;
-};
-
-export type BackendPerformancePoint = {
-	date: string;
-	value: number;
-};
-
-export type BackendNotificationType =
-	| 'AUTOTRADE_TRIGGERED'
-	| 'AUTOTRADE_EXPIRED'
-	| 'AUTOTRADE_FAILED';
-
-export type BackendNotification = {
-	id: string;
-	userId: string;
-	type: BackendNotificationType;
-	key: string;
-	data: Record<string, unknown> | null;
-	read: boolean;
-	createdAt: string;
-};
-
-export type BackendStockDetail = {
-	stock: {
-		id: string;
-		ticker: string;
-		companyName: string;
-		exchange: string;
-		currency: string;
-		description: string | null;
-		isAccumulating: boolean | null;
-	};
-	performance: {
-		latestPrice: number | null;
-		previousClose: number | null;
-		dayChange: number | null;
-		dayChangePercent: number | null;
-		periodChangePercent: number | null;
-	};
-	priceHistory: Array<{ date: string; close: number }>;
-};
+export type BackendNotification = Data<Endpoints['notifications']['$get']>[number];
+export type BackendNotificationType = BackendNotification['type'];
