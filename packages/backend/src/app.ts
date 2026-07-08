@@ -1,5 +1,6 @@
 import type { Fetcher } from "@cloudflare/workers-types";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 
 import { type App, type AppEnv, type AppVars, createAppContext, useCtx } from "./context.ts";
 import { createDb, type DbClient } from "./db/index.ts";
@@ -105,6 +106,9 @@ export const createApp = (staticCtx?: AppVars): App => {
     });
 
     app.onError((err, c) => {
+        if (err instanceof HTTPException) {
+            return err.getResponse()
+        }
         console.error(err)
         return c.json({ error: "Internal server error" }, 500)
     })

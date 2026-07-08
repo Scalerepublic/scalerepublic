@@ -1,7 +1,9 @@
 <script lang="ts">
 	import TradeSheetShell from './TradeSheetShell.svelte';
+	import { createMutation } from '@tanstack/svelte-query';
+	import { sell } from '$lib/api/queries';
+	import { getPortfolio } from '$lib/data/portfolio.svelte';
 	import { formatCurrency } from '$lib/utils';
-	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import type { Stock } from '$lib/types';
 	import { toast } from 'svelte-sonner';
 
@@ -15,10 +17,13 @@
 		maxQuantity: number;
 	} = $props();
 
+	const portfolio = getPortfolio();
+	const sellMutation = createMutation(() => ({ mutationFn: sell }));
+
 	let quantity = $state(1);
 	const exceedsHoldings = $derived(quantity > maxQuantity);
 	const total = $derived(stock.currentPrice * quantity);
-	const currentBalance = $derived(portfolioStore.summary.cashBalance);
+	const currentBalance = $derived(portfolio.cashBalance);
 	const resultingBalance = $derived(currentBalance + total);
 
 	function getQuantityError(qty: number) {
@@ -30,9 +35,16 @@
 	async function submit(qty: number) {
 		const validationError = getQuantityError(qty);
 		if (validationError) throw new Error(validationError);
+		const portfolioId = portfolio.portfolioId;
+		if (!portfolioId) throw new Error('Portfolio not loaded');
 
 		try {
-			await portfolioStore.sell(stock.id, qty);
+			await sellMutation.mutateAsync({
+				portfolioId,
+				stockId: stock.id,
+				quantity: qty,
+				price: stock.currentPrice
+			});
 			toast.success(`Sold ${qty} × ${stock.ticker}`);
 		} catch (e) {
 			const message = e instanceof Error ? e.message : 'Trade failed';
