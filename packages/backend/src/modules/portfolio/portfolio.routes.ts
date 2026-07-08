@@ -143,7 +143,6 @@ export const portfolioRoutes = new Hono<AppEnv>()
     )
     .post("/api/v1/portfolio/default", async (c) => {
         const authResult = await requireAuth(c);
-        if (authResult instanceof Response) return authResult;
 
         const { portfolioService, portfolioDefaultService } = useCtx(c);
         const userId = authResult.user.id;

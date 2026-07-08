@@ -1,3 +1,5 @@
+import { HTTPException } from 'hono/http-exception';
+
 import { useCtx, type AppContext } from '../context.ts';
 
 import type { Auth } from './auth.ts';
@@ -12,22 +14,23 @@ export type AuthSession = {
 
 const getSession = async (auth: Auth, c: AppContext): Promise<AuthSession | null> => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    const userId = session?.user.id;
-    if (userId === undefined || userId === '') return null;
+    if (session === null || session.user.id === '') return null;
     return {
         user: {
-            id: userId,
+            id: session.user.id,
             email: session.user.email,
             name: session.user.name,
         },
     };
 };
 
-export const requireAuth = async (c: AppContext): Promise<AuthSession | Response> => {
+export const requireAuth = async (c: AppContext): Promise<AuthSession> => {
     const { auth } = useCtx(c);
     const session = await getSession(auth, c);
     if (session === null) {
-        return c.json({ error: 'Unauthorized' }, 401);
+        throw new HTTPException(401, {
+            res: c.json({ error: 'Unauthorized' }, 401),
+        });
     }
     return session;
 };

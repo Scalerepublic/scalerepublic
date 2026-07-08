@@ -1,16 +1,14 @@
 import type {
 	BackendLeaderboardEntry,
 	BackendPortfolioPayload,
-	BackendStockSummary,
-	BackendUserProfile
+	BackendStockSummary
 } from '$lib/api/backend-types';
-import type {
-	ApiLeaderboardEntry,
-	ApiPortfolio,
-	HoldingWithMarket,
-	Stock,
-	UserProfile
-} from '$lib/types';
+import { periodChangeToAmount } from '$lib/stock-performance';
+import type { Stock } from '$lib/types';
+
+export type ApiPortfolio = ReturnType<typeof mapPortfolioPayload>;
+export type ApiHolding = ApiPortfolio['holdings'][number];
+export type ApiLeaderboardEntry = ReturnType<typeof mapLeaderboardEntry>;
 
 function normalizeExchange(exchange: string): string | undefined {
 	const trimmed = exchange.trim();
@@ -27,9 +25,7 @@ export function mapStockSummary(row: BackendStockSummary): Stock {
 	const periodChangePercent = row.periodChangePercent ?? null;
 	const displayPercent = periodChangePercent ?? dayChangePercent;
 	const displayChange =
-		periodChangePercent !== null
-			? price - price / (1 + periodChangePercent / 100)
-			: dayChange;
+		periodChangePercent !== null ? periodChangeToAmount(price, periodChangePercent) : dayChange;
 
 	return {
 		id: row.id,
@@ -45,7 +41,7 @@ export function mapStockSummary(row: BackendStockSummary): Stock {
 	};
 }
 
-export function mapPortfolioPayload(payload: BackendPortfolioPayload): ApiPortfolio {
+export function mapPortfolioPayload(payload: BackendPortfolioPayload) {
 	return {
 		portfolioId: payload.portfolio.id,
 		cashBalance: parseFloat(payload.portfolio.cashBalance),
@@ -62,51 +58,7 @@ export function mapPortfolioPayload(payload: BackendPortfolioPayload): ApiPortfo
 	};
 }
 
-export function mapTraderHoldings(portfolio: ApiPortfolio): HoldingWithMarket[] {
-	return portfolio.holdings.map((h) => {
-		const currentPrice = h.currentPrice ?? 0;
-		const currentValue = currentPrice * h.shares;
-		const totalCost = h.avgCost * h.shares;
-		const pnl = currentValue - totalCost;
-
-		return {
-			ticker: h.ticker,
-			shares: h.shares,
-			avgCost: h.avgCost,
-			stock: {
-				id: h.stockId,
-				ticker: h.ticker,
-				name: h.companyName || h.ticker,
-				sector: '',
-				currentPrice,
-				previousClose: currentPrice,
-				dayChange: 0,
-				dayChangePercent: 0
-			},
-			currentValue,
-			totalCost,
-			pnl,
-			pnlPercent: totalCost > 0 ? (pnl / totalCost) * 100 : 0
-		};
-	});
-}
-
-export function mapTraderSummary(portfolio: ApiPortfolio, holdings: HoldingWithMarket[]) {
-	const holdingsValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-	const totalValue = holdingsValue + portfolio.cashBalance;
-	const totalPnl = totalValue - portfolio.startingCapital;
-
-	return {
-		totalValue,
-		holdingsValue,
-		cashBalance: portfolio.cashBalance,
-		totalPnl,
-		totalPnlPercent:
-			portfolio.startingCapital > 0 ? (totalPnl / portfolio.startingCapital) * 100 : 0
-	};
-}
-
-export function mapLeaderboardEntry(entry: BackendLeaderboardEntry): ApiLeaderboardEntry {
+export function mapLeaderboardEntry(entry: BackendLeaderboardEntry) {
 	const startingCapital = entry.startingCapital;
 	const holdingsValue = entry.portfolioValue;
 	const returnPercent =
@@ -122,21 +74,5 @@ export function mapLeaderboardEntry(entry: BackendLeaderboardEntry): ApiLeaderbo
 		returnPercent,
 		penalties: entry.penaltyCounter,
 		lastDefaultedAt: entry.lastDefaultedAt
-	};
-}
-
-export function mergeUserProfile(
-	base: UserProfile,
-	backend: BackendUserProfile | null
-): UserProfile {
-	if (!backend) return base;
-
-	return {
-		...base,
-		name: backend.name || base.name,
-		startingCapital: backend.startingCapital,
-		accountStatus: backend.isDefaulted ? 'suspended' : 'active',
-		rank: backend.rank ?? undefined,
-		penaltyCounter: backend.penaltyCounter
 	};
 }

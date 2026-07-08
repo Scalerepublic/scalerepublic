@@ -2,15 +2,18 @@ import type { Context, Hono } from 'hono'
 
 import { db as defaultDb, type DbConnection } from './db/index.ts'
 import { type Auth, type AuthOptions, createAuth } from './lib/auth.ts'
+import { isMarketDebugEnabled } from './lib/market-debug.ts'
+import { AutoTradeService } from './modules/autotrade/index.ts'
 import { LeaderboardService } from './modules/leaderboard/leaderboard.service.ts'
 import { MarketDebugService } from './modules/market-debug/market-debug.service.ts'
+import { NotificationService } from './modules/notification/index.ts'
 import { PortfolioDefaultService } from './modules/portfolio/portfolio-default.service.ts'
 import { PortfolioPerformanceService } from './modules/portfolio/portfolio-performance.service.ts'
 import { PortfolioService } from './modules/portfolio/portfolio.services.ts'
 import { StockService } from './modules/stock/stock.service.ts'
 import { MockStockDataClient } from './modules/stockapi/mock-stock-client.ts'
 import type { StockDataClient } from './modules/stockapi/stock-data-client.ts'
-import { UniStockClient } from './modules/stockapi/uni-stock-client.ts'
+import { UniStockClient, type UniApiSubfetch } from './modules/stockapi/uni-stock-client.ts'
 import { AlphaVantageStockClient } from './modules/stockapi/vantage/vantage-stock-client.ts'
 import { SyncService } from './modules/sync/sync.service.ts'
 import { TradesService } from './modules/trades/index.ts'
@@ -29,6 +32,8 @@ export type AppVars = {
     portfolioDefaultService: PortfolioDefaultService
     portfolioPerformanceService: PortfolioPerformanceService
     tradesService: TradesService
+    autoTradeService: AutoTradeService
+    notificationService: NotificationService
 }
 
 export type AppEnv = {
@@ -44,17 +49,17 @@ export const useCtx = (c: AppContext): AppVars => c.get('ctx')
 
 export type AppContextOptions = {
     auth?: AuthOptions
+    uniApiSubfetch?: UniApiSubfetch
+    uniApiBaseUrl?: string
 }
 
 export const createAppContext = (
     db: DbConnection = defaultDb,
     options: AppContextOptions = {},
 ): AppVars => {
-    // Services receive ctx by reference. ctx.xService properties are populated
-    // before any method can be called, so cross-service access is always safe.
     const ctx = { db } as AppVars
     ctx.auth = createAuth(db, options.auth)
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env.NODE_ENV === 'test' || isMarketDebugEnabled()) {
         ctx.stockDataClient = new MockStockDataClient()
     } else if (process.env['STOCK_API_PROVIDER'] === 'uni') {
         const hasUniCredentials =
@@ -68,7 +73,11 @@ export const createAppContext = (
             )
         }
         ctx.stockDataClient = hasUniCredentials
-            ? new UniStockClient()
+            ? new UniStockClient(
+                  undefined,
+                  options.uniApiBaseUrl,
+                  options.uniApiSubfetch,
+              )
             : new MockStockDataClient()
     } else {
         const hasVantageKey =
@@ -92,5 +101,7 @@ export const createAppContext = (
     ctx.portfolioDefaultService = new PortfolioDefaultService(ctx)
     ctx.portfolioPerformanceService = new PortfolioPerformanceService(ctx)
     ctx.tradesService = new TradesService(ctx)
+    ctx.notificationService = new NotificationService(ctx)
+    ctx.autoTradeService = new AutoTradeService(ctx)
     return ctx
 }

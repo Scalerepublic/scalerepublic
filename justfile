@@ -55,6 +55,9 @@ up-docker:
 db-migrate:
     cd "{{backend}}" && bun run db:migrate
 
+db-seed:
+    cd "{{backend}}" && just db-seed
+
 db-studio:
     cd "{{backend}}" && bun run db:studio
 

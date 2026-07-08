@@ -2,6 +2,7 @@ import { inArray } from 'drizzle-orm';
 import seedrandom from 'seedrandom';
 
 import { createAppContext } from '../../context.ts';
+import { DEBUG_MARKET_PRICE_SOURCE } from '../../lib/market-debug.ts';
 import { client, db } from '../index.ts';
 import { stockPrice } from '../schema/stock/market.ts';
 import { stock } from '../schema/stock/stock.ts';
@@ -10,6 +11,7 @@ import { generateGBM } from './gbm.ts';
 import { ARCHETYPES, SEED_STOCKS } from './stocks.ts';
 
 const GLOBAL_SEED = process.env.SEED_RNG_SEED ?? '42';
+const PRICE_SOURCE = process.env.STOCK_DEBUG === 'true' ? DEBUG_MARKET_PRICE_SOURCE : 'seed';
 const MONTHS = parseInt(process.env.SEED_MONTHS ?? '2', 10);
 const HOURS = Math.round(MONTHS * 30.44 * 24);
 const BATCH_SIZE = 500;
@@ -55,7 +57,7 @@ for (let i = 0; i < SEED_STOCKS.length; i++) {
     id: crypto.randomUUID(),
     stockId,
     price: p.price.toFixed(4),
-    source: 'seed',
+    source: PRICE_SOURCE,
     recordedAt: p.recordedAt,
   }));
 

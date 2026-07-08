@@ -2,28 +2,46 @@
 	import { cn, formatCurrency, formatPercent } from '$lib/utils';
 	import {
 		filterPerformanceByGranularity,
+		getPerformanceWindowBounds,
+		getPerformanceWindowEndIso,
+		granularityLabels,
+		granularityPeriodLabels,
+		parsePerformancePointMs,
+		type PerformanceChartMode,
 		type PerformanceGranularity,
 		type PerformancePoint
 	} from '$lib/performance-history';
+	import {
+		formatMarketTime,
+		getMarketSessionBounds,
+		MARKET_CLOSE_HOUR,
+		marketSessionOpenIso,
+		zonedWallTimeToUtc
+	} from '$lib/market-session';
 
 	let {
 		data,
-		granularity = $bindable<PerformanceGranularity>('daily'),
+		granularity = $bindable<PerformanceGranularity>('monthly'),
 		loading = false,
+		mode = 'portfolio',
+		subtitle,
 		onGranularityChange
 	}: {
 		data: PerformancePoint[];
 		granularity?: PerformanceGranularity;
 		loading?: boolean;
+		mode?: PerformanceChartMode;
+		subtitle?: string;
 		onGranularityChange?: (granularity: PerformanceGranularity) => void;
 	} = $props();
 
-	const granularityOptions: { value: PerformanceGranularity; label: string }[] = [
-		{ value: 'daily', label: 'Daily' },
-		{ value: 'weekly', label: 'Weekly' },
-		{ value: 'monthly', label: 'Monthly' },
-		{ value: 'yearly', label: 'Yearly' }
-	];
+	const chartSubtitle = $derived(
+		subtitle ?? (mode === 'stock' ? 'Closing price' : 'Mark-to-market portfolio value')
+	);
+
+	const granularityOptions: { value: PerformanceGranularity; label: string }[] = (
+		['daily', 'weekly', 'monthly', 'yearly'] as const
+	).map((value) => ({ value, label: granularityLabels[value] }));
 
 	const loadingDelayMs = 3000;
 	let showLoading = $state(false);
@@ -78,12 +96,16 @@
 		return max * 1.008;
 	});
 
+	const windowBounds = $derived(getPerformanceWindowBounds(granularity));
+
 	const plotPoints = $derived(
-		points.map((d, i) => {
-			const x = pad.l + (points.length <= 1 ? 0 : (i / (points.length - 1)) * innerW);
+		points.map((d) => {
+			const ms = parsePerformancePointMs(d.date);
+			const span = windowBounds.endMs - windowBounds.startMs;
+			const x = pad.l + (span <= 0 ? 0 : ((ms - windowBounds.startMs) / span) * innerW);
 			const range = maxY - minY;
 			const y = pad.t + innerH - (range === 0 ? 0.5 : (d.value - minY) / range) * innerH;
-			return { ...d, x, y };
+			return { ...d, x, y, ms };
 		})
 	);
 
@@ -101,51 +123,34 @@
 
 	const xAxisLabels = $derived.by(() => {
 		if (points.length === 0) return [] as { date: string; position: 'start' | 'center' | 'end' }[];
-		if (points.length === 1) {
-			return [{ date: points[0]!.date, position: 'start' as const }];
-		}
 
-		const startMs = new Date(`${points[0]!.date}T12:00:00.000Z`).getTime();
-		const endMs = new Date(`${points[points.length - 1]!.date}T12:00:00.000Z`).getTime();
-		const midMs = startMs + (endMs - startMs) / 2;
+		const span = windowBounds.endMs - windowBounds.startMs;
+		const midMs = windowBounds.startMs + span / 2;
 
-		let midIndex = 0;
-		let bestDiff = Number.POSITIVE_INFINITY;
-		for (let i = 0; i < points.length; i++) {
-			const ms = new Date(`${points[i]!.date}T12:00:00.000Z`).getTime();
-			const diff = Math.abs(ms - midMs);
-			if (diff < bestDiff) {
-				bestDiff = diff;
-				midIndex = i;
-			}
-		}
+		if (granularity === 'daily') {
+			const endIso = getPerformanceWindowEndIso();
+			const { endMs } = getMarketSessionBounds(endIso);
+			const closeLabel = new Date(zonedWallTimeToUtc(endIso, MARKET_CLOSE_HOUR, 0)).toISOString();
+			const endLabel =
+				endMs < zonedWallTimeToUtc(endIso, MARKET_CLOSE_HOUR, 0)
+					? new Date(endMs).toISOString()
+					: closeLabel;
 
-		if (midIndex === 0 || midIndex === points.length - 1) {
 			return [
-				{ date: points[0]!.date, position: 'start' as const },
-				{ date: points[points.length - 1]!.date, position: 'end' as const }
+				{ date: marketSessionOpenIso(endIso), position: 'start' as const },
+				{ date: endLabel, position: 'end' as const }
 			];
 		}
 
+		const midIso = new Date(midMs).toISOString().slice(0, 10);
 		return [
-			{ date: points[0]!.date, position: 'start' as const },
-			{ date: points[midIndex]!.date, position: 'center' as const },
-			{ date: points[points.length - 1]!.date, position: 'end' as const }
+			{ date: windowBounds.startIso, position: 'start' as const },
+			{ date: midIso, position: 'center' as const },
+			{ date: windowBounds.endIso, position: 'end' as const }
 		];
 	});
 
-	const periodLabel = $derived.by(() => {
-		switch (granularity) {
-			case 'weekly':
-				return 'past 7 days';
-			case 'monthly':
-				return 'past 30 days';
-			case 'yearly':
-				return 'past year';
-			default:
-				return 'all time';
-		}
-	});
+	const periodLabel = $derived(granularityPeriodLabels[granularity]);
 
 	const startValue = $derived(points[0]?.value ?? 0);
 	const endValue = $derived(points[points.length - 1]?.value ?? 0);
@@ -155,15 +160,19 @@
 	let activeIndex = $state<number | null>(null);
 
 	$effect(() => {
-		granularity;
-		points.length;
+		void granularity;
+		void points.length;
 		activeIndex = null;
 	});
 
 	const activePoint = $derived(activeIndex !== null ? plotPoints[activeIndex] : null);
 
 	function formatAxisDate(iso: string): string {
-		return new Date(`${iso}T12:00:00.000Z`).toLocaleDateString('en-GB', {
+		if (iso.length > 10) {
+			return formatMarketTime(iso);
+		}
+		const date = new Date(`${iso}T12:00:00.000Z`);
+		return date.toLocaleDateString('en-GB', {
 			day: 'numeric',
 			month: 'short'
 		});
@@ -183,8 +192,19 @@
 			activeIndex = null;
 			return;
 		}
-		const ratio = innerX / innerW;
-		activeIndex = Math.round(ratio * (points.length - 1));
+
+		const span = windowBounds.endMs - windowBounds.startMs;
+		const targetMs = windowBounds.startMs + (innerX / innerW) * span;
+		let bestIndex = 0;
+		let bestDiff = Number.POSITIVE_INFINITY;
+		for (let i = 0; i < plotPoints.length; i++) {
+			const diff = Math.abs(plotPoints[i]!.ms - targetMs);
+			if (diff < bestDiff) {
+				bestDiff = diff;
+				bestIndex = i;
+			}
+		}
+		activeIndex = bestIndex;
 	}
 
 	function handlePointerLeave() {
@@ -204,7 +224,7 @@
 			<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
 				Performance
 			</h2>
-			<p class="mt-0.5 text-xs text-muted-foreground">Mark-to-market portfolio value</p>
+			<p class="mt-0.5 text-xs text-muted-foreground">{chartSubtitle}</p>
 		</div>
 		<div class="text-right">
 			{#if activePoint}

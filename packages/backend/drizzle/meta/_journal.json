@@ -31,6 +31,13 @@
       "breakpoints": true
     },
     {
+      "idx": 4,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0004_orange_betty_ross",
+      "breakpoints": true
+    },
+    {
       "idx": 5,
       "version": "7",
       "when": 1782500000000,
@@ -41,7 +48,35 @@
       "idx": 6,
       "version": "7",
       "when": 1782600000000,
-      "tag": "0006_stock_company_facts",
+      "tag": "0006_stock_backfill_priority",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782700000000,
+      "tag": "0007_stock_backfill_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783268719929,
+      "tag": "0008_autotrade_trigger_direction",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783423011201,
+      "tag": "0009_hard_stryfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783500000000,
+      "tag": "0010_stock_company_facts",
       "breakpoints": true
     }
   ]
