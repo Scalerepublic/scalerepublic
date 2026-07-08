@@ -4,6 +4,7 @@
 		Search,
 		Settings,
 		Trophy,
+		Bell,
 		PanelLeftClose,
 		PanelLeft,
 		LogOut
@@ -11,6 +12,7 @@
 	import NavItem from './NavItem.svelte';
 	import { userStore } from '$lib/stores/user.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
+	import { notificationStore } from '$lib/stores/notification.svelte';
 	import { signOut } from '$lib/auth-client';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -21,6 +23,7 @@
 		{ href: '/dashboard', label: 'Portfolio', icon: LayoutDashboard },
 		{ href: '/search', label: 'Market', icon: Search },
 		{ href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+		{ href: '/notifications', label: 'Notifications', icon: Bell },
 		{ href: '/settings', label: 'Settings', icon: Settings }
 	] as const;
 
@@ -101,6 +104,7 @@
 				label={item.label}
 				icon={item.icon}
 				collapsed={sidebarStore.collapsed}
+				badge={item.href === '/notifications' ? notificationStore.unreadCount : 0}
 			/>
 		{/each}
 	</nav>

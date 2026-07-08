@@ -80,12 +80,14 @@
 
 				<div class="space-y-2 border-t border-border pt-3">
 					<label
+						for="crash-percent"
 						class="block text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
 					>
 						Market crash
 					</label>
 					<div class="flex items-center gap-2">
 						<input
+							id="crash-percent"
 							type="number"
 							min="1"
 							max="99"

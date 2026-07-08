@@ -2,7 +2,7 @@
 	import ChangeIndicator from './ChangeIndicator.svelte';
 	import NobleButton from './NobleButton.svelte';
 	import StockDetailSheet from './StockDetailSheet.svelte';
-	import TradeSheet from './TradeSheet.svelte';
+	import BuyTradeSheet from './BuyTradeSheet.svelte';
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
 
@@ -61,5 +61,5 @@
 	</div>
 </button>
 
-<TradeSheet bind:open={tradeOpen} {stock} mode="buy" />
+<BuyTradeSheet bind:open={tradeOpen} {stock} />
 <StockDetailSheet bind:open={detailOpen} {stock} />

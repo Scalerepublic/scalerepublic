@@ -57,6 +57,7 @@
 
 	--positive: #1a6630;
 	--negative: #a41414;
+	--warning: #9a6a00;
 
 	--radius: 0px;
 
@@ -104,6 +105,7 @@
 
 	--positive: #5aa979;
 	--negative: #e5484d;
+	--warning: #e0a83c;
 
 	--sidebar: #1a1a17;
 	--sidebar-foreground: #f2f1ec;
@@ -128,6 +130,7 @@
 
 	--color-positive: var(--positive);
 	--color-negative: var(--negative);
+	--color-warning: var(--warning);
 
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
@@ -215,6 +218,9 @@
 	}
 	.section-heading {
 		@apply mb-2 flex items-center justify-between border-b border-border pb-2;
+	}
+	.table-th {
+		@apply px-4 py-2.5 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase;
 	}
 	.section-divider {
 		@apply mb-6 h-px w-full bg-border;

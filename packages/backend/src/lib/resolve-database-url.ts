@@ -1,5 +1,5 @@
 export const resolveDatabaseUrl = (url = process.env.DATABASE_URL): string => {
-    if (!url) {
+    if (url === undefined || url === '') {
         throw new Error('DATABASE_URL is not set')
     }
 

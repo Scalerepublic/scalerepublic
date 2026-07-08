@@ -1,5 +1,4 @@
 import { and, eq, lt, or } from 'drizzle-orm'
-import { z } from 'zod'
 
 import type { AppVars } from '../../context.ts'
 import { syncJob } from '../../db/schema/sync.ts'
@@ -9,43 +8,25 @@ import { isMarketDebugEnabled } from '../../lib/market-debug.ts'
 const JOB_ID = 'stock-price-sync'
 const DEFAULT_SYNC_INTERVAL_MS = 60 * 60 * 1000
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 1000
-const RATE_LIMIT_BATCH_SIZE = 5
-const RATE_LIMIT_WINDOW_MS = 1000
 const CATALOG_BACKFILL_BATCH_SIZE = 5
 const CATALOG_BACKFILL_BATCH_INTERVAL_MS = 5000
 const DEFAULT_NAMES_BACKFILL_BATCH = 20
 const DEFAULT_HISTORY_BACKFILL_STOCKS = 8
 const DEFAULT_HISTORY_BARS_PER_STOCK = 10
-const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 55
-const STALE_LOCK_MS = 10 * 60 * 1000
+const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 40
+const DEFAULT_CATALOG_BACKFILL_MIN_INTERVAL_MS = 5 * 60 * 1000
+const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000
+const AUTO_TRADE_BATCH_SIZE = 20
 
-const DEFAULT_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V', 'UNH']
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
-const TickerSchema = z.string().regex(/^[A-Z]{1,5}$/, 'must be 1–5 uppercase letters')
-
-export const parseTrackedTickers = (): string[] => {
-    const raw = process.env['SYNC_TICKERS']
-    if (raw === undefined || raw.trim() === '') return DEFAULT_TICKERS
-
-    const candidates = raw.split(',').map(t => t.trim().toUpperCase()).filter(Boolean)
-    if (candidates.length === 0) return DEFAULT_TICKERS
-
-    const result = z.array(TickerSchema).min(1).safeParse(candidates)
-    if (!result.success) {
-        const invalid = result.error.issues.map(i => candidates[i.path[0] as number])
-        throw new Error(`Invalid ticker symbols in SYNC_TICKERS: ${invalid.join(', ')}`)
-    }
-
-    return result.data
-}
+const catalogBackfillOnCron = (): boolean => process.env['CATALOG_BACKFILL_ON_CRON'] !== 'false'
 
 const chunk = <T>(arr: T[], size: number): T[][] => {
     const out: T[][] = []
     for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
     return out
 }
-
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
 export class SyncService {
     private lockId: string | null = null
@@ -57,61 +38,21 @@ export class SyncService {
         return this.lockId
     }
 
-    private async ensureStock(ticker: string): Promise<string | null> {
-        const existing = await this.ctx.stockService.getStockId(ticker)
-        if (existing !== null) return existing
-
-        const meta = await this.ctx.stockDataClient.getStockMeta(ticker)
-        if (!meta) {
-            console.warn(`[sync] No metadata found for "${ticker}" — skipping`)
-            return null
-        }
-
-        return this.ctx.stockService.createStock(ticker, meta.name, meta.exchange, meta.currency)
-    }
-
-    private async syncTicker(ticker: string): Promise<boolean> {
-        const stockId = await this.ensureStock(ticker)
-        if (stockId === null) return false
-
-        const quote = await this.ctx.stockDataClient.getQuote(ticker)
-        await this.ctx.stockService.insertPrice(stockId, quote.price, this.ctx.stockDataClient.source, new Date())
-        await this.ctx.stockService.ensureDailyBarHistory(stockId, ticker)
-        await this.ctx.stockService.refreshStockMetrics(stockId)
-
-        console.log(`[sync] ${ticker}: ${quote.price} (${quote.tradingDay.toISOString().slice(0, 10)})`)
-        return true
-    }
-
-    private async runSync(tickers: string[]): Promise<void> {
+    private async runSync(): Promise<void> {
         if (isMarketDebugEnabled()) {
             console.log('[sync] Skipping external price sync while STOCK_DEBUG=true')
             return
         }
 
-        if (tickers.length === 0) {
+        const { inserted, stockIds } = await this.ctx.stockService.insertSyntheticQuotesForAllEligible()
+        if (inserted === 0) {
+            console.warn('[sync] No eligible stocks with market data — skipping quote sync')
             return
         }
 
-        let succeeded = 0
-        const batches = chunk(tickers, RATE_LIMIT_BATCH_SIZE)
-        for (let i = 0; i < batches.length; i++) {
-            if (i > 0) await sleep(RATE_LIMIT_WINDOW_MS)
-            const results = await Promise.allSettled(batches[i]!.map(t => this.syncTicker(t)))
-            results.forEach((r, j) => {
-                if (r.status === 'fulfilled' && r.value) {
-                    succeeded += 1
-                    return
-                }
-                if (r.status === 'rejected') {
-                    console.error(`[sync] ${batches[i]![j]} failed: ${r.reason instanceof Error ? r.reason.message : r.reason}`)
-                }
-            })
-        }
+        console.log(`[sync] Stored ${inserted} synthetic quotes across ${stockIds.length} stocks`)
 
-        if (succeeded === 0) {
-            throw new Error(`Price sync failed for all ${tickers.length} tracked tickers`)
-        }
+        await this.ctx.stockService.refreshStockMetricsBatch(stockIds)
     }
 
     private readBackfillConfig(): {
@@ -212,6 +153,40 @@ export class SyncService {
         await this.runCatalogBackfill()
     }
 
+    private async runCatalogBackfillIfDue(
+        syncIntervalMs: number,
+        backfillMinIntervalMs: number,
+    ): Promise<void> {
+        if (syncIntervalMs < backfillMinIntervalMs) {
+            return
+        }
+
+        if (!catalogBackfillOnCron()) {
+            console.log('[sync] Skipping catalog backfill (CATALOG_BACKFILL_ON_CRON=false)')
+            return
+        }
+
+        try {
+            await this.runCatalogBackfill()
+            console.log('[sync] Catalog backfill completed')
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.error(`[sync/backfill] Failed: ${message}`)
+        }
+    }
+
+    private async getJobRow(): Promise<{
+        status: 'idle' | 'running' | 'failed'
+        lockedAt: Date | null
+    } | null> {
+        const row = await this.ctx.db
+            .select({ status: syncJob.status, lockedAt: syncJob.lockedAt })
+            .from(syncJob)
+            .where(eq(syncJob.id, JOB_ID))
+            .limit(1)
+        return row[0] ?? null
+    }
+
     private async isSyncDue(syncDueThreshold: Date): Promise<boolean> {
         const row = await this.ctx.db
             .select({ lastSuccessAt: syncJob.lastSuccessAt })
@@ -243,40 +218,71 @@ export class SyncService {
         return claimed.length > 0
     }
 
-    async syncOnce(tickers: string[]): Promise<void> {
-        await this.runSync(tickers)
+    async syncOnce(): Promise<void> {
+        await this.runSync()
     }
 
-    async runDueTick(tickers: string[]): Promise<void> {
+    async checkAllAutoTrades(): Promise<void> {
+        const expired = await this.ctx.autoTradeService.expireAutoTrades()
+        if (expired > 0) console.log(`[autotrade] Expired ${expired} rule(s)`)
+
+        const rules = await this.ctx.autoTradeService.getActiveAutoTrades()
+        if (rules.length === 0) return
+
+        console.log(`[autotrade] Evaluating ${rules.length} active rule(s)`)
+        const batches = chunk(rules, AUTO_TRADE_BATCH_SIZE)
+        for (const batch of batches) {
+            const results = await Promise.allSettled(
+                batch.map(rule => this.ctx.autoTradeService.executeAutoTrade(rule)),
+            )
+            results.forEach((r, i) => {
+                const rule = batch[i]!
+                if (r.status === 'fulfilled') {
+                    if (r.value) console.log(`[autotrade] Rule ${rule.id} triggered -> trade ${r.value.id}`)
+                } else {
+                    const message = r.reason instanceof Error ? r.reason.message : String(r.reason)
+                    console.error(`[autotrade] Rule ${rule.id} failed: ${message}`)
+                }
+            })
+        }
+    }
+
+    async runDueTick(): Promise<void> {
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
+        const staleLockMs = readEnvNumber(
+            'SYNC_STALE_LOCK_MS',
+            Math.max(DEFAULT_STALE_LOCK_MS, syncIntervalMs * 5),
+        )
+        const backfillMinIntervalMs = readEnvNumber(
+            'CATALOG_BACKFILL_MIN_INTERVAL_MS',
+            DEFAULT_CATALOG_BACKFILL_MIN_INTERVAL_MS,
+        )
 
         try {
             await this.ctx.db.insert(syncJob).values({ id: JOB_ID }).onConflictDoNothing()
 
-            const staleThreshold = new Date(Date.now() - STALE_LOCK_MS)
+            const staleThreshold = new Date(Date.now() - staleLockMs)
             const syncDueThreshold = new Date(Date.now() - syncIntervalMs)
 
             if (!await this.isSyncDue(syncDueThreshold)) return
             if (!await this.tryClaimJob(staleThreshold)) {
-                console.log('[sync] Failed to lock sync')
+                const job = await this.getJobRow()
+                if (job?.status !== 'running') {
+                    console.log('[sync] Failed to lock sync')
+                }
                 return
             }
             console.log(`[sync] Lock acquired by ${this.getLockId()}`)
 
             try {
+                console.log('[sync] Batch price sync for all eligible stocks')
+
                 let syncError: string | null = null
                 try {
-                    await this.runSync(tickers)
+                    await this.runSync()
                 } catch (err) {
                     syncError = err instanceof Error ? err.message : String(err)
                     console.error(`[sync] Price sync failed: ${syncError}`)
-                }
-
-                try {
-                    await this.runCatalogBackfill()
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err)
-                    console.error(`[sync/backfill] Failed: ${message}`)
                 }
 
                 if (syncError !== null) {
@@ -296,8 +302,12 @@ export class SyncService {
                     lockedAt: null,
                     lockedBy: null,
                 }).where(eq(syncJob.id, JOB_ID))
-                console.log('[sync] Completed successfully')
+                console.log('[sync] Price sync completed')
+
+                await this.checkAllAutoTrades()
                 await this.ctx.portfolioDefaultService.checkAllActivePortfolios()
+
+                await this.runCatalogBackfillIfDue(syncIntervalMs, backfillMinIntervalMs)
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 await this.ctx.db.update(syncJob).set({
@@ -314,14 +324,13 @@ export class SyncService {
     }
 
     async startScheduler(): Promise<void> {
-        const tickers = parseTrackedTickers()
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
         const checkIntervalMs = readEnvNumber('SYNC_CHECK_INTERVAL_MS', DEFAULT_CHECK_INTERVAL_MS)
 
-        console.log(`[sync] Tracking: ${tickers.join(', ')}. Sync every ${syncIntervalMs / 1000}s, check every ${checkIntervalMs / 1000}s`)
+        console.log(`[sync] Batch synthetic quotes for all eligible stocks. Sync every ${syncIntervalMs / 1000}s, check every ${checkIntervalMs / 1000}s`)
 
         for (;;) {
-            await this.runDueTick(tickers)
+            await this.runDueTick()
             await sleep(checkIntervalMs)
         }
     }

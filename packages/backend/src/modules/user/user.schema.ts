@@ -12,3 +12,7 @@ export const searchQuerySchema = z.object({
 export const performanceQuerySchema = z.object({
   granularity: z.enum(['daily', 'weekly', 'monthly', 'yearly']).default('daily'),
 });
+
+export const deleteAccountBodySchema = z.object({
+  password: z.string().min(1, "Password is required"),
+});

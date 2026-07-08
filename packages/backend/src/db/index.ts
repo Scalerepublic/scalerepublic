@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import * as authSchema from "./schema/auth-schema.ts";
+import * as notificationSchema from "./schema/notification.ts";
 import * as portfolioSchema from "./schema/portfolio/index.ts";
 import * as stockSchema from "./schema/stock/index.ts";
 import { syncJob } from "./schema/sync.ts";
@@ -11,6 +12,7 @@ import { userProfile } from "./schema/user-profile.ts";
 const schema = {
   userProfile,
   ...authSchema,
+  ...notificationSchema,
   ...stockSchema,
   ...portfolioSchema,
   ...tradeSchema,
@@ -19,9 +21,8 @@ const schema = {
 
 export type DbConnection = ReturnType<typeof createDb>["db"];
 export type DbClient = ReturnType<typeof createDb>["client"];
-export type DbOrTx =
-  | DbConnection
-  | Parameters<Parameters<DbConnection["transaction"]>[0]>[0];
+export type DbTransaction = Parameters<Parameters<DbConnection["transaction"]>[0]>[0];
+export type DbOrTx = DbConnection | DbTransaction;
 
 export const createDb = (connectionString: string) => {
   const client = postgres(connectionString, {

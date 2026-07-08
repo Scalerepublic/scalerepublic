@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { Loader2 } from '@lucide/svelte';
+	import AuthShell from '$lib/components/app/AuthShell.svelte';
+	import FormAlert from '$lib/components/app/FormAlert.svelte';
+	import FormField from '$lib/components/app/FormField.svelte';
+	import SubmitButton from '$lib/components/app/SubmitButton.svelte';
 	import { signIn } from '$lib/auth-client';
 	import { toast } from 'svelte-sonner';
 
@@ -34,97 +37,57 @@
 	}
 </script>
 
-<svelte:head><title>Sign in · ScaleRepublic</title></svelte:head>
+<AuthShell
+	title="Sign in"
+	heading="Welcome back"
+	description="Sign in to your trading account to continue."
+>
+	<form class="space-y-4" onsubmit={handleSubmit} novalidate>
+		<FormField
+			id="email"
+			label="Email"
+			type="email"
+			autocomplete="email"
+			required
+			bind:value={email}
+			disabled={isSubmitting}
+			placeholder="you@example.com"
+		/>
 
-<div class="flex min-h-svh items-center justify-center bg-background px-4 py-10">
-	<div class="w-full max-w-sm">
-		<div class="mb-8 text-center">
-	<img
-		src="/logo/scalerepublic-logo.svg"
-		alt="ScaleRepublic Logo"
-		class="mx-auto mb-4 h-60 w-auto dark:invert"
-	/>
-		</div>
-
-		<div class="border border-border bg-card p-7">
-			<header class="mb-6 border-b border-border pb-5">
-				<h1 class="font-serif text-2xl font-bold text-foreground">Welcome back</h1>
-				<p class="mt-1 text-sm text-muted-foreground">
-					Sign in to your trading account to continue.
-				</p>
-			</header>
-
-			<form class="space-y-4" onsubmit={handleSubmit} novalidate>
-				<div class="space-y-1.5">
-					<label for="email" class="text-xs font-semibold tracking-wide text-foreground uppercase"
-						>Email</label
-					>
-					<input
-						id="email"
-						type="email"
-						autocomplete="email"
-						required
-						bind:value={email}
-						disabled={isSubmitting}
-						placeholder="you@example.com"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
-					/>
-				</div>
-
-				<div class="space-y-1.5">
-					<div class="flex items-center justify-between">
-						<label
-							for="password"
-							class="text-xs font-semibold tracking-wide text-foreground uppercase">Password</label
-						>
-						<a
-							href={resolve('/forgot-password')}
-							class="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-							>Forgot password?</a
-						>
-					</div>
-					<input
-						id="password"
-						type="password"
-						autocomplete="current-password"
-						required
-						bind:value={password}
-						disabled={isSubmitting}
-						placeholder="••••••••"
-						class="h-10 w-full border border-input bg-background px-3 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
-					/>
-				</div>
-
-				{#if errorMessage}
-					<div
-						role="alert"
-						class="border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs font-medium text-destructive"
-					>
-						{errorMessage}
-					</div>
-				{/if}
-
-				<button
-					type="submit"
-					disabled={isSubmitting || !email || !password}
-					class="btn-primary inline-flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold tracking-wide transition-colors disabled:pointer-events-none disabled:opacity-50"
+		<FormField
+			id="password"
+			label="Password"
+			type="password"
+			autocomplete="current-password"
+			required
+			bind:value={password}
+			disabled={isSubmitting}
+			placeholder="••••••••"
+		>
+			{#snippet labelEnd()}
+				<a
+					href={resolve('/forgot-password')}
+					class="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+					>Forgot password?</a
 				>
-					{#if isSubmitting}
-						<Loader2 class="size-4 animate-spin" />
-						Signing in…
-					{:else}
-						Sign in
-					{/if}
-				</button>
-			</form>
-		</div>
+			{/snippet}
+		</FormField>
 
-		<p class="mt-5 text-center text-sm text-muted-foreground">
-			<a
-				href={resolve('/signup')}
-				class="font-semibold text-foreground underline-offset-4 hover:underline"
-				>Create an account</a
-			>
-		</p>
-	</div>
-</div>
+		<FormAlert message={errorMessage} />
+
+		<SubmitButton
+			class="w-full"
+			label="Sign in"
+			loadingLabel="Signing in…"
+			loading={isSubmitting}
+			disabled={!email || !password}
+		/>
+	</form>
+
+	{#snippet footer()}
+		<a
+			href={resolve('/signup')}
+			class="font-semibold text-foreground underline-offset-4 hover:underline">Create an account</a
+		>
+	{/snippet}
+</AuthShell>

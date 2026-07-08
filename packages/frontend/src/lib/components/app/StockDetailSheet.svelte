@@ -2,7 +2,8 @@
 	import ChangeIndicator from './ChangeIndicator.svelte';
 	import NobleButton from './NobleButton.svelte';
 	import PerformanceChart from './PerformanceChart.svelte';
-	import TradeSheet from './TradeSheet.svelte';
+	import BuyTradeSheet from './BuyTradeSheet.svelte';
+	import LimitOrderSheet from './LimitOrderSheet.svelte';
 	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendStockDetail } from '$lib/api/backend-types';
 	import type { PerformanceGranularity, PerformancePoint } from '$lib/performance-history';
@@ -12,15 +13,9 @@
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
 	import { portal } from '$lib/actions/portal';
-	import { fade, fly, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { fade } from 'svelte/transition';
+	import { panelTransition } from '$lib/transitions';
 	import { Loader2, X } from '@lucide/svelte';
-
-	function panelTransition(node: HTMLElement) {
-		return window.innerWidth < 640
-			? fly(node, { y: 500, duration: 300, easing: cubicOut })
-			: scale(node, { start: 0.95, duration: 200, easing: cubicOut });
-	}
 
 	let {
 		open = $bindable(false),
@@ -34,11 +29,13 @@
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let tradeOpen = $state(false);
+	let limitOpen = $state(false);
 	let activeTicker = $state<string | null>(null);
 	let chartGranularity = $state<PerformanceGranularity>('monthly');
 
 	const STOCK_CHART_HISTORY_DAYS = 365;
 	const MAX_DETAIL_POLL_ATTEMPTS = 12;
+	const STOCK_DAILY_CHART_POLL_MS = 15_000;
 
 	function resolveDetailPrice(loaded: BackendStockDetail | null, fallbackPrice: number): number {
 		if (loaded?.performance.latestPrice != null) {
@@ -97,6 +94,19 @@
 		}, pollDelayMs(pollAttempts));
 
 		return () => window.clearTimeout(timeout);
+	});
+
+	$effect(() => {
+		if (!open || chartGranularity !== 'daily') {
+			return;
+		}
+
+		const ticker = stock.ticker;
+		const timer = window.setInterval(() => {
+			void loadDetail(ticker, { silent: true });
+		}, STOCK_DAILY_CHART_POLL_MS);
+
+		return () => window.clearInterval(timer);
 	});
 
 	$effect(() => {
@@ -166,6 +176,7 @@
 
 	function close() {
 		tradeOpen = false;
+		limitOpen = false;
 		open = false;
 		activeTicker = null;
 	}
@@ -174,6 +185,10 @@
 		if (event.key !== 'Escape') return;
 		if (tradeOpen) {
 			tradeOpen = false;
+			return;
+		}
+		if (limitOpen) {
+			limitOpen = false;
 			return;
 		}
 		close();
@@ -263,6 +278,11 @@
 										data={chartData}
 										mode="stock"
 										bind:granularity={chartGranularity}
+										onGranularityChange={(next) => {
+											if (next === 'daily') {
+												void loadDetail(stock.ticker, { silent: true });
+											}
+										}}
 									/>
 								</div>
 							</div>
@@ -300,10 +320,19 @@
 				{/if}
 			</div>
 
-			<div class="border-t border-border px-5 py-4">
+			<div class="flex gap-2 border-t border-border px-5 py-4">
+				<NobleButton
+					variant="secondary"
+					type="button"
+					class="h-10 flex-1"
+					disabled={!canTrade}
+					onclick={() => (limitOpen = true)}
+				>
+					Limit order
+				</NobleButton>
 				<NobleButton
 					type="button"
-					class="h-10 w-full"
+					class="h-10 flex-1"
 					disabled={!canTrade}
 					onclick={() => (tradeOpen = true)}
 				>
@@ -314,4 +343,5 @@
 	</div>
 {/if}
 
-<TradeSheet bind:open={tradeOpen} {stock} mode="buy" />
+<BuyTradeSheet bind:open={tradeOpen} {stock} />
+<LimitOrderSheet bind:open={limitOpen} {stock} />

@@ -3,6 +3,7 @@ import { marketStore } from '$lib/stores/market.svelte';
 import { performanceStore } from '$lib/stores/performance.svelte';
 import { portfolioStore } from '$lib/stores/portfolio.svelte';
 import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
+import { notificationStore } from '$lib/stores/notification.svelte';
 
 const readPollMs = (value: string | undefined, fallback: number): number => {
 	const parsed = Number(value ?? fallback);
@@ -20,7 +21,8 @@ function refreshQuotes() {
 		syncMarketClock(),
 		marketStore.loadTrending({ silent: true }),
 		portfolioStore.load({ silent: true }),
-		performanceStore.load(undefined, { silent: true })
+		performanceStore.load(undefined, { silent: true }),
+		notificationStore.load({ silent: true })
 	]);
 }
 

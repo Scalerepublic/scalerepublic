@@ -85,7 +85,7 @@ This section describes how stock prices, company names, and chart history are lo
 
 We use two related but separate sync flows:
 
-1. **Tracked ticker sync** (`SYNC_TICKERS`): keeps a small set of liquid names (demo defaults or env override) fresh for portfolio pricing and leaderboards.
+1. **Price sync**: batch synthetic quotes for every stock with a daily bar or prior price in Postgres.
 2. **Catalog backfill**: gradually fills the full imported ticker list (~12k symbols) with company names and 30 days of daily bars for the market tab.
 
 Both flows read from the **uni stock API** and write into Postgres. The frontend always reads from our API and database, never from the uni API directly.
@@ -112,7 +112,9 @@ Frontend (market tab, detail sheet, portfolio)
 | `GET /stocks/{symbol}?token=...&date=YYYY-MM-DD` | Daily bar (open, high, low, close) and `stock_name` |
 | `GET /stocks/{symbol}/price?token=...` | Live price (not used; rate limit is too strict) |
 
-`getQuote()` derives a synthetic price as a random value between the day's low and high (not a real market quote).
+Synthetic live quotes are generated locally during price sync: a random value between the latest cached daily low and high in Postgres (`source: synthetic`). The uni API is only used to backfill `stock_daily_bar` and company names, not on every quote tick.
+
+`UniStockClient.getQuote()` still exists for tests and legacy callers but the sync scheduler does not call it.
 
 Configuration:
 
@@ -139,26 +141,26 @@ Rate limit from the provider: about **60 requests per minute**. Catalog backfill
 
 Imported tickers start with `company_name = ticker` and no bars. Backfill replaces the placeholder name and fills `stock_daily_bar`.
 
-### Tracked ticker sync
+### Price sync
 
 **Code:** `src/modules/sync/sync.service.ts`
 
-**Tickers:** `SYNC_TICKERS` env var (comma-separated). Defaults to `AAPL, MSFT, GOOGL, ...` if unset.
+Each run:
 
-**Per ticker, each run:**
+1. Select all active stocks with a daily bar or prior `stock_price`.
+2. Compute a random price between bar low/high (or ±0.5% jitter around last price).
+3. Batch-insert into `stock_price` with `source: synthetic`.
+4. Refresh cached metrics on `stock` in batch.
 
-1. Ensure `stock` row exists (create from API metadata if missing).
-2. Fetch quote via uni daily endpoint.
-3. Insert `stock_price`.
-4. Cache missing daily bars (up to `MAX_DAILY_BAR_FETCHES` per call).
-5. Recompute and persist list metrics on `stock`.
+No uni API call per quote. Daily bars come from catalog backfill.
 
 **Scheduling:**
 
 | Runtime | How it runs |
 |---------|-------------|
 | Local Bun (`bun run dev`) | In-process loop: `startScheduler()` polls every `SYNC_CHECK_INTERVAL_MS`, runs when `SYNC_INTERVAL_MS` elapsed |
-| Cloudflare Worker | Cron `0 * * * *` calls `scheduled` in `src/index.ts`, which invokes `syncService.runDueTick()` |
+| Cloudflare Worker (production) | Cron `0 * * * *` |
+| Cloudflare Worker (staging) | Cron `* * * * *`, `SYNC_INTERVAL_MS=60000` (1 min) |
 
 **Locking:** Only one run at a time via `sync_job` row (`stock-price-sync`). Stale locks expire after 10 minutes.
 
@@ -228,14 +230,18 @@ bun run db:import-tickers:staging
 
 ### Stock detail endpoint
 
+**Route:** `GET /api/v1/stocks?page=&limit=&q=&sector=`
+
+Browse and sector listings only return symbols with at least two cached daily bars in the rolling window. A search query (`q`) searches the full imported catalog, including symbols that are not listed yet.
+
 **Route:** `GET /api/v1/stocks/:ticker/detail?historyDays=30`
 
 **Code:** `StockService.getStockDetail()`
 
-Read-only handler:
+Read-only handler for browse; on-demand fetch when opened from search:
 
 1. Load `stock` row.
-2. If fewer than 2 cached daily bars: mark `backfill_requested_at` for the next catalog backfill pass.
+2. If fewer than 2 cached daily bars: fetch bars from the uni API immediately (up to `DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES`) and mark `backfill_requested_at` as a fallback for batch backfill.
 3. Build `priceHistory` from `stock_daily_bar` (and any `stock_price` rows in range).
 4. Return performance metrics and history JSON from cache.
 
@@ -243,13 +249,14 @@ The frontend polls `/detail` with exponential backoff when history is still empt
 
 ### Environment variables
 
-**Sync interval (tracked tickers):**
+**Sync interval (price sync):**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SYNC_TICKERS` | 10 demo symbols | Comma-separated list for price sync |
-| `SYNC_INTERVAL_MS` | `3600000` (1h) on Worker, `20000` in `.env.example` | Minimum time between successful sync runs |
+| `SYNC_INTERVAL_MS` | `3600000` (prod), `60000` (staging), `20000` in `.env.example` | Minimum time between successful price sync runs |
 | `SYNC_CHECK_INTERVAL_MS` | `60000` / `5000` | Poll interval for local scheduler only |
+| `SYNC_STALE_LOCK_MS` | `max(10min, 5× interval)` | Reclaim a stuck `running` lock after this age |
+| `CATALOG_BACKFILL_MIN_INTERVAL_MS` | `300000` (5 min) | Inline catalog backfill only runs when `SYNC_INTERVAL_MS` is at least this large; faster price sync ticks skip it (use GitHub Actions backfill on staging) |
 
 **Catalog backfill:**
 

@@ -5,10 +5,16 @@ import type { BackendPortfolioPayload } from '$lib/api/backend-types';
 import { mapPortfolioPayload } from '$lib/api/mappers';
 import { authStore } from '$lib/stores/auth.svelte';
 import { marketStore } from '$lib/stores/market.svelte';
-import type { ApiPortfolio, HoldingWithMarket, PortfolioSummary } from '$lib/types';
+import type {
+	ApiAutoTradeRule,
+	ApiPortfolio,
+	HoldingWithMarket,
+	PortfolioSummary
+} from '$lib/types';
 
 class PortfolioStore {
 	private _data = $state<ApiPortfolio | null>(null);
+	private _limitOrders = $state<ApiAutoTradeRule[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);
 	private trackedPortfolioId: string | null = null;
@@ -128,6 +134,56 @@ class PortfolioStore {
 		});
 		await parseApiData(res);
 		await this.load({ force: true });
+	}
+
+	async createLimitOrder(params: {
+		stockId: string;
+		ruleType: 'BUY' | 'SELL';
+		triggerDirection: 'AT_OR_ABOVE' | 'AT_OR_BELOW';
+		priceThreshold: number;
+		quantity: number;
+	}) {
+		if (!this._data?.portfolioId) {
+			await this.load();
+		}
+		const portfolioId = this._data?.portfolioId;
+		if (!portfolioId) throw new Error(this.error ?? 'Portfolio not loaded');
+
+		const res = await api.api.v1.autotrade.$post({
+			json: { portfolioId, ...params }
+		});
+		await parseApiData(res);
+		await this.loadLimitOrders();
+	}
+
+	limitOrdersError = $state<string | null>(null);
+
+	get limitOrders(): ApiAutoTradeRule[] {
+		return this._limitOrders;
+	}
+
+	async loadLimitOrders() {
+		if (!this._data?.portfolioId) {
+			await this.load();
+		}
+		const portfolioId = this._data?.portfolioId;
+		if (!portfolioId) return;
+
+		try {
+			const res = await api.api.v1.portfolio[':portfolioId'].autotrades.$get({
+				param: { portfolioId }
+			});
+			this._limitOrders = await parseApiData<ApiAutoTradeRule[]>(res);
+			this.limitOrdersError = null;
+		} catch (e) {
+			this.limitOrdersError = e instanceof Error ? e.message : 'Could not load limit orders';
+		}
+	}
+
+	async cancelLimitOrder(ruleId: string) {
+		const res = await api.api.v1.autotrade[':ruleId'].cancel.$post({ param: { ruleId } });
+		await parseApiData(res);
+		await this.loadLimitOrders();
 	}
 
 	private resolvePrice(stockId: string, fallback: number | null): number {

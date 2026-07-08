@@ -5,7 +5,7 @@ export type PricePoint = { recordedAt: Date; price: number };
 const DT = 1 / (24 * 365);
 export const DT_DAILY = 1 / 365;
 
-const stdNormal = (rng: PRNG): number => {
+const stdNormal = (rng: () => number): number => {
   const u1 = Math.max(Number.EPSILON, rng());
   const u2 = rng();
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);

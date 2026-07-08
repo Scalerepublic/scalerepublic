@@ -7,7 +7,10 @@ const API_BASE =
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
-const mergeAbortSignals = (timeoutSignal: AbortSignal, callerSignal?: AbortSignal | null): AbortSignal => {
+const mergeAbortSignals = (
+	timeoutSignal: AbortSignal,
+	callerSignal?: AbortSignal | null
+): AbortSignal => {
 	if (callerSignal === undefined || callerSignal === null) {
 		return timeoutSignal;
 	}

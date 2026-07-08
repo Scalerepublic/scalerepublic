@@ -1,4 +1,5 @@
 import { getEffectiveMarketDate } from '$lib/demo-market-date';
+import { getMarketSessionBounds } from '$lib/market-session';
 
 export interface PerformancePoint {
 	date: string;
@@ -30,18 +31,6 @@ export const granularityPeriodLabels: Record<PerformanceGranularity, string> = {
 	yearly: 'past year'
 };
 
-const startOfUtcDay = (date: Date): Date => {
-	const d = new Date(date);
-	d.setUTCHours(0, 0, 0, 0);
-	return d;
-};
-
-const addUtcDays = (date: Date, days: number): Date => {
-	const d = new Date(date);
-	d.setUTCDate(d.getUTCDate() + days);
-	return d;
-};
-
 export function getPerformanceWindowEndIso(): string {
 	return getEffectiveMarketDate();
 }
@@ -52,8 +41,14 @@ export function getPerformanceWindowBounds(granularity: PerformanceGranularity):
 	startIso: string;
 	endIso: string;
 } {
-	const days = granularityWindowDays[granularity];
 	const endIso = getPerformanceWindowEndIso();
+
+	if (granularity === 'daily') {
+		const { startMs, endMs } = getMarketSessionBounds(endIso);
+		return { startMs, endMs, startIso: endIso, endIso };
+	}
+
+	const days = granularityWindowDays[granularity];
 	const endMs = new Date(`${endIso}T23:59:59.999Z`).getTime();
 	const startMs = new Date(`${endIso}T00:00:00.000Z`).getTime() - (days - 1) * 86_400_000;
 	return {
@@ -73,8 +68,7 @@ export function parsePerformancePointMs(date: string): number {
 
 export function filterPerformanceByGranularity(
 	points: PerformancePoint[],
-	granularity: PerformanceGranularity,
-	_mode: PerformanceChartMode = 'portfolio'
+	granularity: PerformanceGranularity
 ): PerformancePoint[] {
 	if (points.length === 0) {
 		return points;
@@ -87,7 +81,9 @@ export function filterPerformanceByGranularity(
 			const ms = parsePerformancePointMs(point.date);
 			return ms >= startMs && ms <= endMs;
 		})
-		.sort((left, right) => parsePerformancePointMs(left.date) - parsePerformancePointMs(right.date));
+		.sort(
+			(left, right) => parsePerformancePointMs(left.date) - parsePerformancePointMs(right.date)
+		);
 }
 
 export function initialPerformanceHistory(
