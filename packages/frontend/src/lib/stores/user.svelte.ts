@@ -3,7 +3,7 @@ import { api, parseApiData } from '$lib/api/client';
 import type { BackendUserProfile } from '$lib/api/backend-types';
 import { mergeUserProfile } from '$lib/api/mappers';
 import { authStore } from '$lib/stores/auth.svelte';
-import type { AppSettings, UserProfile } from '$lib/types';
+import type { UserProfile } from '$lib/types';
 
 function toIsoString(value: string | Date | undefined | null): string | undefined {
 	if (!value) return undefined;
@@ -11,16 +11,7 @@ function toIsoString(value: string | Date | undefined | null): string | undefine
 	return value.toISOString();
 }
 
-const defaultSettings: AppSettings = {
-	notifications: {
-		priceAlerts: true,
-		tradeConfirmations: true,
-		weeklyReport: false
-	}
-};
-
 class UserStore {
-	settings = $state<AppSettings>(defaultSettings);
 	private _backendProfile = $state<BackendUserProfile | null>(null);
 
 	get profile(): UserProfile {
@@ -49,17 +40,6 @@ class UserStore {
 		} catch {
 			this._backendProfile = null;
 		}
-	}
-
-	updateSettings(partial: Partial<AppSettings>) {
-		this.settings = { ...this.settings, ...partial };
-	}
-
-	updateNotifications(partial: Partial<AppSettings['notifications']>) {
-		this.settings = {
-			...this.settings,
-			notifications: { ...this.settings.notifications, ...partial }
-		};
 	}
 
 	async deleteAccount(password: string): Promise<{ userId: string; deleted: boolean }> {
