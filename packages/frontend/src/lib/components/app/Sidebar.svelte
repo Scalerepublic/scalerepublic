@@ -63,9 +63,28 @@
 				sidebarStore.collapsed ? 'justify-center' : 'justify-between gap-3'
 			)}
 		>
-			{#if !sidebarStore.collapsed}
-				<p class="sidebar-brand">ScaleRepublic</p>
+			{#if sidebarStore.collapsed}
+				<img
+					src="/logo/scalerepublic-mark.svg"
+					alt="ScaleRepublic Logo"
+					class="h-7 w-auto dark:invert"
+				/>
+			{:else}
+				<div class="flex items-center gap-2">
+					<img
+						src="/logo/scalerepublic-mark.svg"
+						alt="ScaleRepublic Logo"
+						class="h-8 w-auto dark:invert"
+					/>
+
+					<div class="flex flex-col justify-center leading-none">
+						<p class="font-serif text-sm leading-5 font-semibold text-sidebar-foreground">
+							Scale Republic
+						</p>
+					</div>
+				</div>
 			{/if}
+
 			<button
 				type="button"
 				onclick={() => sidebarStore.toggle()}
