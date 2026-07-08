@@ -4,6 +4,7 @@ import type { AppVars } from '../../context.ts';
 import type { DbOrTx } from '../../db/index.ts';
 import { autoTradeRule } from '../../db/schema/trade/autoTrade.ts';
 import { trade } from '../../db/schema/trade/trade.ts';
+import type { NotificationType } from '../notification/index.ts';
 import {
     InsufficientFundsError,
     InsufficientHoldingsError,
@@ -110,9 +111,40 @@ export class AutoTradeService {
             .update(autoTradeRule)
             .set({ status: 'EXPIRED' })
             .where(and(eq(autoTradeRule.status, 'ACTIVE'), lt(autoTradeRule.expiresAt, now)))
-            .returning({ id: autoTradeRule.id });
+            .returning();
+
+        await Promise.all(rows.map((rule) => this.emitNotification(rule, 'AUTOTRADE_EXPIRED', 'expired')));
 
         return rows.length;
+    }
+
+    private async emitNotification(
+        rule: Pick<AutoTradeRecord, 'id' | 'portfolioId' | 'stockId' | 'ruleType' | 'quantity' | 'priceThreshold'>,
+        type: NotificationType,
+        keySuffix: string,
+        extra: Record<string, unknown> = {},
+    ): Promise<void> {
+        try {
+            const { userId } = await this.ctx.portfolioService.getById(rule.portfolioId);
+            const ticker = await this.ctx.stockService.getTicker(rule.stockId);
+            await this.ctx.notificationService.create({
+                userId,
+                type,
+                key: `autotrade:${rule.id}:${keySuffix}`,
+                data: {
+                    ruleId: rule.id,
+                    stockId: rule.stockId,
+                    ticker,
+                    ruleType: rule.ruleType,
+                    quantity: rule.quantity,
+                    priceThreshold: parseFloat(rule.priceThreshold),
+                    ...extra,
+                },
+            });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[autotrade] Failed to emit notification for rule ${rule.id}: ${message}`);
+        }
     }
 
     async executeAutoTrade(rule: AutoTradeRecord): Promise<TradeRecord | null> {
@@ -126,7 +158,7 @@ export class AutoTradeService {
 
         try {
             // Trade and rule update in one transaction
-            return await this.ctx.db.transaction(async (tx) => {
+            const executed = await this.ctx.db.transaction(async (tx) => {
                 const tradeRow =
                     rule.ruleType === 'BUY'
                         ? await this.ctx.portfolioService.buy(rule.portfolioId, rule.stockId, rule.quantity, price, tx)
@@ -145,10 +177,24 @@ export class AutoTradeService {
 
                 return linked[0]!;
             });
+
+            await this.emitNotification(rule, 'AUTOTRADE_TRIGGERED', 'triggered', {
+                tradeId: executed.id,
+                executedPrice: price,
+            });
+
+            return executed;
         } catch (err) {
+            if (err instanceof InsufficientFundsError || err instanceof InsufficientHoldingsError) {
+                // Stay ACTIVE to retry on a later tick.
+                await this.emitNotification(rule, 'AUTOTRADE_FAILED', 'failed', {
+                    reason: err instanceof InsufficientFundsError ? 'INSUFFICIENT_FUNDS' : 'INSUFFICIENT_HOLDINGS',
+                    message: err.message,
+                });
+                console.warn(`[autotrade] Rule ${rule.id} could not execute: ${err.message}`);
+                return null;
+            }
             if (
-                err instanceof InsufficientFundsError ||
-                err instanceof InsufficientHoldingsError ||
                 err instanceof PortfolioDefaultedError ||
                 err instanceof PriceMismatchError ||
                 err instanceof StockPriceUnavailableError
