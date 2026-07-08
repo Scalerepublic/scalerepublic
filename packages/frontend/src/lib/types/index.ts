@@ -51,14 +51,6 @@ export interface UserProfile {
 	penaltyCounter?: number;
 }
 
-export interface AppSettings {
-	notifications: {
-		priceAlerts: boolean;
-		tradeConfirmations: boolean;
-		weeklyReport: boolean;
-	};
-}
-
 export interface ApiHolding {
 	stockId: string;
 	ticker: string;
