@@ -4,12 +4,12 @@ import { WikidataClient } from '../src/modules/wikipedia/wikidata-client.ts'
 
 const WIKIDATA_UNIT_PREFIX = 'http://www.wikidata.org/entity/'
 
-function quantityClaim(options: {
+const quantityClaim = (options: {
     amount: string
     unitId?: string
     year?: string
     rank?: string
-}) {
+}) => {
     return {
         rank: options.rank ?? 'normal',
         mainsnak: {
@@ -37,7 +37,7 @@ function quantityClaim(options: {
     }
 }
 
-function buildFetch(claims: Record<string, unknown[]>, labelEntities: Record<string, unknown> = {}) {
+const buildFetch = (claims: Record<string, unknown[]>, labelEntities: Record<string, unknown> = {}) => {
     return async (input: string | URL) => {
         const url = new URL(input.toString())
 

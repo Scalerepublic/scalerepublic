@@ -345,7 +345,8 @@
 							{/if}
 
 							<p class="text-xs text-muted-foreground">
-								Quelle: Wikipedia{#if detail?.companyFacts}, Wikidata ({detail.companyFacts.wikidataId}){/if}
+								Quelle: Wikipedia{#if detail?.companyFacts}, Wikidata ({detail.companyFacts
+										.wikidataId}){/if}
 							</p>
 						</div>
 					</div>
