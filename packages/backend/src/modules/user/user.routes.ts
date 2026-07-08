@@ -46,7 +46,6 @@ export const userRoutes = new Hono<AppEnv>()
   })
   .delete("/api/v1/users/:id", zValidator("param", userIdParamSchema), zValidator("json", deleteAccountBodySchema), async (c) => {
     const authResult = await requireAuth(c);
-    if (authResult instanceof Response) return authResult;
 
     const { id } = c.req.valid("param");
     const { password } = c.req.valid("json");

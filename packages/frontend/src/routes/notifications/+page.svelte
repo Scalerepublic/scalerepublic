@@ -1,20 +1,14 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { AlertTriangle, Bell, Check, CheckCheck, Clock, TrendingUp } from '@lucide/svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import EmptyState from '$lib/components/app/EmptyState.svelte';
-	import { notificationStore, type Notification } from '$lib/stores/notification.svelte';
+	import type { BackendNotification } from '$lib/api/backend-types';
+	import { getNotifications } from '$lib/data/notifications.svelte';
 	import { cn, formatCurrency, formatNumber } from '$lib/utils';
-	import { toast } from 'svelte-sonner';
 
-	const items = $derived(notificationStore.items);
-	const hasUnread = $derived(notificationStore.unreadCount > 0);
+	type Notification = BackendNotification;
 
-	let markingAll = $state(false);
-
-	onMount(() => {
-		void notificationStore.load();
-	});
+	const notifications = getNotifications();
 
 	type NotificationCopy = { title: string; body: string };
 
@@ -89,23 +83,6 @@
 		if (diff < 7 * day) return `${Math.floor(diff / day)}d ago`;
 		return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 	}
-
-	async function markOne(id: string) {
-		await notificationStore.markAsRead(id);
-	}
-
-	async function markAll() {
-		if (!hasUnread || markingAll) return;
-		markingAll = true;
-		try {
-			await notificationStore.markAllAsRead();
-			toast.success('All notifications marked as read');
-		} catch {
-			toast.error('Could not mark notifications as read');
-		} finally {
-			markingAll = false;
-		}
-	}
 </script>
 
 <div class="page-shell">
@@ -113,8 +90,8 @@
 		<PageHeader title="Notifications" subtitle="Auto-trade activity and account alerts" />
 		<button
 			type="button"
-			onclick={markAll}
-			disabled={!hasUnread || markingAll}
+			onclick={notifications.markAll}
+			disabled={!notifications.hasUnread || notifications.isMarkingAll}
 			class="inline-flex items-center gap-1.5 border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
 		>
 			<CheckCheck class="size-3.5" />
@@ -122,14 +99,16 @@
 		</button>
 	</div>
 
-	{#if notificationStore.error}
+	{#if notifications.isError}
 		<p class="mb-4 border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
-			{notificationStore.error}
+			{notifications.error instanceof Error
+				? notifications.error.message
+				: 'Failed to load notifications'}
 		</p>
 	{/if}
 
-	{#if items.length === 0}
-		{#if notificationStore.loading}
+	{#if notifications.items.length === 0}
+		{#if notifications.isLoading}
 			<div class="flex justify-center py-16">
 				<div
 					class="size-6 animate-spin border-2 border-muted-foreground/30 border-t-foreground"
@@ -148,7 +127,7 @@
 		{/if}
 	{:else}
 		<div class="border border-border">
-			{#each items as notification (notification.id)}
+			{#each notifications.items as notification (notification.id)}
 				{@const copy = describe(notification)}
 				{@const Icon = iconFor(notification.type)}
 				<div
@@ -180,7 +159,7 @@
 					{#if !notification.read}
 						<button
 							type="button"
-							onclick={() => markOne(notification.id)}
+							onclick={() => notifications.markRead(notification.id)}
 							class="inline-flex shrink-0 items-center gap-1 border border-border px-2 py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 							aria-label="Mark as read"
 						>

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import NobleButton from './NobleButton.svelte';
+	import { createMutation } from '@tanstack/svelte-query';
+	import { createLimitOrder } from '$lib/api/queries';
+	import { getPortfolio } from '$lib/data/portfolio.svelte';
 	import { formatCurrency } from '$lib/utils';
-	import { portfolioStore } from '$lib/stores/portfolio.svelte';
 	import type { Stock } from '$lib/types';
 	import { portal } from '$lib/actions/portal';
 	import { untrack } from 'svelte';
@@ -26,11 +28,13 @@
 	type Action = 'BUY' | 'SELL';
 	type Direction = 'AT_OR_ABOVE' | 'AT_OR_BELOW';
 
+	const portfolio = getPortfolio();
+	const createMutationRef = createMutation(() => ({ mutationFn: createLimitOrder }));
+
 	let action = $state<Action>('BUY');
 	let direction = $state<Direction>('AT_OR_BELOW');
 	let threshold = $state(0);
 	let quantity = $state(1);
-	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
 	$effect(() => {
@@ -40,7 +44,6 @@
 			direction = 'AT_OR_BELOW';
 			threshold = Number(stock.currentPrice.toFixed(2));
 			quantity = 1;
-			submitting = false;
 			error = null;
 		});
 	});
@@ -57,10 +60,15 @@
 			error = 'Enter a positive price and a whole number of shares.';
 			return;
 		}
-		submitting = true;
+		const portfolioId = portfolio.portfolioId;
+		if (!portfolioId) {
+			error = 'Portfolio not loaded.';
+			return;
+		}
 		error = null;
 		try {
-			await portfolioStore.createLimitOrder({
+			await createMutationRef.mutateAsync({
+				portfolioId,
 				stockId: stock.id,
 				ruleType: action,
 				triggerDirection: direction,
@@ -71,8 +79,6 @@
 			open = false;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not place the order.';
-		} finally {
-			submitting = false;
 		}
 	}
 
@@ -236,10 +242,10 @@
 					<NobleButton
 						type="button"
 						class="flex-1"
-						disabled={submitting || !valid}
+						disabled={createMutationRef.isPending || !valid}
 						onclick={submit}
 					>
-						{submitting ? '…' : 'Place order'}
+						{createMutationRef.isPending ? '…' : 'Place order'}
 					</NobleButton>
 				</div>
 			</div>

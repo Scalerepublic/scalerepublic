@@ -9,7 +9,6 @@ import { listNotificationsQuerySchema, notificationIdParamSchema } from "./notif
 export const notificationRoutes = new Hono<AppEnv>()
     .get("/api/v1/notifications", zValidator("query", listNotificationsQuerySchema), async (c) => {
         const authResult = await requireAuth(c);
-        if (authResult instanceof Response) return authResult;
 
         const { unreadOnly, limit } = c.req.valid("query");
         const { notificationService } = useCtx(c);
@@ -18,7 +17,6 @@ export const notificationRoutes = new Hono<AppEnv>()
     })
     .get("/api/v1/notifications/unread-count", async (c) => {
         const authResult = await requireAuth(c);
-        if (authResult instanceof Response) return authResult;
 
         const { notificationService } = useCtx(c);
         const count = await notificationService.getUnreadCount(authResult.user.id);
@@ -26,7 +24,6 @@ export const notificationRoutes = new Hono<AppEnv>()
     })
     .post("/api/v1/notifications/read-all", async (c) => {
         const authResult = await requireAuth(c);
-        if (authResult instanceof Response) return authResult;
 
         const { notificationService } = useCtx(c);
         const updated = await notificationService.markAllAsRead(authResult.user.id);
@@ -34,7 +31,6 @@ export const notificationRoutes = new Hono<AppEnv>()
     })
     .post("/api/v1/notifications/:id/read", zValidator("param", notificationIdParamSchema), async (c) => {
         const authResult = await requireAuth(c);
-        if (authResult instanceof Response) return authResult;
 
         const { id } = c.req.valid("param");
         const { notificationService } = useCtx(c);

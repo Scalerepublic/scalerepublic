@@ -4,11 +4,9 @@
 	import PerformanceChart from './PerformanceChart.svelte';
 	import BuyTradeSheet from './BuyTradeSheet.svelte';
 	import LimitOrderSheet from './LimitOrderSheet.svelte';
-	import { api, parseApiData } from '$lib/api/client';
 	import type { BackendStockDetail } from '$lib/api/backend-types';
+	import { getStockDetail } from '$lib/data/market.svelte';
 	import type { PerformanceGranularity, PerformancePoint } from '$lib/performance-history';
-	import { getCachedStockDetail, setCachedStockDetail } from '$lib/stores/stock-detail-cache';
-	import { marketStore } from '$lib/stores/market.svelte';
 	import { periodChangeToAmount } from '$lib/stock-performance';
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
@@ -25,17 +23,23 @@
 		stock: Stock;
 	} = $props();
 
-	let detail = $state<BackendStockDetail | null>(null);
-	let loading = $state(false);
-	let error = $state<string | null>(null);
 	let tradeOpen = $state(false);
 	let limitOpen = $state(false);
-	let activeTicker = $state<string | null>(null);
 	let chartGranularity = $state<PerformanceGranularity>('monthly');
 
-	const STOCK_CHART_HISTORY_DAYS = 365;
-	const MAX_DETAIL_POLL_ATTEMPTS = 12;
-	const STOCK_DAILY_CHART_POLL_MS = 15_000;
+	const stockDetail = getStockDetail(
+		() => stock.ticker,
+		() => open
+	);
+	const detail = $derived(stockDetail.detail);
+	const loading = $derived(stockDetail.isLoading);
+	const error = $derived(
+		stockDetail.isError
+			? stockDetail.error instanceof Error
+				? stockDetail.error.message
+				: 'Could not load stock details.'
+			: null
+	);
 
 	function resolveDetailPrice(loaded: BackendStockDetail | null, fallbackPrice: number): number {
 		if (loaded?.performance.latestPrice != null) {
@@ -69,116 +73,25 @@
 	});
 
 	const showChart = $derived(chartData.length >= 2);
-	const missingMarketData = $derived(!loading && !error && (detail?.priceHistory.length ?? 0) < 2);
-	const canTrade = $derived(showChart && !loading && !missingMarketData);
-	let pollAttempts = $state(0);
-
-	function pollDelayMs(attempt: number): number {
-		return Math.min(5_000 * 2 ** attempt, 30_000);
-	}
+	const missingMarketData = $derived(detail != null && chartData.length < 2);
+	const canTrade = $derived(showChart);
 
 	$effect(() => {
-		if (!open || !missingMarketData) {
-			pollAttempts = 0;
-			return;
-		}
-
-		if (pollAttempts >= MAX_DETAIL_POLL_ATTEMPTS) {
-			return;
-		}
-
-		const ticker = stock.ticker;
-		const timeout = window.setTimeout(() => {
-			pollAttempts += 1;
-			void loadDetail(ticker, { silent: true });
-		}, pollDelayMs(pollAttempts));
-
-		return () => window.clearTimeout(timeout);
-	});
-
-	$effect(() => {
-		if (!open || chartGranularity !== 'daily') {
-			return;
-		}
-
-		const ticker = stock.ticker;
-		const timer = window.setInterval(() => {
-			void loadDetail(ticker, { silent: true });
-		}, STOCK_DAILY_CHART_POLL_MS);
-
-		return () => window.clearInterval(timer);
-	});
-
-	$effect(() => {
-		if (!open) {
+		document.body.style.overflow = open ? 'hidden' : '';
+		return () => {
 			document.body.style.overflow = '';
-			return;
-		}
-
-		document.body.style.overflow = 'hidden';
-
-		const ticker = stock.ticker;
-		if (activeTicker === ticker) return;
-
-		activeTicker = ticker;
-		detail = null;
-		chartGranularity = 'monthly';
-		error = null;
-
-		const cached = getCachedStockDetail(ticker);
-		if (cached && cached.priceHistory.length >= 2) {
-			detail = cached;
-			loading = false;
-			marketStore.applyDetailMetrics(ticker, {
-				currentPrice: resolveDetailPrice(cached, stock.currentPrice),
-				dayChange: cached.performance.dayChange,
-				dayChangePercent: cached.performance.dayChangePercent,
-				periodChangePercent: cached.performance.periodChangePercent
-			});
-			return;
-		}
-
-		void loadDetail(ticker);
+		};
 	});
 
-	async function loadDetail(ticker: string, options?: { silent?: boolean }) {
-		if (!options?.silent) {
-			loading = true;
-			error = null;
-		}
-		try {
-			const res = await api.api.v1.stocks[':ticker'].detail.$get({
-				param: { ticker },
-				query: { historyDays: String(STOCK_CHART_HISTORY_DAYS) }
-			});
-			const loaded = await parseApiData<BackendStockDetail>(res);
-			if (activeTicker !== ticker) return;
-			detail = loaded;
-			setCachedStockDetail(ticker, loaded);
-			const resolvedPrice = resolveDetailPrice(loaded, stock.currentPrice);
-			marketStore.applyDetailMetrics(ticker, {
-				currentPrice: resolvedPrice,
-				dayChange: loaded.performance.dayChange,
-				dayChangePercent: loaded.performance.dayChangePercent,
-				periodChangePercent: loaded.performance.periodChangePercent
-			});
-		} catch (e) {
-			if (activeTicker !== ticker) return;
-			if (!options?.silent) {
-				error = e instanceof Error ? e.message : 'Could not load stock details.';
-			}
-		} finally {
-			if (activeTicker === ticker) {
-				loading = false;
-			}
-		}
-	}
+	$effect(() => {
+		void stock.ticker;
+		chartGranularity = 'monthly';
+	});
 
 	function close() {
 		tradeOpen = false;
 		limitOpen = false;
 		open = false;
-		activeTicker = null;
 	}
 
 	function onBackdropKeydown(event: KeyboardEvent) {
@@ -278,23 +191,11 @@
 										data={chartData}
 										mode="stock"
 										bind:granularity={chartGranularity}
-										onGranularityChange={(next) => {
-											if (next === 'daily') {
-												void loadDetail(stock.ticker, { silent: true });
-											}
-										}}
 									/>
 								</div>
 							</div>
 						{:else if missingMarketData}
-							<p class="text-sm text-muted-foreground">
-								{#if pollAttempts < MAX_DETAIL_POLL_ATTEMPTS}
-									Loading market data from backfill queue…
-								{:else}
-									Market data is not cached yet. Open again later or run a catalog backfill for this
-									ticker.
-								{/if}
-							</p>
+							<p class="text-sm text-muted-foreground">Loading market data from backfill queue…</p>
 						{/if}
 
 						{#if description}
