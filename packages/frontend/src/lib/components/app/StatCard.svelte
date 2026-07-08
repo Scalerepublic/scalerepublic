@@ -22,7 +22,13 @@
 	} = $props();
 
 	const changeTone = $derived(
-		change === undefined ? 'neutral' : change >= 0 ? 'positive' : 'negative'
+		change === undefined
+			? 'neutral'
+			: change === 0
+				? 'neutral'
+				: change > 0
+					? 'positive'
+					: 'negative'
 	);
 </script>
 

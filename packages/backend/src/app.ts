@@ -1,14 +1,20 @@
+import type { Fetcher } from "@cloudflare/workers-types";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 
 import { type App, type AppEnv, type AppVars, createAppContext, useCtx } from "./context.ts";
 import { requireApiAuth } from "./lib/require-auth.ts";
 import { createDb, type DbClient } from "./db/index.ts";
 import { isMarketDebugEnabled } from "./lib/market-debug.ts";
+import { UNI_API_PROXY_BASE_URL } from "./lib/uni-api-proxy.ts";
 import { registerAuthRoutes } from "./modules/auth/auth.routes.ts";
+import { registerAutoTradeRoutes } from "./modules/autotrade/autotrade.routes.ts";
 import { registerLeaderboardRoutes } from "./modules/leaderboard/leaderboard.routes.ts";
 import { registerMarketDebugRoutes } from "./modules/market-debug/index.ts";
+import { registerNotificationRoutes } from "./modules/notification/notification.routes.ts";
 import { registerPortfolioRoutes } from "./modules/portfolio/portfolio.routes.ts";
 import { registerStockRoutes } from "./modules/stock/stock.routes.ts";
+import type { UniApiSubfetch } from "./modules/stockapi/uni-stock-client.ts";
 import { registerUserRoutes } from "./modules/user/user.routes.ts";
 
 /**
@@ -17,8 +23,19 @@ import { registerUserRoutes } from "./modules/user/user.routes.ts";
  */
 export type WorkerBindings = {
     HYPERDRIVE: { connectionString: string };
+    UNI_API_PROXY?: Fetcher;
     BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_URL?: string;
+};
+
+const createUniApiSubfetch = (proxy: Fetcher | undefined): UniApiSubfetch | undefined => {
+    if (proxy === undefined) {
+        return undefined;
+    }
+    return (input: string | URL | Request, init?: RequestInit) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        return proxy.fetch(request) as Promise<Response>;
+    };
 };
 
 const hasConnectionString = (env: unknown): env is WorkerBindings =>
@@ -34,11 +51,20 @@ const hasConnectionString = (env: unknown): env is WorkerBindings =>
  */
 export const createWorkerContext = (env: WorkerBindings): { ctx: AppVars; client: DbClient } => {
     const { db, client } = createDb(env.HYPERDRIVE.connectionString);
+    const uniApiSubfetch = createUniApiSubfetch(env.UNI_API_PROXY);
+    if (uniApiSubfetch === undefined) {
+        const baseUrl = process.env['UNI_API_BASE_URL'] ?? '';
+        if (/:\/\/\d{1,3}(?:\.\d{1,3}){3}/.test(baseUrl)) {
+            console.warn('[uniapi] UNI_API_PROXY binding missing while UNI_API_BASE_URL points at an IP; fetches will fail on Workers');
+        }
+    }
     const ctx = createAppContext(db, {
         auth: {
             secret: env.BETTER_AUTH_SECRET,
             baseURL: env.BETTER_AUTH_URL,
         },
+        uniApiSubfetch,
+        uniApiBaseUrl: uniApiSubfetch !== undefined ? UNI_API_PROXY_BASE_URL : undefined,
     });
     return { ctx, client };
 };
@@ -81,6 +107,9 @@ export const createApp = (staticCtx?: AppVars): App => {
     });
 
     app.onError((err, c) => {
+        if (err instanceof HTTPException) {
+            return err.getResponse()
+        }
         console.error(err)
         return c.json({ error: "Internal server error" }, 500)
     })
@@ -96,6 +125,8 @@ export const createApp = (staticCtx?: AppVars): App => {
     registerUserRoutes(app);
     registerLeaderboardRoutes(app);
     registerPortfolioRoutes(app);
+    registerAutoTradeRoutes(app);
+    registerNotificationRoutes(app);
     // Always registered: the /api/v1/market/clock endpoint must exist even when
     // market debug is disabled (it returns the real, non-simulated date). The
     // /api/v1/debug/* endpoints self-gate via requireMarketDebugOperator.

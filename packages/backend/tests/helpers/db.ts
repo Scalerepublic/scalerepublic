@@ -4,14 +4,13 @@ import { db } from '../../src/db/index.ts'
 import { account, user } from '../../src/db/schema/auth-schema.ts'
 import { hashPassword } from '../../src/lib/password.ts'
 import { portfolio } from '../../src/db/schema/portfolio/portfolio.ts'
-import { stockPrice } from '../../src/db/schema/stock/market.ts'
+import { stockPrice, stockDailyBar } from '../../src/db/schema/stock/market.ts'
 import { stock } from '../../src/db/schema/stock/stock.ts'
 
 export const TEST_PASSWORD = 'test-password-123'
 
 export const resetDb = async (): Promise<void> => {
-    // CASCADE handles all FK-dependent tables (portfolio, trade, stock_price, etc.)
-    await db.execute(sql`TRUNCATE TABLE "user", stock CASCADE`)
+    await db.execute(sql`TRUNCATE TABLE "user", stock, sync_job CASCADE`)
 }
 
 const seedCredentialAccount = async (userId: string): Promise<void> => {
@@ -77,5 +76,27 @@ export const seedPrice = async (stockId: string, price: number): Promise<void> =
         price: price.toFixed(4),
         source: 'test',
         recordedAt: new Date(),
+    })
+}
+
+export const seedDailyBar = async (
+    stockId: string,
+    opts?: { low?: number; high?: number; close?: number; open?: number; date?: string },
+): Promise<void> => {
+    const tradingDate = opts?.date ?? new Date().toISOString().slice(0, 10)
+    const close = opts?.close ?? 100
+    const low = opts?.low ?? close * 0.98
+    const high = opts?.high ?? close * 1.02
+    const open = opts?.open ?? close
+
+    await db.insert(stockDailyBar).values({
+        id: crypto.randomUUID(),
+        stockId,
+        tradingDate,
+        open: open.toFixed(4),
+        high: high.toFixed(4),
+        low: low.toFixed(4),
+        close: close.toFixed(4),
+        source: 'test',
     })
 }

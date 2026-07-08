@@ -1,4 +1,5 @@
 import { createMiddleware } from 'hono/factory';
+import { HTTPException } from 'hono/http-exception';
 
 import { useCtx, type AppContext, type AppEnv } from '../context.ts';
 
@@ -16,23 +17,23 @@ export type AuthSession = {
 
 const getSession = async (auth: Auth, c: AppContext): Promise<AuthSession | null> => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    const user = session?.user;
-    const userId = user?.id;
-    if (userId === undefined || userId === '' || user === undefined) return null;
+    if (session === null || session.user.id === '') return null;
     return {
         user: {
-            id: userId,
-            email: user.email,
-            name: user.name,
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
         },
     };
 };
 
-export const requireAuth = async (c: AppContext): Promise<AuthSession | Response> => {
+export const requireAuth = async (c: AppContext): Promise<AuthSession> => {
     const { auth } = useCtx(c);
     const session = await getSession(auth, c);
     if (session === null) {
-        return c.json({ error: 'Unauthorized' }, 401);
+        throw new HTTPException(401, {
+            res: c.json({ error: 'Unauthorized' }, 401),
+        });
     }
     return session;
 };
@@ -67,11 +68,7 @@ export const requireApiAuth = createMiddleware<AppEnv>(async (c, next) => {
         return next();
     }
 
-    const authResult = await requireAuth(c);
-    if (authResult instanceof Response) {
-        return authResult;
-    }
-
-    c.set('authSession', authResult);
+    const authSession = await requireAuth(c);
+    c.set('authSession', authSession);
     return next();
 });

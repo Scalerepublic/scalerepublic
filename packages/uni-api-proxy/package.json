@@ -1,0 +1,17 @@
+{
+  "name": "uni-api-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env staging",
+    "dev:staging": "wrangler dev --env staging",
+    "deploy": "wrangler deploy --env production",
+    "deploy:staging": "wrangler deploy --env staging",
+    "check": "bunx tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260612.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.100.0"
+  }
+}

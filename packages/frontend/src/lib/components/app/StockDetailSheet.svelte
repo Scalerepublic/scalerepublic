@@ -2,23 +2,18 @@
 	import ChangeIndicator from './ChangeIndicator.svelte';
 	import NobleButton from './NobleButton.svelte';
 	import PerformanceChart from './PerformanceChart.svelte';
-	import TradeSheet from './TradeSheet.svelte';
-	import { api, parseApiData } from '$lib/api/client';
+	import BuyTradeSheet from './BuyTradeSheet.svelte';
+	import LimitOrderSheet from './LimitOrderSheet.svelte';
 	import type { BackendStockDetail } from '$lib/api/backend-types';
-	import type { PerformancePoint } from '$lib/performance-history';
-	import { getCachedStockDetail, setCachedStockDetail } from '$lib/stores/stock-detail-cache';
-	import { marketStore } from '$lib/stores/market.svelte';
+	import { getStockDetail } from '$lib/data/market.svelte';
+	import type { PerformanceGranularity, PerformancePoint } from '$lib/performance-history';
+	import { periodChangeToAmount } from '$lib/stock-performance';
 	import { formatCurrency } from '$lib/utils';
 	import type { Stock } from '$lib/types';
-	import { fade, fly, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { portal } from '$lib/actions/portal';
+	import { fade } from 'svelte/transition';
+	import { panelTransition } from '$lib/transitions';
 	import { Loader2, X } from '@lucide/svelte';
-
-	function panelTransition(node: HTMLElement) {
-		return window.innerWidth < 640
-			? fly(node, { y: 500, duration: 300, easing: cubicOut })
-			: scale(node, { start: 0.95, duration: 200, easing: cubicOut });
-	}
 
 	let {
 		open = $bindable(false),
@@ -28,13 +23,36 @@
 		stock: Stock;
 	} = $props();
 
-	let detail = $state<BackendStockDetail | null>(null);
-	let loading = $state(false);
-	let error = $state<string | null>(null);
 	let tradeOpen = $state(false);
-	let activeTicker = $state<string | null>(null);
+	let limitOpen = $state(false);
+	let chartGranularity = $state<PerformanceGranularity>('monthly');
 
-	const displayPrice = $derived(detail?.performance.latestPrice ?? stock.currentPrice);
+	const stockDetail = getStockDetail(
+		() => stock.ticker,
+		() => open
+	);
+	const detail = $derived(stockDetail.detail);
+	const loading = $derived(stockDetail.isLoading);
+	const error = $derived(
+		stockDetail.isError
+			? stockDetail.error instanceof Error
+				? stockDetail.error.message
+				: 'Could not load stock details.'
+			: null
+	);
+
+	function resolveDetailPrice(loaded: BackendStockDetail | null, fallbackPrice: number): number {
+		if (loaded?.performance.latestPrice != null) {
+			return loaded.performance.latestPrice;
+		}
+		const lastBar = loaded?.priceHistory.at(-1)?.close;
+		if (lastBar != null) {
+			return lastBar;
+		}
+		return fallbackPrice;
+	}
+
+	const displayPrice = $derived(resolveDetailPrice(detail, stock.currentPrice));
 	const periodChangePercent = $derived(
 		detail?.performance.periodChangePercent ?? stock.periodChangePercent ?? null
 	);
@@ -43,14 +61,11 @@
 	const displayChangePercent = $derived(periodChangePercent ?? dayChangePercent);
 	const displayChangeAmount = $derived.by(() => {
 		if (periodChangePercent !== null) {
-			return displayPrice - displayPrice / (1 + periodChangePercent / 100);
+			return periodChangeToAmount(displayPrice, periodChangePercent);
 		}
 		return dayChange;
 	});
-	const description = $derived(
-		detail?.stock.description?.trim() ||
-			`this stock (${detail?.stock.companyName ?? stock.name}) is good because i like it`
-	);
+	const description = $derived(detail?.stock.description?.trim() || null);
 
 	const chartData = $derived.by((): PerformancePoint[] => {
 		const history = detail?.priceHistory ?? [];
@@ -58,72 +73,38 @@
 	});
 
 	const showChart = $derived(chartData.length >= 2);
+	const missingMarketData = $derived(detail != null && chartData.length < 2);
+	const canTrade = $derived(showChart);
 
 	$effect(() => {
-		if (!open) {
+		document.body.style.overflow = open ? 'hidden' : '';
+		return () => {
 			document.body.style.overflow = '';
-			return;
-		}
-
-		document.body.style.overflow = 'hidden';
-
-		const ticker = stock.ticker;
-		if (activeTicker === ticker) return;
-
-		activeTicker = ticker;
-		error = null;
-
-		const cached = getCachedStockDetail(ticker);
-		if (cached) {
-			detail = cached;
-			loading = false;
-			marketStore.applyDetailMetrics(ticker, {
-				currentPrice: cached.performance.latestPrice ?? stock.currentPrice,
-				dayChange: cached.performance.dayChange,
-				dayChangePercent: cached.performance.dayChangePercent,
-				periodChangePercent: cached.performance.periodChangePercent
-			});
-			return;
-		}
-
-		void loadDetail(ticker);
+		};
 	});
 
-	async function loadDetail(ticker: string) {
-		loading = true;
-		error = null;
-		try {
-			const res = await api.api.v1.stocks[':ticker'].detail.$get({
-				param: { ticker },
-				query: {}
-			});
-			const loaded = await parseApiData<BackendStockDetail>(res);
-			if (activeTicker !== ticker) return;
-			detail = loaded;
-			setCachedStockDetail(ticker, loaded);
-			marketStore.applyDetailMetrics(ticker, {
-				currentPrice: loaded.performance.latestPrice ?? stock.currentPrice,
-				dayChange: loaded.performance.dayChange,
-				dayChangePercent: loaded.performance.dayChangePercent,
-				periodChangePercent: loaded.performance.periodChangePercent
-			});
-		} catch (e) {
-			if (activeTicker !== ticker) return;
-			error = e instanceof Error ? e.message : 'Could not load stock details.';
-		} finally {
-			if (activeTicker === ticker) {
-				loading = false;
-			}
-		}
-	}
+	$effect(() => {
+		void stock.ticker;
+		chartGranularity = 'monthly';
+	});
 
 	function close() {
+		tradeOpen = false;
+		limitOpen = false;
 		open = false;
-		activeTicker = null;
 	}
 
 	function onBackdropKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') close();
+		if (event.key !== 'Escape') return;
+		if (tradeOpen) {
+			tradeOpen = false;
+			return;
+		}
+		if (limitOpen) {
+			limitOpen = false;
+			return;
+		}
+		close();
 	}
 </script>
 
@@ -131,6 +112,7 @@
 
 {#if open}
 	<div
+		use:portal
 		class="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
 		role="presentation"
 		transition:fade={{ duration: 150 }}
@@ -195,10 +177,7 @@
 								<p class="font-mono text-3xl font-bold text-foreground">
 									{formatCurrency(displayPrice)}
 								</p>
-								<ChangeIndicator
-									amount={displayChangeAmount}
-									percent={displayChangePercent}
-								/>
+								<ChangeIndicator amount={displayChangeAmount} percent={displayChangePercent} />
 							</div>
 						</div>
 
@@ -208,17 +187,25 @@
 									Recent performance
 								</p>
 								<div class="border border-border bg-muted/30 p-3">
-									<PerformanceChart data={chartData} />
+									<PerformanceChart
+										data={chartData}
+										mode="stock"
+										bind:granularity={chartGranularity}
+									/>
 								</div>
 							</div>
+						{:else if missingMarketData}
+							<p class="text-sm text-muted-foreground">Loading market data from backfill queue…</p>
 						{/if}
 
-						<div>
-							<p class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-								About
-							</p>
-							<p class="mt-2 text-sm leading-relaxed text-foreground/90">{description}</p>
-						</div>
+						{#if description}
+							<div>
+								<p class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+									About
+								</p>
+								<p class="mt-2 text-sm leading-relaxed text-foreground/90">{description}</p>
+							</div>
+						{/if}
 
 						{#if detail?.stock.isAccumulating !== null && detail?.stock.isAccumulating !== undefined}
 							<div>
@@ -234,8 +221,22 @@
 				{/if}
 			</div>
 
-			<div class="border-t border-border px-5 py-4">
-				<NobleButton type="button" class="h-10 w-full" onclick={() => (tradeOpen = true)}>
+			<div class="flex gap-2 border-t border-border px-5 py-4">
+				<NobleButton
+					variant="secondary"
+					type="button"
+					class="h-10 flex-1"
+					disabled={!canTrade}
+					onclick={() => (limitOpen = true)}
+				>
+					Limit order
+				</NobleButton>
+				<NobleButton
+					type="button"
+					class="h-10 flex-1"
+					disabled={!canTrade}
+					onclick={() => (tradeOpen = true)}
+				>
 					Buy {stock.ticker}
 				</NobleButton>
 			</div>
@@ -243,4 +244,5 @@
 	</div>
 {/if}
 
-<TradeSheet bind:open={tradeOpen} {stock} mode="buy" />
+<BuyTradeSheet bind:open={tradeOpen} {stock} />
+<LimitOrderSheet bind:open={limitOpen} {stock} />

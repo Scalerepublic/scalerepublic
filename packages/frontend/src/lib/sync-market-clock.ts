@@ -6,14 +6,22 @@ type MarketClock = {
 	simulated: boolean;
 };
 
+const CACHE_TTL_MS = Number(import.meta.env.VITE_MARKET_CLOCK_CACHE_TTL_MS ?? 60_000);
+
+let cached: { clock: MarketClock; fetchedAt: number } | null = null;
 let syncInFlight: Promise<void> | null = null;
 
-export async function syncMarketClock(): Promise<void> {
+export async function syncMarketClock(options?: { force?: boolean }): Promise<void> {
 	if (syncInFlight) {
 		return syncInFlight;
 	}
 
 	syncInFlight = (async () => {
+		if (!options?.force && cached !== null && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+			setDemoMarketDate(cached.clock.simulated ? cached.clock.marketDate : null);
+			return;
+		}
+
 		try {
 			const res = await fetch('/api/v1/market/clock', { credentials: 'include' });
 			if (!res.ok) {
@@ -26,6 +34,7 @@ export async function syncMarketClock(): Promise<void> {
 				setDemoMarketDate(null);
 				return;
 			}
+			cached = { clock, fetchedAt: Date.now() };
 			setDemoMarketDate(clock.marketDate);
 		} catch {
 			setDemoMarketDate(null);

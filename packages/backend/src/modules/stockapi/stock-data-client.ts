@@ -23,7 +23,7 @@ export type StockDailyBar = {
 
 export interface StockDataClient {
     readonly source: string
-    getQuote(symbol: string): Promise<StockQuote>
+    getQuote(symbol: string): Promise<StockQuote | null>
     getStockMeta(symbol: string): Promise<StockMeta | null>
     getDailyBar(symbol: string, date?: Date): Promise<StockDailyBar | null>
 }

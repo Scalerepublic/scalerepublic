@@ -1,3 +1,5 @@
+import type { BackendAutoTradeRule } from '$lib/api/backend-types';
+
 export interface Stock {
 	id: string;
 	ticker: string;
@@ -51,39 +53,9 @@ export interface UserProfile {
 	penaltyCounter?: number;
 }
 
-export interface AppSettings {
-	notifications: {
-		priceAlerts: boolean;
-		tradeConfirmations: boolean;
-		weeklyReport: boolean;
-	};
-}
+export type { ApiHolding, ApiLeaderboardEntry, ApiPortfolio } from '$lib/api/mappers';
 
-export interface ApiHolding {
-	stockId: string;
-	ticker: string;
-	companyName: string;
-	shares: number;
-	avgCost: number;
-	currentPrice: number | null;
-}
-
-export interface ApiPortfolio {
-	portfolioId: string;
-	cashBalance: number;
-	startingCapital: number;
-	status: 'ACTIVE' | 'DEFAULTED';
-	holdings: ApiHolding[];
-}
-
-export interface ApiLeaderboardEntry {
-	rank: number;
-	userId: string;
-	name: string;
-	netWorth: number;
-	cashBalance: number;
-	holdingsValue: number;
-	returnPercent: number;
-	penalties: number;
-	lastDefaultedAt: string | null;
-}
+export type ApiAutoTradeRule = BackendAutoTradeRule;
+export type AutoTradeRuleType = ApiAutoTradeRule['ruleType'];
+export type AutoTradeTriggerDirection = ApiAutoTradeRule['triggerDirection'];
+export type AutoTradeStatus = ApiAutoTradeRule['status'];
