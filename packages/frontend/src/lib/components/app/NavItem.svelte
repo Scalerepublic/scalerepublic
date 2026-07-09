@@ -56,11 +56,11 @@
 		href={appResolve(href)}
 		title={collapsed ? label : undefined}
 		class={cn(
-			'group flex items-center py-2 text-sm transition-colors duration-100',
+			'group flex items-center rounded-lg py-2 text-sm transition-colors duration-100',
 			collapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
 			isActive
-				? 'border-l-[3px] border-primary bg-muted font-semibold text-primary'
-				: 'border-l-[3px] border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+				? 'border border-border bg-secondary font-semibold text-primary'
+				: 'border border-transparent text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
 		)}
 	>
 		<span class="relative shrink-0">

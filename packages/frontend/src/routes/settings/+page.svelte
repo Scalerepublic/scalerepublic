@@ -2,15 +2,15 @@
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import ProfileTab from './ProfileTab.svelte';
 	import AccountTab from './AccountTab.svelte';
-	import SecurityTab from './SecurityTab.svelte';
 	import AppearanceTab from './AppearanceTab.svelte';
+	import SecurityTab from './SecurityTab.svelte';
 	import { cn } from '$lib/utils';
 
 	const tabs = [
 		{ id: 'profile', label: 'Profile', component: ProfileTab },
 		{ id: 'account', label: 'Account', component: AccountTab },
-		{ id: 'security', label: 'Security', component: SecurityTab },
-		{ id: 'appearance', label: 'Appearance', component: AppearanceTab }
+		{ id: 'appearance', label: 'Appearance', component: AppearanceTab },
+		{ id: 'security', label: 'Security', component: SecurityTab }
 	];
 
 	let activeTab = $state(tabs[0]);

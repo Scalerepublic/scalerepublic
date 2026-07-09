@@ -108,7 +108,7 @@
 </script>
 
 <div class="space-y-5">
-	<section class="border border-border bg-card">
+	<section class="rounded-xl border border-border bg-card">
 		<header class="flex items-center gap-2.5 border-b border-border px-5 py-4">
 			<KeyRound class="size-4 shrink-0 text-muted-foreground" />
 			<div>
@@ -168,7 +168,7 @@
 		</form>
 	</section>
 
-	<section class="border border-border bg-card">
+	<section class="rounded-xl border border-border bg-card">
 		<header class="flex items-center gap-2.5 border-b border-border px-5 py-4">
 			<AtSign class="size-4 shrink-0 text-muted-foreground" />
 			<div>

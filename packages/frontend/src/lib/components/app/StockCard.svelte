@@ -20,7 +20,7 @@
 
 <button
 	type="button"
-	class="group flex w-full cursor-pointer flex-col overflow-hidden border border-border bg-card text-left transition-[border-color] hover:border-foreground/40"
+	class="group flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-[border-color] hover:border-foreground/40"
 	onclick={() => (detailOpen = true)}
 >
 	<div class="flex flex-1 flex-col p-4">
@@ -31,7 +31,7 @@
 			</div>
 			{#if badgeLabel}
 				<span
-					class="shrink-0 border border-border px-2 py-0.5 text-[9px] font-semibold tracking-widest text-muted-foreground uppercase"
+					class="shrink-0 rounded-full border border-border px-2 py-0.5 text-[9px] font-semibold tracking-widest text-muted-foreground uppercase"
 				>
 					{badgeLabel}
 				</span>

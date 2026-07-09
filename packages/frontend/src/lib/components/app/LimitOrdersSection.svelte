@@ -75,12 +75,10 @@
 </script>
 
 <div class="section-heading mt-10">
-	<h2 class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-		Limit Orders
-	</h2>
+	<h2 class="font-serif text-lg font-bold text-foreground">Limit Orders</h2>
 	{#if orders.length > 0}
 		<span
-			class="border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+			class="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
 		>
 			{orders.length}
 			{orders.length === 1 ? 'order' : 'orders'}
@@ -90,21 +88,21 @@
 
 {#if limitOrders.isError}
 	<div
-		class="mt-4 border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive"
+		class="mt-4 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive"
 	>
 		{limitOrders.error instanceof Error ? limitOrders.error.message : 'Could not load limit orders'}
 	</div>
 {:else if orders.length === 0}
 	<div
-		class="mt-4 border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground"
+		class="mt-4 rounded-xl border border-dashed border-input px-4 py-8 text-center text-sm text-muted-foreground"
 	>
 		No limit orders yet — set one from a stock's detail view.
 	</div>
 {:else}
-	<div class="mt-4 overflow-x-auto border border-border">
+	<div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
 		<table class="w-full border-collapse text-sm">
 			<thead>
-				<tr class="border-b border-border bg-muted">
+				<tr class="border-b border-border">
 					<th
 						class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
 					>
@@ -133,9 +131,9 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each orders as rule, i (rule.id)}
+				{#each orders as rule (rule.id)}
 					{@const issue = executeIssue(rule)}
-					<tr class={cn('border-t border-border/60', i % 2 !== 0 && 'bg-background')}>
+					<tr class="border-t border-border/60">
 						<td class="px-4 py-3.5">
 							<span class="font-mono text-sm font-bold text-primary">{rule.ticker ?? '—'}</span>
 						</td>
@@ -155,7 +153,7 @@
 							<div class="flex items-center gap-1.5">
 								<span
 									class={cn(
-										'border px-1.5 py-0.5 text-[10px] font-semibold uppercase',
+										'rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase',
 										statusClass(rule.status)
 									)}
 								>
@@ -178,7 +176,7 @@
 							{#if rule.status === 'ACTIVE'}
 								<button
 									type="button"
-									class="border border-border px-3 py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+									class="rounded-md border border-input px-3 py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 									onclick={() => askCancel(rule)}
 								>
 									Cancel

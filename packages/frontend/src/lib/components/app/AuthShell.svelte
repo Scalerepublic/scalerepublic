@@ -29,7 +29,7 @@
 			/>
 		</div>
 
-		<div class="border border-border bg-card p-7">
+		<div class="rounded-2xl border border-border bg-card p-7">
 			<header class="mb-6 border-b border-border pb-5">
 				<h1 class="font-serif text-2xl font-bold text-foreground">{heading}</h1>
 				{#if description}

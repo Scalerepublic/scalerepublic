@@ -60,7 +60,7 @@
 		></button>
 
 		<div
-			class="relative z-10 w-full max-w-md border border-border bg-card p-6 shadow-lg"
+			class="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="confirm-dialog-title"
@@ -82,7 +82,7 @@
 					type="button"
 					onclick={close}
 					disabled={confirming}
-					class="border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+					class="rounded-lg border border-input bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
 				>
 					{cancelLabel}
 				</button>
@@ -91,7 +91,7 @@
 					onclick={() => void onConfirm()}
 					disabled={confirming || confirmDisabled}
 					class={cn(
-						'border px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50',
+						'rounded-lg border px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50',
 						'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15'
 					)}
 				>

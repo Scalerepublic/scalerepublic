@@ -30,98 +30,107 @@
 	}
 }
 
+/* Dual theme, styled after the reference dashboard: neutral surfaces, subtle
+   borders, green accent, serif headings. Light is the default; `.dark` (toggled
+   by mode-watcher via Settings → Appearance) mirrors it on near-black. */
 :root {
-	--background: #f8f7f3;
-	--foreground: #0f0f0d;
+	color-scheme: light;
+
+	--background: #faf9f7;
+	--foreground: #171717;
 	--card: #ffffff;
-	--card-foreground: #0f0f0d;
+	--card-foreground: #171717;
 	--popover: #ffffff;
-	--popover-foreground: #0f0f0d;
+	--popover-foreground: #171717;
 
-	--primary: #0f0f0d;
-	--primary-foreground: #ffffff;
+	--primary: #171717;
+	--primary-foreground: #fafaf9;
 
-	--secondary: #eeeee9;
-	--secondary-foreground: #2a2a26;
+	--secondary: #f0efec;
+	--secondary-foreground: #3d3d3a;
 
-	--muted: #eeeee9;
-	--muted-foreground: #68686a;
+	--muted: #f2f1ee;
+	--muted-foreground: #71716c;
 
-	--accent: #1a3660;
+	--accent: #16a34a;
 	--accent-foreground: #ffffff;
 
-	--destructive: #a41414;
-	--border: #d4d3cc;
-	--input: #d4d3cc;
-	--ring: #1a3660;
+	--destructive: #dc2626;
+	--border: #e6e5e1;
+	--input: #d9d8d3;
+	--ring: #16a34a;
 
-	--positive: #1a6630;
-	--negative: #a41414;
-	--warning: #9a6a00;
+	--positive: #15803d;
+	--negative: #dc2626;
+	--warning: #a16207;
 
-	--radius: 0px;
+	--radius: 12px;
 
-	--sidebar: #ffffff;
-	--sidebar-foreground: #0f0f0d;
-	--sidebar-primary: #eeeee9;
-	--sidebar-primary-foreground: #0f0f0d;
-	--sidebar-accent: #eeeee9;
-	--sidebar-accent-foreground: #0f0f0d;
-	--sidebar-border: #d4d3cc;
-	--sidebar-ring: #1a3660;
+	--sidebar: #f5f4f1;
+	--sidebar-foreground: #171717;
+	--sidebar-primary: #e9e8e4;
+	--sidebar-primary-foreground: #171717;
+	--sidebar-accent: #e9e8e4;
+	--sidebar-accent-foreground: #171717;
+	--sidebar-border: #e6e5e1;
+	--sidebar-ring: #16a34a;
 
-	--chart-fill-top: rgba(26, 54, 96, 0.1);
-	--chart-fill-bottom: rgba(26, 54, 96, 0.01);
-	--chart-line-start: #1a3660;
-	--chart-line-end: #2a5090;
-	--chart-grid: #e5e4de;
-	--chart-crosshair: rgba(0, 0, 0, 0.22);
+	--chart-fill-top: rgba(22, 163, 74, 0.12);
+	--chart-fill-bottom: rgba(22, 163, 74, 0.01);
+	--chart-line-start: #16a34a;
+	--chart-line-end: #16a34a;
+	--chart-grid: #e9e8e4;
+	--chart-crosshair: rgba(0, 0, 0, 0.25);
 }
 
 .dark {
-	--background: #0f0f0d;
-	--foreground: #f2f1ec;
-	--card: #1a1a17;
-	--card-foreground: #f2f1ec;
-	--popover: #1a1a17;
-	--popover-foreground: #f2f1ec;
+	color-scheme: dark;
 
-	--primary: #f2f1ec;
-	--primary-foreground: #0f0f0d;
+	--background: #0a0a0a;
+	--foreground: #f5f5f4;
+	--card: #131313;
+	--card-foreground: #f5f5f4;
+	--popover: #161616;
+	--popover-foreground: #f5f5f4;
 
-	--secondary: #232320;
-	--secondary-foreground: #d4d3cc;
+	--primary: #f5f5f4;
+	--primary-foreground: #0a0a0a;
 
-	--muted: #232320;
-	--muted-foreground: #9a9a96;
+	--secondary: #1e1e1e;
+	--secondary-foreground: #d6d6d4;
 
-	--accent: #4a78c0;
-	--accent-foreground: #0f0d0d;
+	--muted: #1a1a1a;
+	--muted-foreground: #8f8f8c;
 
-	--destructive: #e5484d;
-	--border: #2c2c28;
-	--input: #2c2c28;
-	--ring: #4a78c0;
+	--accent: #22c55e;
+	--accent-foreground: #04150a;
 
-	--positive: #5aa979;
-	--negative: #e5484d;
-	--warning: #e0a83c;
+	--destructive: #ef4444;
+	--border: #242424;
+	--input: #2c2c2c;
+	--ring: #22c55e;
 
-	--sidebar: #1a1a17;
-	--sidebar-foreground: #f2f1ec;
-	--sidebar-primary: #232320;
-	--sidebar-primary-foreground: #f2f1ec;
-	--sidebar-accent: #232320;
-	--sidebar-accent-foreground: #f2f1ec;
-	--sidebar-border: #2c2c28;
-	--sidebar-ring: #4a78c0;
+	--positive: #4ade80;
+	--negative: #f26d6d;
+	--warning: #eab308;
 
-	--chart-fill-top: rgba(74, 120, 192, 0.18);
-	--chart-fill-bottom: rgba(74, 120, 192, 0.02);
-	--chart-line-start: #4a78c0;
-	--chart-line-end: #6f9adb;
-	--chart-grid: #2c2c28;
-	--chart-crosshair: rgba(255, 255, 255, 0.22);
+	--radius: 12px;
+
+	--sidebar: #0d0d0d;
+	--sidebar-foreground: #f5f5f4;
+	--sidebar-primary: #1c1c1c;
+	--sidebar-primary-foreground: #f5f5f4;
+	--sidebar-accent: #1c1c1c;
+	--sidebar-accent-foreground: #f5f5f4;
+	--sidebar-border: #1f1f1f;
+	--sidebar-ring: #22c55e;
+
+	--chart-fill-top: rgba(74, 222, 128, 0.16);
+	--chart-fill-bottom: rgba(74, 222, 128, 0.01);
+	--chart-line-start: #4ade80;
+	--chart-line-end: #4ade80;
+	--chart-grid: #1e1e1e;
+	--chart-crosshair: rgba(255, 255, 255, 0.25);
 }
 
 @theme inline {
@@ -160,13 +169,13 @@
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
 
-	--radius-sm: 0px;
-	--radius-md: 0px;
-	--radius-lg: 0px;
-	--radius-xl: 0px;
-	--radius-2xl: 0px;
-	--radius-3xl: 0px;
-	--radius-4xl: 0px;
+	--radius-sm: 6px;
+	--radius-md: 8px;
+	--radius-lg: 10px;
+	--radius-xl: 12px;
+	--radius-2xl: 16px;
+	--radius-3xl: 20px;
+	--radius-4xl: 24px;
 }
 
 @layer base {
@@ -196,10 +205,10 @@
 		@apply mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between;
 	}
 	.status-pill {
-		@apply flex w-full items-center justify-between gap-2 border border-border bg-card px-4 py-2.5 sm:w-auto sm:justify-start;
+		@apply flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-2.5 sm:w-auto sm:justify-start;
 	}
 	.live-pill {
-		@apply flex items-center gap-1.5 border border-positive/25 bg-positive/8 px-2 py-1;
+		@apply flex items-center gap-1.5 rounded-full border border-positive/25 bg-positive/8 px-2 py-1;
 	}
 	.live-pill-dot {
 		@apply relative flex size-1.5;
@@ -217,7 +226,7 @@
 		@apply border-positive/25 bg-positive/5;
 	}
 	.section-heading {
-		@apply mb-2 flex items-center justify-between border-b border-border pb-2;
+		@apply mb-3 flex items-center justify-between;
 	}
 	.table-th {
 		@apply px-4 py-2.5 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase;
@@ -238,6 +247,7 @@
 		background: var(--accent);
 		color: var(--accent-foreground);
 		border: 1px solid var(--accent);
+		border-radius: var(--radius-md);
 	}
 	.btn-primary:hover {
 		background: color-mix(in srgb, var(--accent) 88%, black);
@@ -249,7 +259,8 @@
 	.btn-secondary {
 		background: transparent;
 		color: var(--foreground);
-		border: 1px solid var(--border);
+		border: 1px solid var(--input);
+		border-radius: var(--radius-md);
 	}
 	.btn-secondary:hover {
 		background: var(--muted);
@@ -282,6 +293,13 @@
 	}
 }
 
+/* The reference design uses no monospace anywhere — numerals are sans with
+   tabular figures. Unlayered so it wins over Tailwind's .font-mono utility. */
+.font-mono {
+	font-family: var(--font-sans);
+	font-variant-numeric: tabular-nums;
+}
+
 [data-sonner-toaster] {
 	font-family: var(--font-sans);
 }
@@ -296,12 +314,8 @@
 }
 
 [data-sonner-toast] {
-	border-radius: 0 !important;
+	border-radius: var(--radius-lg) !important;
 	box-shadow: none !important;
-}
-
-[data-sonner-toast] [data-close-button] {
-	border-radius: 0 !important;
 }
 
 [data-sonner-toast] [data-icon] svg {

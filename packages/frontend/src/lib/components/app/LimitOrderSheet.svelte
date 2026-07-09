@@ -83,7 +83,7 @@
 	}
 
 	const segBase =
-		'h-10 border text-sm font-medium transition-colors focus:outline-none focus:border-accent';
+		'h-10 rounded-lg border text-sm font-medium transition-colors focus:outline-none focus:border-accent';
 	const segActive = 'border-accent bg-accent/10 text-foreground';
 	const segIdle = 'border-input bg-background text-muted-foreground hover:bg-muted';
 </script>
@@ -99,7 +99,7 @@
 	>
 		<div transition:panelTransition class="relative w-full max-w-md">
 			<div
-				class="rounded-t-2xl border border-b-0 border-border bg-card p-5 shadow-xl sm:rounded-none sm:border-b"
+				class="rounded-t-2xl border border-b-0 border-border bg-card p-5 shadow-xl sm:rounded-2xl sm:border-b"
 				role="dialog"
 				tabindex="-1"
 				aria-labelledby="limit-order-title"
@@ -193,7 +193,7 @@
 								min="0"
 								step="0.01"
 								bind:value={threshold}
-								class="h-10 w-full border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
+								class="h-10 w-full rounded-lg border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
 							/>
 						</div>
 						<div>
@@ -208,12 +208,12 @@
 								type="number"
 								min="1"
 								bind:value={quantity}
-								class="h-10 w-full border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
+								class="h-10 w-full rounded-lg border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
 							/>
 						</div>
 					</div>
 
-					<div class="border border-border bg-muted/30 px-3 py-2.5">
+					<div class="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
 						<p class="text-[10px] font-semibold tracking-widest text-accent uppercase">
 							{orderType}
 						</p>
