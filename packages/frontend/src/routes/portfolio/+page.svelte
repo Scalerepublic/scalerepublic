@@ -67,7 +67,7 @@
 						<span class="font-mono text-sm font-semibold text-primary">{formatCurrency(value)}</span
 						>
 						<span
-							class="border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+							class="rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
 						>
 							{percent.toFixed(1)}%
 						</span>

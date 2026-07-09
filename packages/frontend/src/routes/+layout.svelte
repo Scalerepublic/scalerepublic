@@ -7,7 +7,6 @@
 	import AppShell from '$lib/components/app/AppShell.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 	import AppToaster from '$lib/components/app/AppToaster.svelte';
-	import { ModeWatcher } from 'mode-watcher';
 	import { QueryClientProvider } from '@tanstack/svelte-query';
 	import { signOut } from '$lib/auth-client';
 	import { queryClient } from '$lib/api/query-client';

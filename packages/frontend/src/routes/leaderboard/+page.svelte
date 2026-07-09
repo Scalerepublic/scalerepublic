@@ -68,11 +68,11 @@
 			}}
 			onblur={handleSearchBlur}
 			placeholder="Search traders by name or email…"
-			class="h-10 w-full border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
+			class="h-10 w-full rounded-lg border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
 		/>
 		{#if searchOpen && search.results.length > 0}
 			<div
-				class="absolute top-full right-0 left-0 z-20 mt-1 border border-border bg-card shadow-sm"
+				class="absolute top-full right-0 left-0 z-20 mt-1 overflow-hidden rounded-lg border border-border bg-card shadow-sm"
 			>
 				{#each search.results as result (result.userId)}
 					<a
@@ -94,7 +94,7 @@
 			</div>
 		{:else if searchOpen && !search.isFetching && searchQuery.trim().length >= 2}
 			<div
-				class="absolute top-full right-0 left-0 z-20 mt-1 border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
+				class="absolute top-full right-0 left-0 z-20 mt-1 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
 			>
 				No traders found
 			</div>
@@ -102,12 +102,12 @@
 	</div>
 
 	{#if board.isError}
-		<p class="mb-4 border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
+		<p class="mb-4 rounded-lg border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
 			{board.error instanceof Error ? board.error.message : 'Failed to load leaderboard'}
 		</p>
 	{/if}
 
-	<div class="overflow-x-auto border border-border">
+	<div class="overflow-x-auto rounded-xl border border-border">
 		<table class="w-full border-collapse text-sm">
 			<thead>
 				<tr class="border-b border-border bg-muted">
@@ -177,14 +177,14 @@
 									</span>
 									{#if entry.isCurrentUser}
 										<span
-											class="border border-border bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-foreground uppercase"
+											class="rounded-md border border-border bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-foreground uppercase"
 										>
 											You
 										</span>
 									{/if}
 									{#if entry.penalties >= 3}
 										<span
-											class="border border-negative/30 bg-negative/8 px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-negative uppercase"
+											class="rounded-md border border-negative/30 bg-negative/8 px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-negative uppercase"
 										>
 											Out
 										</span>
@@ -212,7 +212,7 @@
 							{#if entry.penalties > 0}
 								<div class="inline-flex flex-col items-end gap-0.5">
 									<span
-										class="border border-border bg-muted px-1.5 py-0.5 font-mono text-xs font-bold text-foreground"
+										class="rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-xs font-bold text-foreground"
 									>
 										{entry.penalties}
 									</span>

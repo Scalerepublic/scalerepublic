@@ -37,7 +37,7 @@
 	<div class="p-5">
 		<div class="flex items-center gap-4">
 			<div
-				class="flex size-14 shrink-0 items-center justify-center border border-border bg-muted text-lg font-bold text-foreground"
+				class="flex size-14 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-lg font-bold text-foreground"
 			>
 				{getInitials(account.profile.name)}
 			</div>

@@ -34,7 +34,7 @@
 
 <article
 	class={cn(
-		'relative flex-1 overflow-hidden border bg-card p-5',
+		'relative flex-1 overflow-hidden rounded-xl border bg-card p-5',
 		accent && changeTone === 'positive' && 'border-positive/40',
 		accent && changeTone === 'negative' && 'border-negative/40',
 		accent && changeTone === 'neutral' && 'border-accent/30',

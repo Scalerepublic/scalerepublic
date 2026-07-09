@@ -9,7 +9,7 @@
 	];
 </script>
 
-<section class="border border-border bg-card p-5">
+<section class="rounded-xl border border-border bg-card p-5">
 	<p class="text-sm font-semibold text-foreground">Colour Scheme</p>
 	<p class="mt-1 mb-5 text-sm text-muted-foreground">Choose your preferred visual theme.</p>
 	<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -18,7 +18,7 @@
 			<button
 				type="button"
 				onclick={() => setMode(theme.value)}
-				class="flex flex-col items-center gap-2 border-2 p-4 text-sm font-semibold transition-all {userPrefersMode.current ===
+				class="flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-sm font-semibold transition-all {userPrefersMode.current ===
 				theme.value
 					? 'border-primary bg-muted text-primary'
 					: 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'}"

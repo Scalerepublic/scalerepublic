@@ -92,7 +92,7 @@
 			type="button"
 			onclick={notifications.markAll}
 			disabled={!notifications.hasUnread || notifications.isMarkingAll}
-			class="inline-flex items-center gap-1.5 border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+			class="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
 		>
 			<CheckCheck class="size-3.5" />
 			Mark all as read
@@ -100,7 +100,7 @@
 	</div>
 
 	{#if notifications.isError}
-		<p class="mb-4 border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
+		<p class="mb-4 rounded-lg border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
 			{notifications.error instanceof Error
 				? notifications.error.message
 				: 'Failed to load notifications'}
@@ -126,7 +126,7 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<div class="border border-border">
+		<div class="overflow-hidden rounded-xl border border-border">
 			{#each notifications.items as notification (notification.id)}
 				{@const copy = describe(notification)}
 				{@const Icon = iconFor(notification.type)}
@@ -138,7 +138,7 @@
 				>
 					<span
 						class={cn(
-							'flex size-8 shrink-0 items-center justify-center border',
+							'flex size-8 shrink-0 items-center justify-center rounded-lg border',
 							accentClass(notification.type)
 						)}
 					>
@@ -160,7 +160,7 @@
 						<button
 							type="button"
 							onclick={() => notifications.markRead(notification.id)}
-							class="inline-flex shrink-0 items-center gap-1 border border-border px-2 py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							class="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 							aria-label="Mark as read"
 						>
 							<Check class="size-3" />

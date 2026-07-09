@@ -53,7 +53,7 @@
 				<div class="grid grid-cols-2 gap-2">
 					<button
 						type="button"
-						class="border border-border bg-muted px-2 py-2 text-xs font-semibold hover:bg-muted/80"
+						class="rounded-lg border border-border bg-muted px-2 py-2 text-xs font-semibold hover:bg-muted/80"
 						disabled={demoMarketStore.loading}
 						onclick={() => demoMarketStore.retreatDay()}
 					>
@@ -61,7 +61,7 @@
 					</button>
 					<button
 						type="button"
-						class="border border-border bg-muted px-2 py-2 text-xs font-semibold hover:bg-muted/80"
+						class="rounded-lg border border-border bg-muted px-2 py-2 text-xs font-semibold hover:bg-muted/80"
 						disabled={demoMarketStore.loading}
 						onclick={() => demoMarketStore.advanceDay()}
 					>
@@ -71,7 +71,7 @@
 
 				<button
 					type="button"
-					class="w-full border border-accent/40 bg-accent/10 px-2 py-2 text-xs font-semibold text-accent hover:bg-accent/20"
+					class="w-full rounded-lg border border-accent/40 bg-accent/10 px-2 py-2 text-xs font-semibold text-accent hover:bg-accent/20"
 					disabled={demoMarketStore.loading}
 					onclick={() => demoMarketStore.applyGbmTick()}
 				>
@@ -93,12 +93,12 @@
 							max="99"
 							bind:value={crashPercent}
 							disabled={demoMarketStore.loading}
-							class="h-9 w-20 border border-input bg-background px-2 font-mono text-sm"
+							class="h-9 w-20 rounded-lg border border-input bg-background px-2 font-mono text-sm"
 						/>
 						<span class="text-xs text-muted-foreground">%</span>
 						<button
 							type="button"
-							class="flex-1 border border-negative/40 bg-negative/10 px-2 py-2 text-xs font-semibold text-negative hover:bg-negative/20"
+							class="flex-1 rounded-lg border border-negative/40 bg-negative/10 px-2 py-2 text-xs font-semibold text-negative hover:bg-negative/20"
 							disabled={demoMarketStore.loading || crashPercent <= 0 || crashPercent >= 100}
 							onclick={() => demoMarketStore.applyMarketCrash(crashPercent)}
 						>

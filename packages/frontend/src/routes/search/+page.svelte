@@ -138,7 +138,7 @@
 			value={query}
 			oninput={handleQueryInput}
 			placeholder="Search by ticker or company name…"
-			class="h-11 w-full border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
+			class="h-11 w-full rounded-lg border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
 		/>
 	</div>
 
@@ -156,7 +156,7 @@
 			{#if trending.isLoading && trending.stocks.length === 0}
 				<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
 					{#each Array.from({ length: 6 }, (_, index) => index) as index (index)}
-						<div class="h-36 animate-pulse border border-border bg-muted/40"></div>
+						<div class="h-36 animate-pulse rounded-xl border border-border bg-muted/40"></div>
 					{/each}
 				</div>
 			{:else}
@@ -185,7 +185,7 @@
 			<div class="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
 				<button
 					type="button"
-					class="market-category-card group relative flex min-h-[9.5rem] w-full flex-col justify-between overflow-hidden border border-border bg-card p-5 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/35 md:col-span-2 xl:col-span-3"
+					class="market-category-card group relative flex min-h-[9.5rem] w-full flex-col justify-between overflow-hidden rounded-xl border border-border bg-card p-5 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-foreground/35 md:col-span-2 xl:col-span-3"
 					style="--sector-accent: var(--foreground)"
 					onclick={() => openBrowse()}
 				>
@@ -235,7 +235,7 @@
 				<div class="flex min-w-0 items-start gap-3">
 					<button
 						type="button"
-						class="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center border border-border bg-card text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
+						class="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
 						onclick={goHome}
 						aria-label="Back to market home"
 					>
@@ -248,7 +248,7 @@
 				</div>
 				{#if browse}
 					<span
-						class="border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+						class="rounded-md border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
 					>
 						{browse.total.toLocaleString()} matches
 					</span>
@@ -258,7 +258,7 @@
 			{#if browseList.isFetching && (!browse || browse.items.length === 0)}
 				<div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
 					{#each Array.from({ length: 6 }, (_, index) => index) as index (index)}
-						<div class="h-36 animate-pulse border border-border bg-muted/40"></div>
+						<div class="h-36 animate-pulse rounded-xl border border-border bg-muted/40"></div>
 					{/each}
 				</div>
 			{:else if browse && browse.items.length === 0}
@@ -285,7 +285,7 @@
 						<div class="flex items-center gap-2">
 							<button
 								type="button"
-								class="inline-flex h-9 items-center gap-1 border border-border bg-card px-3 text-xs font-medium text-foreground transition enabled:hover:border-foreground/30 disabled:opacity-40"
+								class="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition enabled:hover:border-foreground/30 disabled:opacity-40"
 								disabled={browse.page <= 1}
 								onclick={() => loadPage(browse.page - 1)}
 							>
@@ -294,7 +294,7 @@
 							</button>
 							<button
 								type="button"
-								class="inline-flex h-9 items-center gap-1 border border-border bg-card px-3 text-xs font-medium text-foreground transition enabled:hover:border-foreground/30 disabled:opacity-40"
+								class="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition enabled:hover:border-foreground/30 disabled:opacity-40"
 								disabled={browse.page >= totalPages}
 								onclick={() => loadPage(browse.page + 1)}
 							>

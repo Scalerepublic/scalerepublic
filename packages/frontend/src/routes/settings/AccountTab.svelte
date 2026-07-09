@@ -149,7 +149,7 @@
 				disabled={!canForceDefault ||
 					forceDefaultMutation.isPending ||
 					deleteAccountMutation.isPending}
-				class="shrink-0 border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-50"
+				class="shrink-0 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				Force default
 			</button>
@@ -165,7 +165,7 @@
 				type="button"
 				onclick={() => (deleteDialogOpen = true)}
 				disabled={deleteAccountMutation.isPending || forceDefaultMutation.isPending}
-				class="shrink-0 border border-destructive/40 bg-destructive px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
+				class="shrink-0 rounded-lg border border-destructive/40 bg-destructive px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				Delete account
 			</button>
