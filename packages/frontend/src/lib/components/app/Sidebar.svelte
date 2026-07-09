@@ -63,13 +63,7 @@
 				sidebarStore.collapsed ? 'justify-center' : 'justify-between gap-3'
 			)}
 		>
-			{#if sidebarStore.collapsed}
-				<img
-					src="/logo/scalerepublic-mark.svg"
-					alt="ScaleRepublic Logo"
-					class="h-7 w-auto dark:invert"
-				/>
-			{:else}
+			{#if !sidebarStore.collapsed}
 				<div class="flex items-center gap-2">
 					<img
 						src="/logo/scalerepublic-mark.svg"
