@@ -62,13 +62,35 @@ export const createAppContext = (
     if (process.env.NODE_ENV === 'test' || isMarketDebugEnabled()) {
         ctx.stockDataClient = new MockStockDataClient()
     } else if (process.env['STOCK_API_PROVIDER'] === 'uni') {
-        ctx.stockDataClient = new UniStockClient(
-            undefined,
-            options.uniApiBaseUrl,
-            options.uniApiSubfetch,
-        )
+        const hasUniCredentials =
+            process.env['UNI_API_TOKEN'] !== undefined
+            && process.env['UNI_API_TOKEN'] !== ''
+            && process.env['UNI_API_BASE_URL'] !== undefined
+            && process.env['UNI_API_BASE_URL'] !== ''
+        if (!hasUniCredentials) {
+            console.warn(
+                '[context] UNI_API_TOKEN/UNI_API_BASE_URL missing - falling back to MockStockDataClient',
+            )
+        }
+        ctx.stockDataClient = hasUniCredentials
+            ? new UniStockClient(
+                  undefined,
+                  options.uniApiBaseUrl,
+                  options.uniApiSubfetch,
+              )
+            : new MockStockDataClient()
     } else {
-        ctx.stockDataClient = new AlphaVantageStockClient()
+        const hasVantageKey =
+            process.env['ALPHAVANTAGE_API_KEY'] !== undefined
+            && process.env['ALPHAVANTAGE_API_KEY'] !== ''
+        if (!hasVantageKey) {
+            console.warn(
+                '[context] ALPHAVANTAGE_API_KEY missing - falling back to MockStockDataClient',
+            )
+        }
+        ctx.stockDataClient = hasVantageKey
+            ? new AlphaVantageStockClient()
+            : new MockStockDataClient()
     }
     ctx.marketDebugService = new MarketDebugService(ctx)
     ctx.stockService = new StockService(ctx)

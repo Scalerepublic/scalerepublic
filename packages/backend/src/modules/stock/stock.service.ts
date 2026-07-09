@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, gte, ilike, inArray, lte, ne, or, sql, type 
 
 import type { AppVars } from '../../context.ts'
 import { stock, stockDailyBar, stockPrice } from '../../db/schema/stock/index.ts'
+import { trade } from '../../db/schema/trade/index.ts'
 import { readEnvNumber } from '../../lib/env-number.ts'
 import {
     DEBUG_MARKET_CRASH_SOURCE,
@@ -9,12 +10,15 @@ import {
     isMarketDebugEnabled,
 } from '../../lib/market-debug.ts'
 import { getMarketSessionBounds, marketSessionOpenIso } from '../../lib/market-session.ts'
+import { WikidataClient, type CompanyFacts } from '../wikipedia/wikidata-client.ts'
+import { WikipediaClient } from '../wikipedia/wikipedia-client.ts'
 
 import { getSectorTickers, MARKET_SECTORS, type MarketSectorId } from './market-sectors.ts'
 
 const HISTORY_DAYS = 30
 const MAX_DAILY_BAR_FETCHES = 10
 const MIN_BARS_FOR_METRICS = 2
+const COMPANY_FACTS_REFRESH_DAYS = 7
 const TRADING_DAYS_PER_CALENDAR_MONTH = 22
 const DEFAULT_DETAIL_ON_DEMAND_PREFETCH_MAX_FETCHES = 20
 const SYNTHETIC_QUOTE_INSERT_CHUNK = 500
@@ -83,10 +87,19 @@ export type StockDetail = {
     }
     performance: StockDetailPerformance
     priceHistory: Array<{ date: string; close: number }>
+    companyFacts: CompanyFacts | null
 }
 
 export class StockService {
-    constructor(private readonly ctx: AppVars) { }
+    // Stock IDs whose Wikipedia/Wikidata lookup is currently running, so that
+    // concurrent detail views don't kick off duplicate lazy fetches.
+    private readonly stockInfoInFlight = new Set<string>()
+
+    constructor(
+        private readonly ctx: AppVars,
+        private readonly wikipediaClient = new WikipediaClient(),
+        private readonly wikidataClient = new WikidataClient(),
+    ) { }
 
     private priceSourceFilter(): SQL {
         if (isMarketDebugEnabled()) {
@@ -979,6 +992,194 @@ export class StockService {
         return date.toISOString().slice(0, 10)
     }
 
+    private isPlaceholderDescription(description: string | null | undefined): boolean {
+        if (description === null || description === undefined) return true
+        const trimmed = description.trim()
+        if (trimmed === '') return true
+        return /^this stock \(.+\) is good because i like it$/.test(trimmed)
+    }
+
+    private normalizeDescription(description: string | null | undefined): string | null {
+        if (this.isPlaceholderDescription(description)) return null
+        return description!.trim()
+    }
+
+    private parseStoredCompanyFacts(
+        stockRow: typeof stock.$inferSelect,
+    ): CompanyFacts | null {
+        const metrics = stockRow.companyFacts?.metrics
+        if (
+            stockRow.wikidataId === null
+            || stockRow.wikidataId === undefined
+            || metrics === undefined
+            || metrics.length === 0
+        ) {
+            return null
+        }
+
+        return {
+            wikidataId: stockRow.wikidataId,
+            metrics,
+        }
+    }
+
+    // Based on the last attempt timestamp (set on success AND failure) so that
+    // stocks without a findable Wikidata entry don't clog every backfill batch.
+    private needsCompanyFactsRefresh(
+        stockRow: Pick<typeof stock.$inferSelect, 'companyFactsUpdatedAt'>,
+        refreshOlderThanDays: number,
+    ): boolean {
+        if (stockRow.companyFactsUpdatedAt === null) return true
+
+        const threshold = Date.now() - refreshOlderThanDays * 24 * 60 * 60 * 1000
+        return stockRow.companyFactsUpdatedAt.getTime() < threshold
+    }
+
+    // Fetches Wikipedia description + Wikidata facts for a single stock in one
+    // pass (the Wikipedia summary yields both the description and the wikidataId)
+    // and persists them. `companyFactsUpdatedAt` is stamped on every attempt,
+    // success or not, so a stock without a findable article isn't retried until
+    // the refresh window elapses.
+    private async refreshStockInfo(row: {
+        id: string
+        ticker: string
+        companyName: string
+    }): Promise<{ descriptionUpdated: boolean; factsUpdated: boolean }> {
+        let companyName = row.companyName
+        let summary: Awaited<ReturnType<WikipediaClient['searchSummary']>> = null
+
+        try {
+            if (row.companyName === row.ticker) {
+                const meta = await this.ctx.stockDataClient.getStockMeta(row.ticker)
+                companyName = meta?.name ?? companyName
+            }
+            summary = await this.wikipediaClient.searchSummary(companyName, row.ticker)
+        } catch {
+            summary = null
+        }
+
+        let facts: CompanyFacts | null = null
+        if (summary?.wikidataId !== null && summary?.wikidataId !== undefined) {
+            try {
+                facts = await this.wikidataClient.getCompanyFacts(summary.wikidataId)
+            } catch {
+                facts = null
+            }
+        }
+
+        const update: Partial<typeof stock.$inferInsert> = {
+            companyName,
+            companyFactsUpdatedAt: new Date(),
+        }
+
+        const descriptionUpdated =
+            summary?.extract !== undefined && summary.extract.length > 0
+        if (descriptionUpdated) {
+            update.description = summary!.extract
+        }
+
+        const factsUpdated = facts !== null && facts.metrics.length > 0
+        if (factsUpdated) {
+            update.wikidataId = facts!.wikidataId
+            update.companyFacts = { metrics: facts!.metrics }
+        }
+
+        try {
+            await this.ctx.db.update(stock).set(update).where(eq(stock.id, row.id))
+        } catch {
+            return { descriptionUpdated: false, factsUpdated: false }
+        }
+
+        return { descriptionUpdated, factsUpdated }
+    }
+
+    // Orders pending stocks so the ones users actually trade are filled first.
+    // With ~11k stocks we can't backfill everything at once, so popularity
+    // (number of trades referencing the stock) drives priority; never-attempted
+    // stocks come before previously-attempted (stale) ones within the same rank.
+    private async prioritizeByPopularity<
+        T extends { id: string; companyFactsUpdatedAt: Date | null },
+    >(rows: T[]): Promise<T[]> {
+        const counts = await this.ctx.db
+            .select({ stockId: trade.stockId, count: sql<number>`count(*)` })
+            .from(trade)
+            .groupBy(trade.stockId)
+
+        const popularity = new Map<string, number>()
+        for (const entry of counts) {
+            popularity.set(entry.stockId, Number(entry.count))
+        }
+
+        return [...rows].sort((a, b) => {
+            const popDiff = (popularity.get(b.id) ?? 0) - (popularity.get(a.id) ?? 0)
+            if (popDiff !== 0) return popDiff
+            const attemptA = a.companyFactsUpdatedAt?.getTime() ?? 0
+            const attemptB = b.companyFactsUpdatedAt?.getTime() ?? 0
+            return attemptA - attemptB
+        })
+    }
+
+    // Background/one-off backfill of Wikipedia + Wikidata info. Pass a `limit`
+    // for the periodic sync so each run only processes a small, prioritized
+    // batch instead of hammering the external APIs for all stocks at once.
+    async backfillStockInfo(
+        options: { limit?: number; refreshOlderThanDays?: number } = {},
+    ): Promise<{ pending: number; updated: number; failed: number }> {
+        const limit = options.limit
+        const refreshOlderThanDays = options.refreshOlderThanDays ?? COMPANY_FACTS_REFRESH_DAYS
+
+        const rows = await this.ctx.db
+            .select({
+                id: stock.id,
+                ticker: stock.ticker,
+                companyName: stock.companyName,
+                companyFactsUpdatedAt: stock.companyFactsUpdatedAt,
+            })
+            .from(stock)
+            .where(eq(stock.isActive, true))
+
+        const pendingRows = rows.filter((row) =>
+            this.needsCompanyFactsRefresh(row, refreshOlderThanDays),
+        )
+
+        const batch = limit === undefined
+            ? pendingRows
+            : (await this.prioritizeByPopularity(pendingRows)).slice(0, limit)
+
+        let updated = 0
+        let failed = 0
+
+        for (const row of batch) {
+            const result = await this.refreshStockInfo(row)
+            if (result.descriptionUpdated || result.factsUpdated) {
+                updated += 1
+            } else {
+                failed += 1
+            }
+            await new Promise((resolve) => setTimeout(resolve, 200))
+        }
+
+        return { pending: pendingRows.length, updated, failed }
+    }
+
+    // Fire-and-forget lazy fill: when a user opens a stock whose info is missing
+    // or stale, refresh it in the background so it's cached for the next view.
+    // The current request is never blocked by the external lookups.
+    private triggerLazyStockInfo(row: {
+        id: string
+        ticker: string
+        companyName: string
+        companyFactsUpdatedAt: Date | null
+    }): void {
+        if (!this.needsCompanyFactsRefresh(row, COMPANY_FACTS_REFRESH_DAYS)) return
+        if (this.stockInfoInFlight.has(row.id)) return
+
+        this.stockInfoInFlight.add(row.id)
+        void this.refreshStockInfo(row).finally(() => {
+            this.stockInfoInFlight.delete(row.id)
+        })
+    }
+
     private normalizeTradingDate(value: string | Date): string {
         if (value instanceof Date) {
             return this.formatUtcDate(value)
@@ -1208,6 +1409,9 @@ export class StockService {
 
         if (!stockRow) return null
 
+        // Lazy-fill Wikipedia/Wikidata info in the background on first view.
+        this.triggerLazyStockInfo(stockRow)
+
         const cache = await this.detailCacheIsWarm(stockRow.id, historyDays)
         if (!cache.warm) {
             await this.requestBackfillPriority(stockRow.id)
@@ -1244,11 +1448,9 @@ export class StockService {
             priceTablePreviousClose,
         )
 
-        const trimmedDescription = stockRow.description?.trim()
-        const description =
-            trimmedDescription === undefined || trimmedDescription === ''
-                ? null
-                : trimmedDescription
+        if (metricsHistory.length >= MIN_BARS_FOR_METRICS) {
+            await this.persistStockMetrics(stockRow.id, performance)
+        }
 
         return {
             stock: {
@@ -1257,11 +1459,12 @@ export class StockService {
                 companyName: stockRow.companyName,
                 exchange: stockRow.exchange,
                 currency: stockRow.currency,
-                description,
+                description: this.normalizeDescription(stockRow.description),
                 isAccumulating: stockRow.isAccumulating,
             },
             performance,
             priceHistory,
+            companyFacts: this.parseStoredCompanyFacts(stockRow),
         }
     }
 }

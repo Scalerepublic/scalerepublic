@@ -17,6 +17,7 @@ const DEFAULT_MAX_UNI_API_CALLS_PER_TICK = 40
 const DEFAULT_CATALOG_BACKFILL_MIN_INTERVAL_MS = 5 * 60 * 1000
 const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000
 const AUTO_TRADE_BATCH_SIZE = 20
+const STOCK_INFO_BACKFILL_BATCH_SIZE = 5
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
@@ -293,6 +294,15 @@ export class SyncService {
                         lockedBy: null,
                     }).where(eq(syncJob.id, JOB_ID))
                     return
+                }
+
+                const stockInfo = await this.ctx.stockService.backfillStockInfo({
+                    limit: STOCK_INFO_BACKFILL_BATCH_SIZE,
+                })
+                if (stockInfo.updated > 0 || stockInfo.failed > 0) {
+                    console.log(
+                        `[sync] Stock info backfill: ${stockInfo.updated} updated, ${stockInfo.failed} failed, ${stockInfo.pending - stockInfo.updated} still pending`,
+                    )
                 }
 
                 await this.ctx.db.update(syncJob).set({

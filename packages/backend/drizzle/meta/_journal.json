@@ -71,6 +71,13 @@
       "when": 1783423011201,
       "tag": "0009_hard_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783500000000,
+      "tag": "0010_stock_company_facts",
+      "breakpoints": true
     }
   ]
 }
