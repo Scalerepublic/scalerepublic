@@ -100,7 +100,9 @@
 	</div>
 
 	{#if notifications.isError}
-		<p class="mb-4 rounded-lg border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
+		<p
+			class="mb-4 rounded-lg border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative"
+		>
 			{notifications.error instanceof Error
 				? notifications.error.message
 				: 'Failed to load notifications'}

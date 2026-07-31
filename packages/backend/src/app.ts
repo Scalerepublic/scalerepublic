@@ -31,10 +31,9 @@ const createUniApiSubfetch = (proxy: Fetcher | undefined): UniApiSubfetch | unde
     if (proxy === undefined) {
         return undefined;
     }
-    return (input: string | URL | Request, init?: RequestInit) => {
-        const request = input instanceof Request ? input : new Request(input, init);
-        return proxy.fetch(request) as Promise<Response>;
-    };
+    // Cloudflare and Bun provide structurally compatible fetch functions, but
+    // their ambient Request/Response types are declared by different runtimes.
+    return proxy.fetch.bind(proxy) as unknown as UniApiSubfetch;
 };
 
 const hasConnectionString = (env: unknown): env is WorkerBindings =>

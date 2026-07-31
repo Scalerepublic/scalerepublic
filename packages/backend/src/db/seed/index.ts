@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import seedrandom from 'seedrandom';
 
 import { DEBUG_MARKET_PRICE_SOURCE } from '../../lib/market-debug.ts';
@@ -14,6 +14,7 @@ const PRICE_SOURCE = process.env.STOCK_DEBUG === 'true' ? DEBUG_MARKET_PRICE_SOU
 const MONTHS = parseInt(process.env.SEED_MONTHS ?? '2', 10);
 const HOURS = Math.round(MONTHS * 30.44 * 24);
 const BATCH_SIZE = 500;
+const FORCE_SEED = process.env.SEED_FORCE === 'true';
 
 const startDate = new Date();
 startDate.setMonth(startDate.getMonth() - MONTHS);
@@ -41,11 +42,27 @@ const stockRows = await db
   .where(inArray(stock.ticker, SEED_STOCKS.map(s => s.ticker)));
 
 const tickerToId = Object.fromEntries(stockRows.map(r => [r.ticker, r.id]));
+let seededCount = 0;
+let skippedCount = 0;
 
 for (let i = 0; i < SEED_STOCKS.length; i++) {
   const def = SEED_STOCKS[i]!;
   const stockId = tickerToId[def.ticker];
   if (stockId === undefined) throw new Error(`Stock ${def.ticker} missing after insert`);
+
+  if (!FORCE_SEED) {
+    const existingPrice = await db
+      .select({ id: stockPrice.id })
+      .from(stockPrice)
+      .where(eq(stockPrice.stockId, stockId))
+      .limit(1);
+
+    if (existingPrice.length > 0) {
+      skippedCount += 1;
+      console.log(`[=] ${def.ticker}: price history already exists, skipped`);
+      continue;
+    }
+  }
 
   const { drift, volatility } = ARCHETYPES[def.archetype];
   const rng = seedrandom(`${GLOBAL_SEED}:${i}`);
@@ -64,8 +81,9 @@ for (let i = 0; i < SEED_STOCKS.length; i++) {
     await db.insert(stockPrice).values(rows.slice(j, j + BATCH_SIZE)).onConflictDoNothing();
   }
 
+  seededCount += 1;
   console.log(`[+] ${def.ticker} (${def.archetype}): ${points.length} points`);
 }
 
 await client.end();
-console.log('Done.');
+console.log(`Done. Seeded ${seededCount} stock(s); skipped ${skippedCount}.`);

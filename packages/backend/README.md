@@ -27,10 +27,20 @@ Requires `packages/backend/.env`. See `.env.example`.
 | `just db-migrate-prod` | Apply migrations to remote Neon production |
 | `just db-generate` | Generate migration from schema changes |
 | `just db-studio` | Drizzle Studio |
-| `just db-seed` | Seed data |
+| `just db-seed` | Add missing local demo stocks and price history; safe to rerun |
 | `just up-db` | Start Postgres container only |
 
 Host `DATABASE_URL` must use port **50025** (Docker maps `50025:5432`).
+
+### Local demo seed
+
+`just db-seed` adds 10 simulated stocks and their historical prices. It skips any seeded stock that already has price history, so rerunning it does not duplicate data.
+
+| Variable | Default | Description |
+|---------|---------|-------------|
+| `SEED_MONTHS` | `2` | Number of months of hourly history to generate |
+| `SEED_RNG_SEED` | `42` | Random seed used for reproducible prices |
+| `SEED_FORCE` | `false` | Set to `true` to generate another seed window even when history exists |
 
 ## Docker
 

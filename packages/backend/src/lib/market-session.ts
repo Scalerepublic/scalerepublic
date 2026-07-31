@@ -8,7 +8,10 @@ export const zonedWallTimeToUtc = (
     minutes: number,
     timeZone = MARKET_TIMEZONE,
 ): number => {
-    const [year, month, day] = isoDate.split('-').map(Number)
+    const [year = Number.NaN, month = Number.NaN, day = Number.NaN] = isoDate.split('-').map(Number)
+    if (![year, month, day].every(Number.isInteger)) {
+        throw new RangeError(`Invalid ISO date: ${isoDate}`)
+    }
     let utcGuess = Date.UTC(year, month - 1, day, hours, minutes, 0, 0)
 
     for (let attempt = 0; attempt < 3; attempt += 1) {

@@ -102,7 +102,9 @@
 	</div>
 
 	{#if board.isError}
-		<p class="mb-4 rounded-lg border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
+		<p
+			class="mb-4 rounded-lg border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative"
+		>
 			{board.error instanceof Error ? board.error.message : 'Failed to load leaderboard'}
 		</p>
 	{/if}

@@ -1,131 +1,233 @@
 # ScaleRepublic
 
-Toy stock exchange for PP3S — SvelteKit frontend, Bun/Hono backend, Postgres.
+ScaleRepublic is a toy stock exchange built for PP3S. It uses a SvelteKit frontend, a Bun/Hono backend, and PostgreSQL. The default local configuration runs with simulated stock data, so no external API credentials are needed.
+
+## Features
+
+- Email/password accounts with an automatically created portfolio
+- Market browsing, search, stock details, and price history
+- Buy and sell orders with live portfolio values
+- Limit orders and stop orders
+- Leaderboard, notifications, account settings, and account deletion
+- Simulated market controls for repeatable local development
+
+![ScaleRepublic portfolio dashboard](docs/assets/scale-republic-dashboard.png)
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser["Browser"] --> Frontend["SvelteKit frontend<br/>localhost:5173"]
+    Frontend -->|"/api proxy and SSR requests"| Backend["Bun + Hono backend<br/>localhost:50030"]
+    Backend --> Database[("PostgreSQL 16<br/>localhost:50025")]
+    Backend --> Scheduler["Price sync and<br/>order scheduler"]
+    Scheduler --> Database
+    Backend -. "optional live prices" .-> MarketAPI["Uni API proxy or<br/>Alpha Vantage"]
+```
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) 1.3+
-- [Docker](https://docs.docker.com/get-docker/) (for Postgres)
-- [just](https://github.com/casey/just) (task runner)
+Install these tools before cloning the repository:
 
-## Quick start
+- [Git](https://git-scm.com/downloads)
+- [Bun](https://bun.sh) 1.3 or newer
+- [Docker Desktop](https://docs.docker.com/get-docker/) or Docker Engine with Compose
+- [just](https://github.com/casey/just) task runner
 
-From the repository root:
+Docker must be running before you start the application. On Windows, use WSL2 and enable Docker Desktop's WSL integration.
+
+After cloning, the repository can confirm the tools, Docker daemon, and required ports:
+
+```bash
+just doctor
+```
+
+## First-time setup
+
+Clone the repository and enter it:
+
+```bash
+git clone https://github.com/daviidoff/scalerepublic.git
+cd scalerepublic
+```
+
+From the repository root, run one command:
+
+```bash
+just first-run
+```
+
+`just first-run` checks the prerequisites, creates the local `.env` files, installs dependencies, starts PostgreSQL, applies migrations, safely seeds the simulated market, and launches the backend and frontend.
+
+Open <http://localhost:5173>, select **Create account**, and sign up. Users are not seeded; signing up creates the user's first portfolio.
+
+`just dev` remains attached to both development servers. Press `Ctrl+C` to stop them. PostgreSQL keeps running in Docker so its data is preserved.
+
+## Daily development
+
+After the first-time setup, one command starts the complete development environment:
 
 ```bash
 just dev
 ```
 
-On first run, seed stock prices (required for trading and non-null quotes):
+The command installs any changed dependencies, starts PostgreSQL, applies pending migrations, and launches both development servers:
+
+| Service | URL |
+| --- | --- |
+| Frontend | <http://localhost:5173> |
+| Backend health check | <http://localhost:50030/health> |
+| PostgreSQL | `localhost:50025` |
+| Drizzle Studio (optional) | <http://localhost:4983> |
+
+Stop PostgreSQL and the optional Docker backend when finished:
 
 ```bash
-just db-seed
+just down
 ```
 
-This will:
+The database volume is retained by `just down`, so the next start uses the same data.
 
-1. Create `packages/backend/.env` and `packages/frontend/.env` from the examples (if missing)
-2. Install dependencies
-3. Start Postgres in Docker (`localhost:50025`)
-4. Apply database migrations
-5. Start the backend on **http://localhost:50030** (live Bun process — always current code)
-6. Start the frontend on **http://localhost:5173**
+## Verify the installation
 
-Open **http://localhost:5173** in your browser. Sign up at `/signup` for a portfolio — users are not seeded.
+While `just dev` is running, these checks should succeed in another terminal:
 
-With `STOCK_DEBUG=true` (default in `.env.example`), no external stock API credentials are required.
+```bash
+curl --fail http://localhost:50030/health
+curl --fail --head http://localhost:5173
+```
 
-Press `Ctrl+C` to stop backend and frontend. Postgres keeps running until you run `just down`.
+The health endpoint returns `{"status":"ok"}`. You should also be able to create an account, open the Market page, and see the 10 simulated stocks added by `just db-seed`.
+
+Run the project checks from the repository root:
+
+```bash
+just lint
+just check
+just build
+just test
+```
+
+`just test` builds an isolated Docker test stack, applies migrations to a temporary database, runs the backend integration tests, and removes the test containers afterward.
 
 ## Common commands
 
 | Command | Description |
-|---------|-------------|
-| `just dev` | Full local dev stack (recommended) |
-| `just setup` | Install deps and create `.env` files |
-| `just up` | Start Postgres + run migrations only |
-| `just down` | Stop Docker services |
-| `just db-migrate` | Apply pending migrations |
-| `just db-seed` | Seed stocks and historical prices |
+| --- | --- |
+| `just doctor` | Check required tools, Docker, and local port availability |
+| `just first-run` | Prepare a fresh checkout, seed it, and start the complete app |
+| `just dev` | Start PostgreSQL, migrate, and run the local backend and frontend |
+| `just setup` | Install dependencies and create missing local `.env` files |
+| `just up` | Start PostgreSQL and apply pending migrations |
+| `just down` | Stop Docker services without deleting database data |
+| `just db-migrate` | Apply pending migrations to the local database |
+| `just db-seed` | Add missing simulated stocks and historical prices; safe to rerun |
 | `just db-studio` | Open Drizzle Studio |
-| `just up-docker` | Run backend **in Docker** (rebuilds image) |
-| `just test` | Backend integration tests |
-| `just lint` | Lint backend and frontend |
+| `just up-docker` | Build and run both PostgreSQL and the backend in Docker |
+| `just lint` | Lint backend and frontend code and check frontend formatting |
+| `just check` | Type-check backend and frontend code |
+| `just build` | Create backend and frontend production builds |
+| `just test` | Run the backend integration tests in isolated containers |
 
-Package-specific recipes live in `packages/backend/justfile` and `packages/frontend/justfile`.
+Package-specific commands are documented in `packages/backend/README.md` and the package `justfile` files.
 
-## Environment variables
+## Local environment
 
-### `packages/backend/.env`
+`just setup` creates these ignored files when they do not exist:
 
-Copy from `.env.example` on first run (`just setup`).
+- `packages/backend/.env` from `packages/backend/.env.example`
+- `packages/frontend/.env` from `packages/frontend/.env.example`
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | yes | Postgres URL for host-side tools (`db:migrate`, `bun dev`). Use port **50025** with Docker Compose. |
-| `PORT` | no | HTTP port for `bun dev` (default `3000`). Set **50030** to match the Vite proxy. |
-| `BETTER_AUTH_SECRET` | yes | Random secret for session signing |
-| `BETTER_AUTH_URL` | yes | Public frontend URL for auth callbacks — **http://localhost:5173** in local dev |
-| `STOCK_DEBUG` | no | `true` enables simulated market + debug endpoints |
-| `MARKET_DEBUG_OPERATOR_EMAIL` | no | Email allowed to use `/api/v1/debug/market/*` when `STOCK_DEBUG=true` |
-| `STOCK_API_PROVIDER` | no | `uni` or `alphavantage` |
-| `UNI_API_*` / `ALPHAVANTAGE_API_KEY` | if using live prices | Stock API credentials |
-| `SYNC_INTERVAL_MS` | no | Price sync interval (Bun scheduler only) |
-| `MIN_NET_WORTH_THRESHOLD` | no | Net worth below this triggers portfolio default (default `1.00`) |
+The checked-in defaults are ready for simulated local development:
 
-Inside Docker Compose, the backend container uses an internal `DATABASE_URL` (`postgres:5432`). Host-side commands always use `localhost:50025`.
+| Variable | Local value | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | `postgres://postgres:postgres@localhost:50025/scalerepublic` | Database used by host-side Bun and migration commands |
+| `PORT` | `50030` | Backend development server port |
+| `BETTER_AUTH_SECRET` | Development placeholder | Signs authentication sessions; replace outside local development |
+| `BETTER_AUTH_URL` | `http://localhost:5173` | Public origin used for local authentication |
+| `STOCK_DEBUG` | `true` | Enables simulated prices and market debug controls |
+| `SEED_MONTHS` / `SEED_RNG_SEED` | `2` / `42` | Controls the size and reproducibility of local seed data |
+| `VITE_API_URL` | `http://localhost:50030` | Backend origin used by frontend SSR |
 
-### `packages/frontend/.env`
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_API_URL` | yes (SSR) | Backend origin for server-side API calls — **http://localhost:50030** in local dev |
-
-In the browser, `/api` requests are proxied by Vite to `localhost:50030`. SSR (`+page.ts` load functions) uses `VITE_API_URL` directly.
-
-## Local ports
-
-| Service | Port |
-|---------|------|
-| Frontend (Vite) | 5173 |
-| Backend (`bun dev`) | 50030 |
-| Postgres (Docker) | 50025 |
-| Drizzle Studio (optional) | 4983 |
-
-## Docker vs local backend
-
-If port 50030 is already in use, stop the Docker backend container:
+For anything other than throwaway local development, replace `BETTER_AUTH_SECRET` with a random secret, for example:
 
 ```bash
-cd packages/backend && docker compose stop backend
+openssl rand -base64 32
 ```
 
-**Recommended for daily development:** `just dev` runs Postgres in Docker and the backend with `bun --hot` on the host. Code changes apply immediately — no image rebuild.
+Live market data is optional. `STOCK_API_PROVIDER`, `UNI_API_*`, and `ALPHAVANTAGE_API_KEY` are only needed when `STOCK_DEBUG=false`. The complete backend variable reference is in `packages/backend/README.md`.
 
-**Docker backend** (`just up-docker` or `docker compose up --build -d` in `packages/backend`): runs a compiled `dist/index.js` inside a container on port 50030. Rebuild after code changes:
+## Local backend versus Docker backend
+
+`just dev` is the recommended workflow. It runs PostgreSQL in Docker and starts the backend with Bun's hot reload on the host, so code changes are immediately visible.
+
+To run the backend in Docker instead:
+
+```bash
+just up-docker
+```
+
+The container contains built code and must be rebuilt after code changes:
 
 ```bash
 cd packages/backend
 docker compose up --build -d backend
 ```
 
-If the leaderboard shows stale mock data (Alice/Bob/Charlie), the Docker image is outdated — use `just dev` or rebuild.
+Do not run the local backend and Docker backend at the same time because both use port `50030`.
+
+## Troubleshooting
+
+### Cannot connect to the Docker daemon
+
+Start Docker Desktop or the Docker Engine, wait until `docker info` succeeds, and rerun the command.
+
+### Port already in use
+
+The application needs ports `5173`, `50030`, and `50025`. Stop the conflicting process. If an older Docker backend owns port `50030`, run:
+
+```bash
+cd packages/backend
+docker compose stop backend
+```
+
+### The Market page is empty
+
+Seed the local database from the repository root:
+
+```bash
+just db-seed
+```
+
+The seed command skips stocks that already have price history, so it is safe to rerun. To deliberately generate another seed window, run `SEED_FORCE=true just db-seed`.
+
+### The backend URL shows `404 Not Found`
+
+The backend does not serve a page at `/`. Use <http://localhost:50030/health> to check it, and use the frontend at <http://localhost:5173> for the application UI.
+
+### Dependency or generated Svelte files are stale
+
+Rerun setup and the checks:
+
+```bash
+just setup
+just check
+```
 
 ## Cloudflare Workers (optional)
 
-For testing the production Workers runtime locally:
+To test the production Workers runtime locally:
 
 ```bash
-# Terminal 1 — Postgres + migrations
+# Terminal 1: PostgreSQL and migrations
 just up
 
-# Terminal 2 — backend worker
+# Terminal 2: backend Worker
 cd packages/backend && bun run cf:dev
 
-# Terminal 3 — frontend worker
+# Terminal 3: frontend Worker
 cd packages/frontend && bun run cf:preview
 ```
 
-Create `packages/backend/.dev.vars` for Wrangler secrets (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`). See `packages/backend/wrangler.jsonc`.
-
-Deploy to staging: `bun run deploy:staging` in each package.
+Create `packages/backend/.dev.vars` for Wrangler secrets such as `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`. See `packages/backend/wrangler.jsonc` and `packages/backend/README.md` for staging and production deployment details.
