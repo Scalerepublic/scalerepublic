@@ -1,0 +1,214 @@
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+	import NobleButton from './NobleButton.svelte';
+	import type { Stock } from '$lib/types';
+	import { portal } from '$lib/actions/portal';
+	import { fade } from 'svelte/transition';
+	import { panelTransition } from '$lib/transitions';
+
+	let {
+		open = $bindable(false),
+		quantity = $bindable(1),
+		title,
+		stock,
+		maxQuantity = 999_999,
+		confirmLabel,
+		headerExtra,
+		marketPrice,
+		summary,
+		submitDisabled = false,
+		getQuantityError,
+		onsubmit
+	}: {
+		open?: boolean;
+		quantity?: number;
+		title: string;
+		stock: Stock;
+		maxQuantity?: number;
+		confirmLabel: string;
+		headerExtra?: Snippet;
+		marketPrice: Snippet;
+		summary?: Snippet;
+		submitDisabled?: boolean;
+		getQuantityError?: (quantity: number) => string | null;
+		onsubmit: (quantity: number) => Promise<void>;
+	} = $props();
+
+	let submitting = $state(false);
+	let error = $state<string | null>(null);
+
+	let dragStartY = $state(0);
+	let dragY = $state(0);
+	let isDragging = $state(false);
+	const dragOffset = $derived.by(() => {
+		if (!isDragging) return 0;
+		const raw = dragY - dragStartY;
+		return raw >= 0 ? raw : Math.max(raw * 0.3, -20);
+	});
+	const DISMISS_THRESHOLD = 100;
+
+	function onDragStart(e: TouchEvent) {
+		dragStartY = e.touches[0].clientY;
+		dragY = dragStartY;
+		isDragging = true;
+	}
+
+	function onDragMove(e: TouchEvent) {
+		if (!isDragging) return;
+		dragY = e.touches[0].clientY;
+	}
+
+	function onDragEnd() {
+		const offset = Math.max(0, dragY - dragStartY);
+		isDragging = false;
+		dragStartY = 0;
+		dragY = 0;
+		if (offset >= DISMISS_THRESHOLD) close();
+	}
+
+	$effect(() => {
+		if (open) {
+			quantity = 1;
+			error = null;
+			submitting = false;
+			document.body.style.overflow = 'hidden';
+		} else {
+			document.body.style.overflow = '';
+		}
+	});
+
+	function close() {
+		open = false;
+	}
+
+	async function submit() {
+		const quantityError =
+			getQuantityError?.(quantity) ??
+			(quantity < 1 || quantity > maxQuantity ? `Enter 1–${maxQuantity} shares` : null);
+
+		if (quantityError) {
+			error = quantityError;
+			return;
+		}
+
+		submitting = true;
+		error = null;
+		try {
+			await onsubmit(quantity);
+			close();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Trade failed';
+		} finally {
+			submitting = false;
+		}
+	}
+</script>
+
+{#if open}
+	<div
+		use:portal
+		transition:fade={{ duration: 200 }}
+		class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-0 pb-0 sm:items-center sm:p-4"
+		role="presentation"
+		onclick={(e) => e.target === e.currentTarget && close()}
+		onkeydown={(e) => e.key === 'Escape' && close()}
+	>
+		<div transition:panelTransition class="relative w-full max-w-md">
+			<div
+				class="rounded-t-2xl border border-b-0 border-border bg-card p-5 shadow-xl sm:rounded-2xl sm:border-b"
+				style="transform: translateY({dragOffset}px); transition: {isDragging
+					? 'none'
+					: 'transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)'}"
+				ontouchstart={onDragStart}
+				ontouchmove={onDragMove}
+				ontouchend={onDragEnd}
+				role="dialog"
+				tabindex="-1"
+				aria-labelledby="trade-title"
+			>
+				<div class="mx-auto mb-3 h-1 w-10 rounded-full bg-border sm:hidden"></div>
+
+				<div class="mb-4 flex items-start justify-between gap-3">
+					<div>
+						<h2 id="trade-title" class="font-serif text-lg font-semibold">{title}</h2>
+						<p class="mt-0.5 text-sm text-muted-foreground">{stock.name}</p>
+						{#if headerExtra}
+							{@render headerExtra()}
+						{/if}
+					</div>
+					<button
+						type="button"
+						class="hidden text-muted-foreground hover:text-foreground sm:block"
+						onclick={close}
+						aria-label="Close"
+					>
+						×
+					</button>
+				</div>
+
+				<div class="mb-4 space-y-3">
+					{@render marketPrice()}
+
+					<div>
+						<label
+							for="trade-quantity"
+							class="mb-1 block text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+						>
+							Shares
+						</label>
+						<div class="flex items-stretch gap-2">
+							<button
+								type="button"
+								class="flex h-10 w-12 items-center justify-center rounded-lg border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
+								onclick={() => (quantity = Math.max(1, quantity - 1))}
+								aria-label="Decrease quantity">−</button
+							>
+							<input
+								id="trade-quantity"
+								type="number"
+								min="1"
+								max={maxQuantity}
+								bind:value={quantity}
+								class="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 font-mono text-sm outline-none focus:border-accent"
+							/>
+							<button
+								type="button"
+								class="flex h-10 w-12 items-center justify-center rounded-lg border border-input bg-background text-lg font-semibold text-muted-foreground transition-colors hover:bg-muted active:bg-secondary sm:hidden"
+								onclick={() => (quantity = Math.min(maxQuantity, quantity + 1))}
+								aria-label="Increase quantity">+</button
+							>
+						</div>
+					</div>
+
+					{#if summary}
+						{@render summary()}
+					{/if}
+				</div>
+
+				{#if error}
+					<p class="mb-3 text-sm text-negative">{error}</p>
+				{/if}
+
+				<div class="flex gap-2">
+					<NobleButton variant="secondary" type="button" class="flex-1" onclick={close}>
+						Cancel
+					</NobleButton>
+					<NobleButton
+						type="button"
+						class="flex-1"
+						disabled={submitting || submitDisabled}
+						onclick={submit}
+					>
+						{submitting ? '…' : confirmLabel}
+					</NobleButton>
+				</div>
+			</div>
+			<div
+				class="absolute inset-x-0 h-24 bg-card sm:hidden"
+				style="top: 100%; transform: translateY({dragOffset}px); transition: {isDragging
+					? 'none'
+					: 'transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)'}"
+			></div>
+		</div>
+	</div>
+{/if}

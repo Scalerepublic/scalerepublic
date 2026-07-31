@@ -22,13 +22,19 @@
 	} = $props();
 
 	const changeTone = $derived(
-		change === undefined ? 'neutral' : change >= 0 ? 'positive' : 'negative'
+		change === undefined
+			? 'neutral'
+			: change === 0
+				? 'neutral'
+				: change > 0
+					? 'positive'
+					: 'negative'
 	);
 </script>
 
 <article
 	class={cn(
-		'relative flex-1 overflow-hidden border bg-card p-5',
+		'relative flex-1 overflow-hidden rounded-xl border bg-card p-5',
 		accent && changeTone === 'positive' && 'border-positive/40',
 		accent && changeTone === 'negative' && 'border-negative/40',
 		accent && changeTone === 'neutral' && 'border-accent/30',

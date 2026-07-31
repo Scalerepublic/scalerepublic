@@ -1,6 +1,7 @@
-import { and, count, desc, eq, max } from 'drizzle-orm';
+import { and, count, desc, eq, gte, max, sql } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';
+import type { DbTransaction } from '../../db/index.ts';
 import { portfolio } from '../../db/schema/portfolio/portfolio.ts';
 import type { Holding, TradeRecord } from '../trades/trades.service.ts';
 
@@ -98,20 +99,37 @@ export class PortfolioService {
         return this.ctx.tradesService.getHoldingsByPortfolioId(portfolioId);
     }
 
-    async getPortfolioValue(portfolioId: string): Promise<number> {
-        const holdings = await this.getHoldings(portfolioId);
+    async getPortfolioValue(portfolioId: string, holdings?: Holding[]): Promise<number> {
+        const resolvedHoldings = holdings ?? await this.getHoldings(portfolioId);
+        if (resolvedHoldings.length === 0) {
+            return 0;
+        }
+
+        const prices = await this.ctx.stockService.getLatestPricesByStockIds(
+            resolvedHoldings.map((holding) => holding.stockId),
+        );
+
         let total = 0;
-        for (const h of holdings) {
-            const price = await this.ctx.stockService.getLatestPriceByStockId(h.stockId);
-            if (price !== null) total += h.quantity * price;
+        for (const holding of resolvedHoldings) {
+            const price = prices.get(holding.stockId);
+            if (price !== undefined) {
+                total += holding.quantity * price;
+            }
         }
         return total;
     }
 
     async getNetWorth(portfolioId: string): Promise<number> {
-        const p = await this.getById(portfolioId);
-        const portfolioValue = await this.getPortfolioValue(portfolioId);
-        return parseFloat(p.cashBalance) + portfolioValue;
+        const [portfolioRow, holdings] = await Promise.all([
+            this.getById(portfolioId),
+            this.getHoldings(portfolioId),
+        ]);
+        const portfolioValue = await this.getPortfolioValue(portfolioId, holdings);
+        return parseFloat(portfolioRow.cashBalance) + portfolioValue;
+    }
+
+    private async lockPortfolio(portfolioId: string, tx: DbTransaction): Promise<void> {
+        await tx.execute(sql`select 1 from ${portfolio} where ${portfolio.id} = ${portfolioId} for update`);
     }
 
     private async verifyExpectedPrice(stockId: string, expectedPrice: number): Promise<number> {
@@ -128,6 +146,7 @@ export class PortfolioService {
         stockId: string,
         quantity: number,
         expectedPrice: number,
+        tx?: DbTransaction,
     ): Promise<TradeRecord> {
         const [p, price] = await Promise.all([
             this.getById(portfolioId),
@@ -141,17 +160,24 @@ export class PortfolioService {
 
         if (cashBalance < cost) throw new InsufficientFundsError(cashBalance, cost);
 
-        const tradeRow = await this.ctx.db.transaction(async (tx) => {
-            const row = await this.ctx.tradesService.executeBuy(portfolioId, stockId, quantity, price, tx);
+        const write = async (db: DbTransaction): Promise<TradeRecord> => {
+            const row = await this.ctx.tradesService.executeBuy(portfolioId, stockId, quantity, price, db);
 
-            await tx
+            const updated = await db
                 .update(portfolio)
-                .set({ cashBalance: (cashBalance - cost).toFixed(2) })
-                .where(eq(portfolio.id, portfolioId));
+                .set({ cashBalance: sql`${portfolio.cashBalance} - ${cost.toFixed(2)}::numeric` })
+                .where(and(eq(portfolio.id, portfolioId), gte(portfolio.cashBalance, cost.toFixed(2))))
+                .returning({ id: portfolio.id });
+
+            if (updated.length === 0) throw new InsufficientFundsError(cashBalance, cost);
 
             return row;
-        });
+        };
 
+        // Caller owned transaction has not committed yet, so check doesn't make sense
+        if (tx !== undefined) return write(tx); 
+
+        const tradeRow = await this.ctx.db.transaction(write);
         await this.ctx.portfolioDefaultService.checkPortfolio(portfolioId);
         return tradeRow;
     }
@@ -161,6 +187,7 @@ export class PortfolioService {
         stockId: string,
         quantity: number,
         expectedPrice: number,
+        tx?: DbTransaction,
     ): Promise<TradeRecord> {
         const [p, price] = await Promise.all([
             this.getById(portfolioId),
@@ -169,25 +196,29 @@ export class PortfolioService {
 
         if (p.status === 'DEFAULTED') throw new PortfolioDefaultedError(portfolioId);
 
-        const holdings = await this.ctx.tradesService.getHoldingsByPortfolioId(portfolioId);
-        const holding = holdings.find((h) => h.stockId === stockId);
-        const available = holding?.quantity ?? 0;
-
-        if (available < quantity) throw new InsufficientHoldingsError(stockId, available, quantity);
-
         const proceeds = quantity * price;
 
-        const tradeRow = await this.ctx.db.transaction(async (tx) => {
-            const row = await this.ctx.tradesService.executeSell(portfolioId, stockId, quantity, price, tx);
+        const write = async (db: DbTransaction): Promise<TradeRecord> => {
+            await this.lockPortfolio(portfolioId, db);
 
-            await tx
+            const holdings = await this.ctx.tradesService.getHoldingsByPortfolioId(portfolioId, db);
+            const available = holdings.find((h) => h.stockId === stockId)?.quantity ?? 0;
+            if (available < quantity) throw new InsufficientHoldingsError(stockId, available, quantity);
+
+            const row = await this.ctx.tradesService.executeSell(portfolioId, stockId, quantity, price, db);
+
+            await db
                 .update(portfolio)
-                .set({ cashBalance: (parseFloat(p.cashBalance) + proceeds).toFixed(2) })
+                .set({ cashBalance: sql`${portfolio.cashBalance} + ${proceeds.toFixed(2)}::numeric` })
                 .where(eq(portfolio.id, portfolioId));
 
             return row;
-        });
+        };
 
+        // Caller owned transaction has not committed yet, so check doesn't make sense
+        if (tx !== undefined) return write(tx);
+
+        const tradeRow = await this.ctx.db.transaction(write);
         await this.ctx.portfolioDefaultService.checkPortfolio(portfolioId);
         return tradeRow;
     }

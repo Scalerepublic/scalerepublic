@@ -4,12 +4,14 @@
 		Search,
 		Settings,
 		Trophy,
+		Bell,
 		PanelLeftClose,
 		PanelLeft,
 		LogOut
 	} from '@lucide/svelte';
 	import NavItem from './NavItem.svelte';
-	import { userStore } from '$lib/stores/user.svelte';
+	import { getNotifications } from '$lib/data/notifications.svelte';
+	import { getUserProfile } from '$lib/data/user.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
 	import { signOut } from '$lib/auth-client';
 	import { goto } from '$app/navigation';
@@ -17,10 +19,14 @@
 	import { getInitials, cn } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
 
+	const notifications = getNotifications({ unread: true });
+	const account = getUserProfile();
+
 	const navItems = [
 		{ href: '/dashboard', label: 'Portfolio', icon: LayoutDashboard },
 		{ href: '/search', label: 'Market', icon: Search },
 		{ href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+		{ href: '/notifications', label: 'Notifications', icon: Bell },
 		{ href: '/settings', label: 'Settings', icon: Settings }
 	] as const;
 
@@ -58,12 +64,25 @@
 			)}
 		>
 			{#if !sidebarStore.collapsed}
-				<p class="sidebar-brand">ScaleRepublic</p>
+				<div class="flex items-center gap-2">
+					<img
+						src="/logo/scalerepublic-mark.svg"
+						alt="ScaleRepublic Logo"
+						class="h-8 w-auto dark:invert"
+					/>
+
+					<div class="flex flex-col justify-center leading-none">
+						<p class="font-serif text-sm leading-5 font-semibold text-sidebar-foreground">
+							Scale Republic
+						</p>
+					</div>
+				</div>
 			{/if}
+
 			<button
 				type="button"
 				onclick={() => sidebarStore.toggle()}
-				class="flex size-8 shrink-0 items-center justify-center border border-border text-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+				class="flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
 				aria-label={sidebarStore.collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 			>
 				{#if sidebarStore.collapsed}
@@ -82,6 +101,7 @@
 				label={item.label}
 				icon={item.icon}
 				collapsed={sidebarStore.collapsed}
+				badge={item.href === '/notifications' ? notifications.count : 0}
 			/>
 		{/each}
 	</nav>
@@ -95,18 +115,18 @@
 				)}
 			>
 				<div
-					class="flex size-7 shrink-0 items-center justify-center border border-border bg-muted text-[11px] font-bold text-foreground"
-					title={sidebarStore.collapsed ? userStore.profile.name : undefined}
+					class="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-bold text-foreground"
+					title={sidebarStore.collapsed ? account.profile.name : undefined}
 				>
-					{getInitials(userStore.profile.name)}
+					{getInitials(account.profile.name)}
 				</div>
 				{#if !sidebarStore.collapsed}
 					<div class="min-w-0 flex-1">
 						<p class="truncate text-xs font-semibold text-sidebar-foreground">
-							{userStore.profile.name}
+							{account.profile.name}
 						</p>
 						<p class="truncate text-[10px] text-muted-foreground">
-							{userStore.profile.email}
+							{account.profile.email}
 						</p>
 					</div>
 					<button

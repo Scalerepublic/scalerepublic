@@ -1,4 +1,5 @@
 import { createApiClient } from 'backend/api-client';
+import type { ClientResponse } from 'hono/client';
 
 import { ApiError } from '$lib/api';
 
@@ -7,15 +8,29 @@ const API_BASE =
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
+const mergeAbortSignals = (
+	timeoutSignal: AbortSignal,
+	callerSignal?: AbortSignal | null
+): AbortSignal => {
+	if (callerSignal === undefined || callerSignal === null) {
+		return timeoutSignal;
+	}
+	if (typeof AbortSignal.any === 'function') {
+		return AbortSignal.any([timeoutSignal, callerSignal]);
+	}
+	return timeoutSignal;
+};
+
 export const api = createApiClient(API_BASE, {
 	fetch: (input: RequestInfo | URL, init?: RequestInit) => {
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+		const signal = mergeAbortSignals(controller.signal, init?.signal);
 
 		return fetch(input, {
 			...init,
 			credentials: 'include',
-			signal: controller.signal
+			signal
 		})
 			.catch((error: unknown) => {
 				if (error instanceof Error && error.name === 'AbortError') {
@@ -27,8 +42,20 @@ export const api = createApiClient(API_BASE, {
 	}
 });
 
-export async function parseApiData<T>(res: Response): Promise<T> {
-	const json = (await res.json()) as { data?: T; error?: string };
+type ApiData<R> =
+	R extends ClientResponse<infer O, number, 'json'>
+		? O extends { data: infer D }
+			? D
+			: never
+		: never;
+
+export async function parseApiData<R extends ClientResponse<unknown>>(res: R): Promise<ApiData<R>> {
+	let json: { data?: unknown; error?: unknown };
+	try {
+		json = (await res.json()) as { data?: unknown; error?: unknown };
+	} catch {
+		throw new ApiError('Invalid response from server', res.status);
+	}
 
 	if (!res.ok) {
 		const message = typeof json.error === 'string' ? json.error : `${res.status} ${res.statusText}`;
@@ -39,5 +66,5 @@ export async function parseApiData<T>(res: Response): Promise<T> {
 		throw new ApiError('Response missing data', res.status);
 	}
 
-	return json.data;
+	return json.data as ApiData<R>;
 }

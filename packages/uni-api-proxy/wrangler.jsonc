@@ -1,0 +1,17 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"account_id": "6a0955753ada2dde00b92d526f9d8f30",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-06-12",
+	"observability": {
+		"enabled": true
+	},
+	"env": {
+		"production": {
+			"name": "scalerepublic-uni-proxy"
+		},
+		"staging": {
+			"name": "scalerepublic-uni-proxy-staging"
+		}
+	}
+}

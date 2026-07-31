@@ -33,6 +33,19 @@ db-push:
 db-seed:
     bun run db:seed
 
+# --- Remote Neon (staging / production) -------------------------------------
+db-migrate-staging:
+    bun run db:migrate:staging
+
+db-migrate-prod:
+    bun run db:migrate:prod
+
+db-seed-staging:
+    set -a && . ./.env.staging && set +a && bun run db:seed
+
+db-seed-prod:
+    set -a && . ./.env.production && set +a && bun run db:seed
+
 db-studio:
     bun run db:studio
 

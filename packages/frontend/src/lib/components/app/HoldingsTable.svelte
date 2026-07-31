@@ -1,7 +1,7 @@
 <script lang="ts">
 	import NobleButton from './NobleButton.svelte';
 	import StockDetailSheet from './StockDetailSheet.svelte';
-	import TradeSheet from './TradeSheet.svelte';
+	import SellTradeSheet from './SellTradeSheet.svelte';
 	import { cn, formatCurrency, formatPercent, formatNumber } from '$lib/utils';
 	import type { HoldingWithMarket, Stock } from '$lib/types';
 
@@ -25,55 +25,27 @@
 	}
 </script>
 
-<div class="overflow-x-auto border border-border">
+<div class="overflow-x-auto rounded-xl border border-border bg-card">
 	<table class="w-full border-collapse text-sm">
 		<thead>
-			<tr class="border-b border-border bg-muted">
-				<th
-					class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>Ticker</th
-				>
-				<th
-					class="hidden px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase sm:table-cell"
-					>Name</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>Shares</th
-				>
-				<th
-					class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase md:table-cell"
-					>Avg Cost</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>Price</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>Value</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-					>P&amp;L</th
-				>
-				<th
-					class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase sm:table-cell"
-					>P&amp;L %</th
-				>
-				<th
-					class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
+			<tr class="border-b border-border">
+				<th class="table-th text-left">Ticker</th>
+				<th class="table-th hidden text-left sm:table-cell">Name</th>
+				<th class="table-th text-right">Shares</th>
+				<th class="table-th hidden text-right md:table-cell">Avg Cost</th>
+				<th class="table-th text-right">Price</th>
+				<th class="table-th text-right">Value</th>
+				<th class="table-th text-right">P&amp;L</th>
+				<th class="table-th hidden text-right sm:table-cell">P&amp;L %</th>
+				<th class="table-th text-right"
 					>{#if !readOnly}&nbsp;{/if}</th
 				>
 			</tr>
 		</thead>
 		<tbody>
-			{#each holdings as h, i (h.ticker)}
+			{#each holdings as h (h.ticker)}
 				<tr
-					class={cn(
-						'cursor-pointer border-t border-border/60 transition-colors hover:bg-muted/40',
-						i % 2 !== 0 && 'bg-background'
-					)}
+					class="cursor-pointer border-t border-border/60 transition-colors hover:bg-muted/40"
 					onclick={() => openDetail(h)}
 				>
 					<td class="px-4 py-3.5">
@@ -103,18 +75,11 @@
 					</td>
 					<td
 						class={cn(
-							'hidden px-4 py-3.5 text-right font-mono sm:table-cell',
+							'hidden px-4 py-3.5 text-right font-mono text-xs font-semibold sm:table-cell',
 							h.pnl >= 0 ? 'text-positive' : 'text-negative'
 						)}
 					>
-						<span
-							class={cn(
-								'border px-1.5 py-0.5 text-xs font-semibold',
-								h.pnl >= 0 ? 'border-positive/30 bg-positive/8' : 'border-negative/30 bg-negative/8'
-							)}
-						>
-							{formatPercent(h.pnlPercent)}
-						</span>
+						{formatPercent(h.pnlPercent)}
 					</td>
 					<td class="px-4 py-3.5 text-right">
 						{#if !readOnly}
@@ -134,12 +99,7 @@
 </div>
 
 {#if sellTarget && !readOnly}
-	<TradeSheet
-		bind:open={sellOpen}
-		stock={sellTarget.stock}
-		mode="sell"
-		maxQuantity={sellTarget.shares}
-	/>
+	<SellTradeSheet bind:open={sellOpen} stock={sellTarget.stock} maxQuantity={sellTarget.shares} />
 {/if}
 
 {#if detailStock}

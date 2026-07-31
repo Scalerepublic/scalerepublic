@@ -9,6 +9,7 @@
  */
 
 export * from './auth-schema'
+export * from './notification'
 export * from './portfolio'
 export * from './stock'
 export * from './sync'

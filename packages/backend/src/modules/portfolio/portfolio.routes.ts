@@ -42,25 +42,29 @@ export const portfolioRoutes = new Hono<AppEnv>()
                 const portfolioRow = await portfolioService.ensureForUser(userId);
                 const portfolioId = portfolioRow.id;
                 const holdings = await portfolioService.getHoldings(portfolioId);
-                const portfolioValue = await portfolioService.getPortfolioValue(portfolioId);
+                const stockIds = holdings.map((holding) => holding.stockId);
+                const [latestPrices, tickers] = await Promise.all([
+                    stockService.getLatestPricesByStockIds(stockIds),
+                    stockService.getTickersByStockIds(stockIds),
+                ]);
 
-                const enrichedHoldings = await Promise.all(
-                    holdings.map(async (h) => {
-                        const [ticker, currentPrice] = await Promise.all([
-                            stockService.getTicker(h.stockId),
-                            stockService.getLatestPriceByStockId(h.stockId),
-                        ]);
-                        return {
-                            stockId: h.stockId,
-                            ticker: ticker ?? h.stockId,
-                            quantity: h.quantity,
-                            avgCost: h.avgCost,
-                            currentPrice,
-                            marketValue:
-                                currentPrice !== null ? h.quantity * currentPrice : null,
-                        };
-                    }),
-                );
+                let portfolioValue = 0;
+                const enrichedHoldings = holdings.map((holding) => {
+                    const currentPrice = latestPrices.get(holding.stockId) ?? null;
+                    if (currentPrice !== null) {
+                        portfolioValue += holding.quantity * currentPrice;
+                    }
+
+                    return {
+                        stockId: holding.stockId,
+                        ticker: tickers.get(holding.stockId) ?? holding.stockId,
+                        quantity: holding.quantity,
+                        avgCost: holding.avgCost,
+                        currentPrice,
+                        marketValue:
+                            currentPrice !== null ? holding.quantity * currentPrice : null,
+                    };
+                });
 
                 return c.json({
                     data: {
@@ -84,7 +88,7 @@ export const portfolioRoutes = new Hono<AppEnv>()
             try {
                 const p = await portfolioService.getById(portfolioId);
                 const holdings = await portfolioService.getHoldings(portfolioId);
-                const portfolioValue = await portfolioService.getPortfolioValue(portfolioId);
+                const portfolioValue = await portfolioService.getPortfolioValue(portfolioId, holdings);
 
                 return c.json({ data: { portfolio: p, holdings, portfolioValue } });
             } catch (err) {
@@ -139,7 +143,6 @@ export const portfolioRoutes = new Hono<AppEnv>()
     )
     .post("/api/v1/portfolio/default", async (c) => {
         const authResult = await requireAuth(c);
-        if (authResult instanceof Response) return authResult;
 
         const { portfolioService, portfolioDefaultService } = useCtx(c);
         const userId = authResult.user.id;

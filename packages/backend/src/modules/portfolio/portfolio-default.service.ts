@@ -35,7 +35,12 @@ export class PortfolioDefaultService {
             .where(eq(portfolio.status, 'ACTIVE'));
 
         for (const row of activePortfolios) {
-            await this.checkPortfolio(row.id);
+            try {
+                await this.checkPortfolio(row.id);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.error(`[portfolio-default] check failed: ${message}`);
+            }
         }
     }
 

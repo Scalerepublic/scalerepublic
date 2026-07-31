@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { cn } from '$lib/utils';
@@ -10,6 +11,8 @@
 		confirmLabel = 'Confirm',
 		cancelLabel = 'Cancel',
 		confirming = false,
+		confirmDisabled = false,
+		children,
 		onConfirm
 	}: {
 		open?: boolean;
@@ -18,6 +21,8 @@
 		confirmLabel?: string;
 		cancelLabel?: string;
 		confirming?: boolean;
+		confirmDisabled?: boolean;
+		children?: Snippet;
 		onConfirm: () => void | Promise<void>;
 	} = $props();
 
@@ -55,7 +60,7 @@
 		></button>
 
 		<div
-			class="relative z-10 w-full max-w-md border border-border bg-card p-6 shadow-lg"
+			class="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="confirm-dialog-title"
@@ -66,21 +71,27 @@
 			</h2>
 			<p class="mt-2 text-sm text-muted-foreground">{message}</p>
 
+			{#if children}
+				<div class="mt-4">
+					{@render children()}
+				</div>
+			{/if}
+
 			<div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 				<button
 					type="button"
 					onclick={close}
 					disabled={confirming}
-					class="border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+					class="rounded-lg border border-input bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
 				>
 					{cancelLabel}
 				</button>
 				<button
 					type="button"
 					onclick={() => void onConfirm()}
-					disabled={confirming}
+					disabled={confirming || confirmDisabled}
 					class={cn(
-						'border px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50',
+						'rounded-lg border px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50',
 						'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15'
 					)}
 				>

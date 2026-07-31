@@ -2,37 +2,17 @@
 	import { resolve } from '$app/paths';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import { cn, formatCurrency, formatPercent, getInitials } from '$lib/utils';
-	import { authStore } from '$lib/stores/auth.svelte';
-	import { demoMarketStore } from '$lib/stores/demo-market.svelte';
-	import { leaderboardStore } from '$lib/stores/leaderboard.svelte';
-	import { marketRevisionStore } from '$lib/stores/market-revision.svelte';
-	import { api, parseApiData } from '$lib/api/client';
-	import type { BackendUserSearchResult } from '$lib/api/backend-types';
+	import { getLeaderboard } from '$lib/data/leaderboard.svelte';
+	import { getUserSearch } from '$lib/data/user.svelte';
 	import { Trophy, Search } from '@lucide/svelte';
-	import type { PageData } from './$types';
-
-	let { data }: { data: PageData } = $props();
 
 	let searchQuery = $state('');
-	let searchResults = $state<BackendUserSearchResult[]>([]);
+	let debouncedSearch = $state('');
 	let searchOpen = $state(false);
-	let searchLoading = $state(false);
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const leaderboard = $derived(
-		(leaderboardStore.entries.length > 0 ? leaderboardStore.entries : data.leaderboard).map(
-			(e) => ({
-				...e,
-				isCurrentUser: e.userId === authStore.user?.id
-			})
-		)
-	);
-
-	$effect(() => {
-		void marketRevisionStore.revision;
-		void demoMarketStore.revision;
-		void leaderboardStore.load({ silent: true });
-	});
+	const board = getLeaderboard();
+	const search = getUserSearch(() => debouncedSearch);
 
 	function formatDefaultDate(iso: string | null): string {
 		if (!iso) return '—';
@@ -42,34 +22,20 @@
 		});
 	}
 
-	function scheduleSearch(query: string) {
-		if (searchTimer) clearTimeout(searchTimer);
-		const trimmed = query.trim();
-		if (trimmed.length < 2) {
-			searchResults = [];
-			searchOpen = false;
-			return;
-		}
-
-		searchTimer = setTimeout(async () => {
-			searchLoading = true;
-			try {
-				const res = await api.api.v1.users.search.$get({ query: { q: trimmed, limit: '10' } });
-				searchResults = await parseApiData<BackendUserSearchResult[]>(res);
-				searchOpen = true;
-			} catch {
-				searchResults = [];
-				searchOpen = false;
-			} finally {
-				searchLoading = false;
-			}
-		}, 300);
-	}
-
 	function handleSearchInput(event: Event) {
 		const value = (event.target as HTMLInputElement).value;
 		searchQuery = value;
-		scheduleSearch(value);
+		if (searchTimer) clearTimeout(searchTimer);
+		const trimmed = value.trim();
+		if (trimmed.length < 2) {
+			debouncedSearch = '';
+			searchOpen = false;
+			return;
+		}
+		searchTimer = setTimeout(() => {
+			debouncedSearch = trimmed;
+			searchOpen = true;
+		}, 300);
 	}
 
 	function handleSearchBlur() {
@@ -98,17 +64,17 @@
 			value={searchQuery}
 			oninput={handleSearchInput}
 			onfocus={() => {
-				if (searchResults.length > 0) searchOpen = true;
+				if (search.results.length > 0) searchOpen = true;
 			}}
 			onblur={handleSearchBlur}
 			placeholder="Search traders by name or email…"
-			class="h-10 w-full border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
+			class="h-10 w-full rounded-lg border border-input bg-card pr-4 pl-10 text-sm transition outline-none placeholder:text-muted-foreground/60 focus:border-accent focus:ring-1 focus:ring-accent/30"
 		/>
-		{#if searchOpen && searchResults.length > 0}
+		{#if searchOpen && search.results.length > 0}
 			<div
-				class="absolute top-full right-0 left-0 z-20 mt-1 border border-border bg-card shadow-sm"
+				class="absolute top-full right-0 left-0 z-20 mt-1 overflow-hidden rounded-lg border border-border bg-card shadow-sm"
 			>
-				{#each searchResults as result (result.userId)}
+				{#each search.results as result (result.userId)}
 					<a
 						href={resolve(`/traders/${result.userId}`)}
 						class="flex items-center justify-between border-t border-border/60 px-4 py-3 text-sm transition-colors first:border-t-0 hover:bg-muted/40"
@@ -126,57 +92,36 @@
 					</a>
 				{/each}
 			</div>
-		{:else if searchOpen && !searchLoading && searchQuery.trim().length >= 2}
+		{:else if searchOpen && !search.isFetching && searchQuery.trim().length >= 2}
 			<div
-				class="absolute top-full right-0 left-0 z-20 mt-1 border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
+				class="absolute top-full right-0 left-0 z-20 mt-1 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
 			>
 				No traders found
 			</div>
 		{/if}
 	</div>
 
-	{#if data.error}
-		<p class="mb-4 border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
-			{data.error}
+	{#if board.isError}
+		<p class="mb-4 rounded-lg border border-negative/30 bg-negative/8 px-4 py-3 text-sm text-negative">
+			{board.error instanceof Error ? board.error.message : 'Failed to load leaderboard'}
 		</p>
 	{/if}
 
-	<div class="overflow-x-auto border border-border">
+	<div class="overflow-x-auto rounded-xl border border-border">
 		<table class="w-full border-collapse text-sm">
 			<thead>
 				<tr class="border-b border-border bg-muted">
-					<th
-						class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Rank</th
-					>
-					<th
-						class="px-4 py-2.5 text-left text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Trader</th
-					>
-					<th
-						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Net Worth</th
-					>
-					<th
-						class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase sm:table-cell"
-						>Holdings</th
-					>
-					<th
-						class="hidden px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase md:table-cell"
-						>Cash</th
-					>
-					<th
-						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Defaults</th
-					>
-					<th
-						class="px-4 py-2.5 text-right text-[10px] font-semibold tracking-widest text-muted-foreground uppercase"
-						>Return</th
-					>
+					<th class="table-th text-left">Rank</th>
+					<th class="table-th text-left">Trader</th>
+					<th class="table-th text-right">Net Worth</th>
+					<th class="table-th hidden text-right sm:table-cell">Holdings</th>
+					<th class="table-th hidden text-right md:table-cell">Cash</th>
+					<th class="table-th text-right">Defaults</th>
+					<th class="table-th text-right">Return</th>
 				</tr>
 			</thead>
 			<tbody>
-				{#each leaderboard as entry (entry.userId)}
+				{#each board.entries as entry (entry.userId)}
 					<tr
 						class={cn(
 							'border-t border-border/60 transition-colors',
@@ -232,14 +177,14 @@
 									</span>
 									{#if entry.isCurrentUser}
 										<span
-											class="border border-border bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-foreground uppercase"
+											class="rounded-md border border-border bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-foreground uppercase"
 										>
 											You
 										</span>
 									{/if}
 									{#if entry.penalties >= 3}
 										<span
-											class="border border-negative/30 bg-negative/8 px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-negative uppercase"
+											class="rounded-md border border-negative/30 bg-negative/8 px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-negative uppercase"
 										>
 											Out
 										</span>
@@ -267,7 +212,7 @@
 							{#if entry.penalties > 0}
 								<div class="inline-flex flex-col items-end gap-0.5">
 									<span
-										class="border border-border bg-muted px-1.5 py-0.5 font-mono text-xs font-bold text-foreground"
+										class="rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-xs font-bold text-foreground"
 									>
 										{entry.penalties}
 									</span>
@@ -309,6 +254,6 @@
 	</div>
 
 	<p class="mt-5 text-center text-xs text-muted-foreground">
-		{leaderboard.length} traders competing · Starting capital $1,000.00 · 3 strikes and you're out
+		{board.entries.length} traders competing · Starting capital $1,000.00 · 3 strikes and you're out
 	</p>
 </div>
