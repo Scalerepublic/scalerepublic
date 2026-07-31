@@ -1,3 +1,6 @@
+<!--
+  Purpose: Render desktop navigation, identity, settings, and sign-out.
+-->
 <script lang="ts">
 	import {
 		LayoutDashboard,

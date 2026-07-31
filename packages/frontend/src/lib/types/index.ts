@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define the UI-facing domain models shared by routes, components, and API mappers.
+ */
 import type { BackendAutoTradeRule } from '$lib/api/backend-types';
 
 export interface Stock {

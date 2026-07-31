@@ -1,3 +1,6 @@
+/**
+ * Purpose: Own stock catalog reads, price history, market metrics, synthetic quotes, and external-data backfill persistence.
+ */
 import { and, asc, count, desc, eq, gte, ilike, inArray, lte, ne, or, sql, type SQL } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
@@ -85,9 +88,18 @@ export type StockDetail = {
     priceHistory: Array<{ date: string; close: number }>
 }
 
+/**
+ * Central market-data boundary.
+ *
+ * Route and portfolio services ask this class for normalized stock data instead of querying
+ * price tables or third-party providers themselves. Keeping those rules here ensures list,
+ * detail, leaderboard, and portfolio screens agree about prices and performance.
+ */
 export class StockService {
     constructor(private readonly ctx: AppVars) { }
 
+    // Debug and real prices deliberately occupy the same table. Every price read passes through
+    // this filter so switching STOCK_DEBUG cannot leak one timeline into the other.
     private priceSourceFilter(): SQL {
         if (isMarketDebugEnabled()) {
             return or(
@@ -887,6 +899,11 @@ export class StockService {
         return latestPrice * (0.995 + Math.random() * 0.01)
     }
 
+    /**
+     * Generate one quote per active stock without an external API call. A cached daily bar gives
+     * realistic low/high bounds; stocks without a bar fall back to a small last-price jitter.
+     * Inserts are chunked to stay below Postgres parameter limits for the full ticker catalog.
+     */
     async insertSyntheticQuotesForAllEligible(): Promise<{ inserted: number; stockIds: string[] }> {
         const recordedAt = new Date()
         const barRows = await this.ctx.db
@@ -1020,6 +1037,10 @@ export class StockService {
             .where(eq(stock.id, stockId))
     }
 
+    /**
+     * Fill only missing calendar dates and count every provider request against the caller's
+     * budget. The requested date, rather than an unreliable provider response date, is stored.
+     */
     private async cacheMissingDailyBars(
         stockId: string,
         ticker: string,
@@ -1199,6 +1220,7 @@ export class StockService {
         return points.sort((left, right) => this.toHistorySortMs(left.date) - this.toHistorySortMs(right.date))
     }
 
+    /** Compose the detail-screen read model from metadata, cached history, and the latest quote. */
     async getStockDetail(ticker: string, historyDays = HISTORY_DAYS): Promise<StockDetail | null> {
         const [stockRow] = await this.ctx.db
             .select()

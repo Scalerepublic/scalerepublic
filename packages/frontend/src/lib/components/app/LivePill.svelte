@@ -1,3 +1,6 @@
+<!--
+  Purpose: Indicate live or periodically refreshed market values.
+-->
 <script lang="ts">
 	import { cn } from '$lib/utils';
 

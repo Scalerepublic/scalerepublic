@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate notification filters and identifiers.
+ */
 import { z } from "zod";
 
 export const listNotificationsQuerySchema = z.object({

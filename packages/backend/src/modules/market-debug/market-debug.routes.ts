@@ -1,3 +1,6 @@
+/**
+ * Purpose: Serve the public market clock and operator-only simulation controls.
+ */
 import { Hono } from 'hono';
 
 import { useCtx, type App, type AppEnv } from '../../context.ts';

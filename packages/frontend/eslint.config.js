@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define project linting and formatting compatibility rules.
+ */
 import prettier from 'eslint-config-prettier';
 import path from 'node:path';
 import { includeIgnoreFile } from '@eslint/compat';

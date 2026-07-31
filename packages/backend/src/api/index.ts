@@ -1,3 +1,6 @@
+/**
+ * Purpose: Create the typed API router whose inferred Hono contract is shared with the frontend.
+ */
 import { Hono } from "hono";
 
 import { type AppEnv } from "../context.ts";

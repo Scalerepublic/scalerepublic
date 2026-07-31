@@ -1,3 +1,6 @@
+<!--
+  Purpose: Wrap authenticated pages with responsive navigation and the main content frame.
+-->
 <script lang="ts">
 	import Sidebar from './Sidebar.svelte';
 	import BottomNav from './BottomNav.svelte';

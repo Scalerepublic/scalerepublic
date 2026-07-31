@@ -1,3 +1,6 @@
+/**
+ * Purpose: Hold the optional simulated-market clock override used throughout frontend date calculations.
+ */
 let overrideIso: string | null = null;
 
 export function setDemoMarketDate(iso: string | null) {

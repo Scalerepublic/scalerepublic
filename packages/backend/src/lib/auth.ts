@@ -1,3 +1,6 @@
+/**
+ * Purpose: Configure better-auth and connect its session/account model to Drizzle.
+ */
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 

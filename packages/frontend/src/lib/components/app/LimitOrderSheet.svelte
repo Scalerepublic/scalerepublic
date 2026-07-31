@@ -1,3 +1,6 @@
+<!--
+  Purpose: Create a price-triggered automatic trade rule.
+-->
 <script lang="ts">
 	import NobleButton from './NobleButton.svelte';
 	import { createMutation } from '@tanstack/svelte-query';

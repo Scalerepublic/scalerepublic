@@ -1,3 +1,6 @@
+/**
+ * Purpose: Derive holdings and summary view models from a portfolio API response.
+ */
 import type { ApiPortfolio, HoldingWithMarket, PortfolioSummary } from '$lib/types';
 
 function mapHoldings(portfolio: ApiPortfolio): HoldingWithMarket[] {

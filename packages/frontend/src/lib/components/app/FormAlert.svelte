@@ -1,3 +1,6 @@
+<!--
+  Purpose: Display accessible form-level status feedback.
+-->
 <script lang="ts">
 	let { message }: { message: string | null } = $props();
 </script>

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose shared motion presets for consistent page and overlay transitions.
+ */
 import { fly, scale } from 'svelte/transition';
 import { cubicOut } from 'svelte/easing';
 

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Guarantee each user has one default portfolio and resolve it for higher-level operations.
+ */
 import { and, eq } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';

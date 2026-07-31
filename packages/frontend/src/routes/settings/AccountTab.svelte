@@ -1,3 +1,6 @@
+<!--
+  Purpose: Handle email changes and confirmed account deletion.
+-->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';

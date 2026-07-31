@@ -1,3 +1,6 @@
+/**
+ * Purpose: Create the browser query cache with shared retry and staleness defaults.
+ */
 import { QueryClient } from '@tanstack/svelte-query';
 
 export const queryClient = new QueryClient({

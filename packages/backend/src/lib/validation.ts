@@ -1,3 +1,6 @@
+/**
+ * Purpose: Share reusable Zod validators for route parameters and pagination inputs.
+ */
 import { z } from "zod";
 
 /**

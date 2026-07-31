@@ -1,3 +1,6 @@
+/**
+ * Purpose: Supply deterministic market data for tests and debug runs without external network calls.
+ */
 import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from './stock-data-client.ts'
 
 type StockSeed = {

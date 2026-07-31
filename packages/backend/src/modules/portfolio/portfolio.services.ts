@@ -1,3 +1,6 @@
+/**
+ * Purpose: Provide portfolio summaries, holdings, transaction history, and trade orchestration.
+ */
 import { and, count, desc, eq, gte, max, sql } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';

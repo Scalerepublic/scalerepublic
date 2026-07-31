@@ -1,3 +1,6 @@
+/**
+ * Purpose: Calculate Berlin-time market-session boundaries shared by price windows and charts.
+ */
 export const MARKET_TIMEZONE = 'Europe/Berlin'
 export const MARKET_OPEN_HOUR = 7
 export const MARKET_CLOSE_HOUR = 20

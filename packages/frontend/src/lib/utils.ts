@@ -1,3 +1,6 @@
+/**
+ * Purpose: Provide shared class, currency, percentage, date, and initials formatting helpers.
+ */
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 

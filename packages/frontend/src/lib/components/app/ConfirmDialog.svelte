@@ -1,3 +1,6 @@
+<!--
+  Purpose: Require confirmation before consequential actions.
+-->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { fade, scale } from 'svelte/transition';

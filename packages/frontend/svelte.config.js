@@ -1,3 +1,6 @@
+/**
+ * Purpose: Configure SvelteKit and its Cloudflare deployment adapter.
+ */
 import adapter from '@sveltejs/adapter-cloudflare';
 
 /** @type {import('@sveltejs/kit').Config} */

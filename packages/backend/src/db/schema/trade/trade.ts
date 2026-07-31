@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define the trade tables, constraints, indexes, relations, and inferred row types.
+ */
 import { relations } from "drizzle-orm";
 import {
   pgTable,
@@ -53,9 +56,10 @@ export const tradeStatusEnum = pgEnum("trade_status", [
  *
  * Design principles:
  * - Append-only: trades are never updated once EXECUTED.
- * - Atomic with portfolio updates: each trade execution must
- *   update portfolio.cashBalance and holding.quantity in a
- *   single database transaction.
+ * - Atomic with portfolio updates: the trade row and
+ *   portfolio.cashBalance change commit in one transaction.
+ * - Positions are derived from executed ledger rows; there is
+ *   no separately mutable holdings table to keep synchronized.
  */
 
 export const trade = pgTable(

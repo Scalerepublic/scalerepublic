@@ -1,3 +1,6 @@
+<!--
+  Purpose: Present contextual help in an accessible modal.
+-->
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';

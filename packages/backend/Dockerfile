@@ -1,3 +1,5 @@
+# Purpose: Build the Bun backend image used by Compose and deployment workflows.
+
 FROM oven/bun:1 AS base
 WORKDIR /app
 

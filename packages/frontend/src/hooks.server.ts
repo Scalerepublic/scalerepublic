@@ -1,3 +1,6 @@
+/**
+ * Purpose: Proxy API and auth requests through SvelteKit so browser cookies remain first-party.
+ */
 import type { Handle } from '@sveltejs/kit';
 
 const apiOrigin = process.env.API_ORIGIN ?? process.env.VITE_API_URL ?? 'http://localhost:50030';

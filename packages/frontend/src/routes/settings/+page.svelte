@@ -1,3 +1,6 @@
+<!--
+  Purpose: Coordinate account settings tabs.
+-->
 <script lang="ts">
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
 	import ProfileTab from './ProfileTab.svelte';

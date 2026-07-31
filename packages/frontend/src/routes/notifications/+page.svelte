@@ -1,3 +1,6 @@
+<!--
+  Purpose: List notifications and support marking them read.
+-->
 <script lang="ts">
 	import { AlertTriangle, Bell, Check, CheckCheck, Clock, TrendingUp } from '@lucide/svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';

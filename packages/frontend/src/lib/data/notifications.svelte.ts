@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose notification queries and read-state mutations as reactive Svelte state.
+ */
 import { createMutation, createQuery } from '@tanstack/svelte-query';
 import { toast } from 'svelte-sonner';
 

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Mark existing migration files as applied when adopting Drizzle on a pre-existing schema.
+ */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Normalize and clip historical points for the selected performance-chart range.
+ */
 import { getEffectiveMarketDate } from '$lib/demo-market-date';
 import { getMarketSessionBounds } from '$lib/market-session';
 

@@ -1,3 +1,5 @@
+# Purpose: Provide backend development, migration, seed, test, and deployment commands.
+
 compose_file := "./compose.yaml"
 service := "backend"
 db_url := "postgres://postgres:postgres@localhost:50025/scalerepublic"

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Restrict simulated-market controls to the configured operator account.
+ */
 import { type AppContext, useCtx } from '../context.ts';
 
 import { getMarketDebugOperatorEmail, isMarketDebugEnabled } from './market-debug.ts';

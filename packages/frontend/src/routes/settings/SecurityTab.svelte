@@ -1,3 +1,6 @@
+<!--
+  Purpose: Change the user's password safely.
+-->
 <script lang="ts">
 	import FormAlert from '$lib/components/app/FormAlert.svelte';
 	import FormField from '$lib/components/app/FormField.svelte';

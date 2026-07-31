@@ -1,3 +1,6 @@
+<!--
+  Purpose: Support sector browsing and debounced catalog search.
+-->
 <script lang="ts">
 	import { getSectors, getStockList, getTrending } from '$lib/data/market.svelte';
 	import type { StocksListParams } from '$lib/api/queries';

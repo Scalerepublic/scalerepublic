@@ -1,3 +1,5 @@
+# Purpose: Enforce lint, type-check, build, and integration-test gates on GitHub.
+
 name: CI
 
 on:

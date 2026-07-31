@@ -1,3 +1,6 @@
+/**
+ * Purpose: Verify the leaderboard schema contract with Bun's test runner.
+ */
 import { describe, expect, test } from 'bun:test'
 
 import { leaderboardQuerySchema } from '../src/modules/leaderboard/leaderboard.schema.ts'

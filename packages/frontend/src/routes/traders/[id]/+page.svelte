@@ -1,3 +1,6 @@
+<!--
+  Purpose: Display a trader's public holdings and performance.
+-->
 <script lang="ts">
 	import { page } from '$app/state';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';

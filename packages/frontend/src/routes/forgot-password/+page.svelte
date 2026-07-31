@@ -1,3 +1,6 @@
+<!--
+  Purpose: Guide the password reset request and completion flow.
+-->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';

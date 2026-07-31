@@ -1,3 +1,6 @@
+/**
+ * Purpose: Provide static portfolio fixtures for offline UI work and demonstrations.
+ */
 import type { Holding } from '$lib/types';
 
 export const STARTING_CAPITAL = 10_000;

@@ -1,3 +1,6 @@
+<!--
+  Purpose: Represent a browsable market sector.
+-->
 <script lang="ts">
 	import { ArrowUpRight } from '@lucide/svelte';
 

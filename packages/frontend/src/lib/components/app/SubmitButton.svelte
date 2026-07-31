@@ -1,3 +1,6 @@
+<!--
+  Purpose: Render a consistent pending-aware form submit control.
+-->
 <script lang="ts">
 	import { Loader2 } from '@lucide/svelte';
 	import { cn } from '$lib/utils';

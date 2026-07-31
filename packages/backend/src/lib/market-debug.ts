@@ -1,3 +1,6 @@
+/**
+ * Purpose: Centralize simulated-market feature flags, sources, and operator configuration.
+ */
 export const getMarketDebugOperatorEmail = (): string =>
     (process.env.MARKET_DEBUG_OPERATOR_EMAIL ?? 'test@test.com').trim().toLowerCase();
 

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Manage simulated-market state and invalidate affected query caches after clock changes.
+ */
 import { ApiError } from '$lib/api';
 import { queryClient } from '$lib/api/query-client';
 import { setDemoMarketDate } from '$lib/demo-market-date';

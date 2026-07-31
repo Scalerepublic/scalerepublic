@@ -1,3 +1,6 @@
+/**
+ * Purpose: Serve authenticated portfolio, performance, trading, transaction, and default endpoints.
+ */
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 

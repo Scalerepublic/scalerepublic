@@ -1,3 +1,6 @@
+/**
+ * Purpose: Serve authenticated notification list, unread-count, and mark-read endpoints.
+ */
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Implement Alpha Vantage requests, response validation, throttling, and API error translation.
+ */
 import {
     DailyAdjustedSchema,
     DailySchema,

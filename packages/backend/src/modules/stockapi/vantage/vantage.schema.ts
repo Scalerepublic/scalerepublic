@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate untrusted Alpha Vantage search, quote, overview, and time-series responses.
+ */
 import { z } from 'zod'
 
 // ─── Coerce helpers ──────────────────────────────────────────────────────────

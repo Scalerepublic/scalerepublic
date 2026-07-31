@@ -1,3 +1,6 @@
+/**
+ * Purpose: Implement the authenticated Cloudflare proxy that forwards stock reads to the IP-based university API.
+ */
 export type ProxyEnv = {
     UNI_API_ORIGIN: string
     UNI_API_PROXY_SECRET: string
@@ -18,6 +21,8 @@ const resolveUpstreamOrigin = (origin: string): string => {
         parsed.protocol = 'http:'
     }
 
+    // Cloudflare cannot fetch a bare IP origin directly. nip.io supplies a DNS hostname that
+    // resolves back to the same address while leaving the requested port unchanged.
     if (ipv4Pattern.test(parsed.hostname)) {
         const nipHost = parsed.hostname.replace(/\./g, '-')
         return `${parsed.protocol}//${nipHost}.nip.io${parsed.port ? `:${parsed.port}` : ''}`
@@ -35,6 +40,8 @@ const isAuthorized = (request: Request, secret: string): boolean => {
     if (provided.length !== configured.length) {
         return false
     }
+    // Compare every character even after a mismatch so response timing reveals less about the
+    // shared secret than a normal early-return string comparison.
     let mismatch = 0
     for (let i = 0; i < configured.length; i += 1) {
         mismatch |= configured.charCodeAt(i) ^ provided.charCodeAt(i)

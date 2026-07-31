@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose trending, sector, catalog, and stock-detail queries as reactive Svelte state.
+ */
 import { createQuery } from '@tanstack/svelte-query';
 
 import {

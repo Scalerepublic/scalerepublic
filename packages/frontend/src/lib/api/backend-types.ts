@@ -1,3 +1,6 @@
+/**
+ * Purpose: Derive frontend response types from the backend's exported Hono contract.
+ */
 import type { ApiClient } from 'backend/api-client';
 import type { InferResponseType } from 'hono/client';
 

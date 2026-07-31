@@ -1,3 +1,6 @@
+/**
+ * Purpose: Configure Vite plugins and local development proxying.
+ */
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';

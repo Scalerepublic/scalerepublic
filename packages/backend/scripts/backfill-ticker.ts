@@ -1,3 +1,6 @@
+/**
+ * Purpose: Backfill metadata and history for one ticker from a local operations command.
+ */
 import { createAppContext } from '../src/context.ts'
 import { createDb } from '../src/db/index.ts'
 import { resolveDatabaseUrl } from '../src/lib/resolve-database-url.ts'

@@ -1,3 +1,6 @@
+<!--
+  Purpose: Render responsive portfolio or stock history with ranges and tooltips.
+-->
 <script lang="ts">
 	import { cn, formatCurrency, formatPercent } from '$lib/utils';
 	import {

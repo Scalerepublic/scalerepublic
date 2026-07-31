@@ -1,3 +1,6 @@
+<!--
+  Purpose: Expose simulated-market controls to the configured instructor/operator.
+-->
 <script lang="ts">
 	import { demoMarketStore } from '$lib/stores/demo-market.svelte';
 	import { cn } from '$lib/utils';

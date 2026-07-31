@@ -1,3 +1,6 @@
+/**
+ * Purpose: Read ledger-derived holdings and append executed trade records inside caller-owned transactions.
+ */
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';
@@ -70,6 +73,10 @@ export class TradesService {
         return holdingsByPortfolio;
     }
 
+    /**
+     * Append an executed BUY to the immutable trade ledger. The caller supplies a transaction
+     * when this write must commit atomically with portfolio cash and holding changes.
+     */
     async executeBuy(
         portfolioId: string,
         stockId: string,
@@ -94,6 +101,7 @@ export class TradesService {
         return rows[0]!;
     }
 
+    /** Append an executed SELL; transaction ownership remains with the portfolio use case. */
     async executeSell(
         portfolioId: string,
         stockId: string,

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Manage automatic trading rules and execute triggers against the latest market prices.
+ */
 import { and, desc, eq, lt } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';

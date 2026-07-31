@@ -1,3 +1,6 @@
+/**
+ * Purpose: Verify autotrade routes behavior against a real test database.
+ */
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose this backend module's supported public entry points.
+ */
 export {
     AutoTradeService,
     type AutoTradeRecord,

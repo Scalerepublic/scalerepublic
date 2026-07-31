@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define the provider-neutral quote, metadata, and daily-bar contract used by synchronization.
+ */
 export type StockQuote = {
     symbol: string
     price: number

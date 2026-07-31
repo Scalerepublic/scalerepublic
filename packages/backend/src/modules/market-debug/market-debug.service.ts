@@ -1,3 +1,6 @@
+/**
+ * Purpose: Advance or reset the simulated market and generate deterministic instructor-demo prices.
+ */
 import { eq } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';

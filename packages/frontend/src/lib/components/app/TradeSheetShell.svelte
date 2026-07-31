@@ -1,3 +1,6 @@
+<!--
+  Purpose: Provide shared responsive structure for trading workflows.
+-->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import NobleButton from './NobleButton.svelte';

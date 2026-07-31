@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate password checks at the authentication API boundary.
+ */
 import { z } from "zod";
 
 import { emailSchema, passwordSchema } from "../../lib/validation.ts";

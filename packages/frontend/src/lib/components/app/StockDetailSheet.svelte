@@ -1,3 +1,6 @@
+<!--
+  Purpose: Combine quote, history, position, and trade actions for one ticker.
+-->
 <script lang="ts">
 	import ChangeIndicator from './ChangeIndicator.svelte';
 	import NobleButton from './NobleButton.svelte';

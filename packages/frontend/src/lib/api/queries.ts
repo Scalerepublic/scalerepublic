@@ -1,3 +1,6 @@
+/**
+ * Purpose: Centralize query keys, fetch functions, polling rules, and cache behavior for every API resource.
+ */
 import { keepPreviousData, queryOptions } from '@tanstack/svelte-query';
 
 import { api, parseApiData } from '$lib/api/client';
@@ -51,6 +54,9 @@ export const cacheKeys = {
 			['trader', id, 'performance', granularity] as const
 	}
 };
+
+// This file is the only polling/cache-policy layer. Route components consume the small reactive
+// wrappers in lib/data, which keeps HTTP details and invalidation rules out of the UI.
 
 export const stocksTrendingQuery = () =>
 	queryOptions({

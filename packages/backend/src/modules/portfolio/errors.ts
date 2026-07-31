@@ -1,3 +1,6 @@
+/**
+ * Purpose: Represent expected portfolio and trading failures so routes can return precise HTTP responses.
+ */
 export class PortfolioNotFoundError extends Error {
     override readonly name = 'PortfolioNotFoundError';
     constructor(portfolioId: string) {

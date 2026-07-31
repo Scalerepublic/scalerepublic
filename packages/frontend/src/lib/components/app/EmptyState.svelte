@@ -1,3 +1,6 @@
+<!--
+  Purpose: Explain an empty collection and optionally offer a next action.
+-->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 

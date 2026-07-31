@@ -1,3 +1,6 @@
+/**
+ * Purpose: Verify notification behavior against a real test database.
+ */
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { and, eq } from 'drizzle-orm'
 

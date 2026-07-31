@@ -1,4 +1,7 @@
 /**
+ * Purpose: Re-export this schema area's tables and relations for Drizzle.
+ */
+/**
  * Trading domain schema.
  *
  * Includes:

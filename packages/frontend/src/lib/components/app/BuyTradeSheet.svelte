@@ -1,3 +1,6 @@
+<!--
+  Purpose: Validate and submit a market buy order.
+-->
 <script lang="ts">
 	import TradeSheetShell from './TradeSheetShell.svelte';
 	import { createMutation } from '@tanstack/svelte-query';

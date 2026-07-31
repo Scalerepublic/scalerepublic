@@ -1,3 +1,6 @@
+/**
+ * Purpose: Distinguish expected automatic-order failures for consistent API error translation.
+ */
 export class AutoTradeNotFoundError extends Error {
     override readonly name = 'AutoTradeNotFoundError';
     constructor(ruleId: string) {

@@ -1,3 +1,6 @@
+<!--
+  Purpose: Initialize authentication, query caching, notifications, and the shell around every route.
+-->
 <script lang="ts">
 	import './layout.css';
 	import { page } from '$app/state';

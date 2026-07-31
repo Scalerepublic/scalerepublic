@@ -1,3 +1,6 @@
+<!--
+  Purpose: Lay out a settings label, explanation, and control.
+-->
 <script lang="ts">
 	import type { Component, Snippet } from 'svelte';
 

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Manage public trader profiles, private account settings, passwords, and account deletion.
+ */
 import { and, eq, ilike, or } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';

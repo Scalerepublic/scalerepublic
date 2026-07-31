@@ -1,3 +1,6 @@
+<!--
+  Purpose: Edit public profile information.
+-->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';

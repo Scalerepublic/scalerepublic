@@ -1,3 +1,6 @@
+<!--
+  Purpose: Describe the fixed visual theme.
+-->
 <script lang="ts">
 	import { setMode, userPrefersMode } from 'mode-watcher';
 	import { Sun, Moon, Monitor } from '@lucide/svelte';

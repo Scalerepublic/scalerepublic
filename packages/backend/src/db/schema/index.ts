@@ -1,4 +1,7 @@
 /**
+ * Purpose: Re-export this schema area's tables and relations for Drizzle.
+ */
+/**
  * Central database schema exports.
  *
  * This file defines the public schema surface

@@ -1,3 +1,6 @@
+<!--
+  Purpose: Redirect the root URL to authentication or the dashboard.
+-->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';

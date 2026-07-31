@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate user identifiers, search, performance, and confirmed deletion inputs.
+ */
 import { z } from "zod";
 
 export const userIdParamSchema = z.object({

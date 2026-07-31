@@ -1,3 +1,6 @@
+<!--
+  Purpose: Display a labeled metric with trend context.
+-->
 <script lang="ts">
 	import ChangeIndicator from './ChangeIndicator.svelte';
 	import { cn } from '$lib/utils';

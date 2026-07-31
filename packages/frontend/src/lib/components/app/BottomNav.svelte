@@ -1,3 +1,6 @@
+<!--
+  Purpose: Render mobile navigation and current-route state.
+-->
 <script lang="ts">
 	import { LayoutDashboard, Search, Settings, Trophy, Bell } from '@lucide/svelte';
 	import NavItem from './NavItem.svelte';

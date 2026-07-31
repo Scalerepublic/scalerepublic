@@ -1,4 +1,5 @@
 {
+	// Purpose: Configure backend Worker bindings, Hyperdrive, routes, environments, and scheduled triggers.
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"account_id": "6a0955753ada2dde00b92d526f9d8f30",
 	"main": "src/index.ts",

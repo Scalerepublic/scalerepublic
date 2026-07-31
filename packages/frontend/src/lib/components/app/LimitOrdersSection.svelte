@@ -1,3 +1,6 @@
+<!--
+  Purpose: List automatic orders and coordinate cancellation.
+-->
 <script lang="ts">
 	import ConfirmDialog from './ConfirmDialog.svelte';
 	import InfoDialog from './InfoDialog.svelte';

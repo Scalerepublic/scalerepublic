@@ -1,3 +1,6 @@
+<!--
+  Purpose: Provide the themed primary button primitive.
+-->
 <script lang="ts">
 	import type { RouteId } from '$app/types';
 	import { appResolve } from '$lib/app-resolve';

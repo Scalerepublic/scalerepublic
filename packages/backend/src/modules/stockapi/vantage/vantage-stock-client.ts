@@ -1,3 +1,6 @@
+/**
+ * Purpose: Adapt Alpha Vantage payloads to the provider-neutral market-data contract.
+ */
 import type { StockDataClient, StockDailyBar, StockMeta, StockQuote } from '../stock-data-client.ts'
 
 import { createAlphaVantageClient } from './vantage.client.ts'

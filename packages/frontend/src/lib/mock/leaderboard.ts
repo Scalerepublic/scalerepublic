@@ -1,3 +1,6 @@
+/**
+ * Purpose: Provide static leaderboard fixtures for offline UI work and demonstrations.
+ */
 export interface LeaderboardEntry {
 	rank: number;
 	userId: string;

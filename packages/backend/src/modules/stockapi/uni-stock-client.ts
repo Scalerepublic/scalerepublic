@@ -1,3 +1,6 @@
+/**
+ * Purpose: Adapt the university stock API to the provider-neutral market-data contract.
+ */
 import { z } from 'zod'
 
 import { UNI_API_PROXY_BASE_URL } from '../../lib/uni-api-proxy.ts'

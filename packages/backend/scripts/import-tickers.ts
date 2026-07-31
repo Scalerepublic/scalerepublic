@@ -1,3 +1,6 @@
+/**
+ * Purpose: Import the university ticker catalog without overwriting already enriched stock metadata.
+ */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 

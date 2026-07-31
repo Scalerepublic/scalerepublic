@@ -25,6 +25,11 @@ flowchart LR
     Backend -. "optional live prices" .-> MarketAPI["Uni API proxy or<br/>Alpha Vantage"]
 ```
 
+For an instructor-oriented walkthrough of the request flow, backend modules, database model,
+frontend state layers, scheduled jobs, and every source/configuration area, see
+[`docs/codebase-guide.md`](docs/codebase-guide.md). The more deployment-focused market-data
+architecture is documented in [`docs/architecture.md`](docs/architecture.md).
+
 ## Prerequisites
 
 Install these tools before cloning the repository:
@@ -47,7 +52,7 @@ just doctor
 Clone the repository and enter it:
 
 ```bash
-git clone https://github.com/daviidoff/scalerepublic.git
+git clone https://github.com/Scalerepublic/scalerepublic.git
 cd scalerepublic
 ```
 

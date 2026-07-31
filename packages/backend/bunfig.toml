@@ -1,2 +1,4 @@
+# Purpose: Configure Bun's backend test preload.
+
 [test]
 preload = ["./tests/preload.ts"]

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define the stock tables, constraints, indexes, relations, and inferred row types.
+ */
 import {
     pgTable,
     text,

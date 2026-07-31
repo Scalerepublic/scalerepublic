@@ -1,3 +1,6 @@
+<!--
+  Purpose: Display leaderboard position.
+-->
 <script lang="ts">
 	import { Trophy } from '@lucide/svelte';
 

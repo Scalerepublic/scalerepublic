@@ -1,3 +1,6 @@
+<!--
+  Purpose: Authenticate an existing user.
+-->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';

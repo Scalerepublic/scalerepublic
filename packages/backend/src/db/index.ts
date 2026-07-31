@@ -1,3 +1,6 @@
+/**
+ * Purpose: Create and cache Drizzle/Postgres connections for local DATABASE_URL and Cloudflare Hyperdrive runtimes.
+ */
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 

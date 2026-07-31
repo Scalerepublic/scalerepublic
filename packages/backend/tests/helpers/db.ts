@@ -1,3 +1,6 @@
+/**
+ * Purpose: Provide database cleanup and fixture helpers shared by backend integration suites.
+ */
 import { sql } from 'drizzle-orm'
 
 import { db } from '../../src/db/index.ts'

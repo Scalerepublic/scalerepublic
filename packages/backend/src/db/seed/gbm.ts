@@ -1,3 +1,6 @@
+/**
+ * Purpose: Generate reproducible geometric-Brownian-motion histories for realistic demonstration prices.
+ */
 import type { PRNG } from 'seedrandom';
 
 export type PricePoint = { recordedAt: Date; price: number };

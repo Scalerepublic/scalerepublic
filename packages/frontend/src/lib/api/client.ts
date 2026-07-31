@@ -1,3 +1,6 @@
+/**
+ * Purpose: Configure the typed Hono client and normalize unsuccessful API responses.
+ */
 import { createApiClient } from 'backend/api-client';
 import type { ClientResponse } from 'hono/client';
 

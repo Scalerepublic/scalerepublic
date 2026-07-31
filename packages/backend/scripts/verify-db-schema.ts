@@ -1,3 +1,6 @@
+/**
+ * Purpose: Verify that a target database contains the tables required by the backend.
+ */
 import { resolveDatabaseUrl } from '../src/lib/resolve-database-url.ts'
 import postgres from 'postgres'
 

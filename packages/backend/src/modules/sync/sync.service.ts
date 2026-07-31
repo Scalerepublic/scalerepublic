@@ -1,3 +1,6 @@
+/**
+ * Purpose: Coordinate locked price synchronization and rate-limited catalog backfill without overlapping scheduled runs.
+ */
 import { and, eq, lt, or } from 'drizzle-orm'
 
 import type { AppVars } from '../../context.ts'
@@ -28,6 +31,10 @@ const chunk = <T>(arr: T[], size: number): T[][] => {
     return out
 }
 
+/**
+ * Runs all recurring market work behind a database-backed lease. Both a Bun process and a
+ * Cloudflare scheduled event may invoke this service; the sync_job row prevents duplicate work.
+ */
 export class SyncService {
     private lockId: string | null = null
 
@@ -136,6 +143,8 @@ export class SyncService {
         }
     }
 
+    // Names run first because they need one cheap request each. History consumes whatever remains
+    // of the shared request budget, keeping a scheduler tick below the provider's rate limit.
     private async runCatalogBackfill(): Promise<void> {
         if (isMarketDebugEnabled()) {
             console.log('[sync/backfill] Skipping catalog backfill while STOCK_DEBUG=true')
@@ -197,6 +206,7 @@ export class SyncService {
         return !lastSuccessAt || lastSuccessAt < syncDueThreshold
     }
 
+    /** Atomically claim an idle/failed job or recover a lease abandoned by a crashed runtime. */
     private async tryClaimJob(staleThreshold: Date): Promise<boolean> {
         const lockId = this.getLockId()
         const claimed = await this.ctx.db.update(syncJob).set({
@@ -247,6 +257,11 @@ export class SyncService {
         }
     }
 
+    /**
+     * Execute a complete due tick in dependency order: quote sync, automatic orders, default
+     * portfolio checks, then optional slow catalog enrichment. Price-sync success is recorded
+     * before ancillary work, so a backfill failure does not duplicate quotes on the next poll.
+     */
     async runDueTick(): Promise<void> {
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
         const staleLockMs = readEnvNumber(
@@ -323,6 +338,7 @@ export class SyncService {
         }
     }
 
+    /** Local Bun scheduler; Workers call runDueTick from their scheduled handler instead. */
     async startScheduler(): Promise<void> {
         const syncIntervalMs = readEnvNumber('SYNC_INTERVAL_MS', DEFAULT_SYNC_INTERVAL_MS)
         const checkIntervalMs = readEnvNumber('SYNC_CHECK_INTERVAL_MS', DEFAULT_CHECK_INTERVAL_MS)

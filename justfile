@@ -1,3 +1,5 @@
+# Purpose: Provide repository-level setup, development, verification, database, and Docker commands.
+
 root := justfile_directory()
 backend := root / "packages/backend"
 frontend := root / "packages/frontend"

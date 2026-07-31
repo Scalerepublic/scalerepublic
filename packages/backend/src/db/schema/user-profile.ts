@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define the user profile tables, constraints, indexes, relations, and inferred row types.
+ */
 import { relations } from "drizzle-orm"; //Hiermit veschreben welche Tabellen wie zusammenhängen
 import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core"; //Damit neue Tabelle für Postgres Tabelle erstellen
 

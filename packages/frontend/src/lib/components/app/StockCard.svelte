@@ -1,3 +1,6 @@
+<!--
+  Purpose: Summarize a stock and open its details.
+-->
 <script lang="ts">
 	import ChangeIndicator from './ChangeIndicator.svelte';
 	import NobleButton from './NobleButton.svelte';

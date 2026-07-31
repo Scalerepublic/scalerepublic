@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define project linting and formatting compatibility rules.
+ */
 import eslint from '@eslint/js'
 import importPlugin from 'eslint-plugin-import'
 import preferArrowPlugin from 'eslint-plugin-prefer-arrow'

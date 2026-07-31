@@ -1,3 +1,6 @@
+<!--
+  Purpose: Provide the branded layout shared by authentication screens.
+-->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 

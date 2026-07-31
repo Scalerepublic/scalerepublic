@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose current-user profile and trader-search queries as reactive Svelte state.
+ */
 import { createQuery } from '@tanstack/svelte-query';
 
 import type { BackendUserProfile } from '$lib/api/backend-types';

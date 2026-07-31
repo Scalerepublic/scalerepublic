@@ -1,3 +1,6 @@
+/**
+ * Purpose: Export the provider interface and supported mock, Uni, and Alpha Vantage adapters.
+ */
 export { AlphaVantageClient, createAlphaVantageClient } from './vantage/vantage.client.ts'
 export { AlphaVantageStockClient } from './vantage/vantage-stock-client.ts'
 export { UniStockClient } from './uni-stock-client.ts'

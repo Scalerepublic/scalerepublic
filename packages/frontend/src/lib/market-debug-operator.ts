@@ -1,3 +1,6 @@
+/**
+ * Purpose: Determine whether the signed-in user may access simulated-market controls.
+ */
 const OPERATOR_EMAIL = (import.meta.env.VITE_MARKET_DEBUG_OPERATOR_EMAIL ?? 'test@test.com')
 	.trim()
 	.toLowerCase();

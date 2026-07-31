@@ -1,3 +1,6 @@
+/**
+ * Purpose: Run one configurable catalog-backfill pass outside the Worker scheduler.
+ */
 import { createAppContext } from '../src/context.ts'
 import { createDb } from '../src/db/index.ts'
 import { resolveDatabaseUrl } from '../src/lib/resolve-database-url.ts'

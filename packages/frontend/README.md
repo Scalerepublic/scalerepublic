@@ -1,42 +1,63 @@
-# sv
+# ScaleRepublic frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+The frontend is a SvelteKit application that renders authentication, market browsing, trading,
+portfolio performance, leaderboard, notifications, and account settings. It uses the backend's
+exported Hono type to keep API calls type-safe and TanStack Query to own server-state caching.
 
-## Creating a project
+Start with the repository [README](../../README.md) for the complete first-time setup. For the
+frontend's place in the system and an annotated source map, see the
+[codebase guide](../../docs/codebase-guide.md#frontend-architecture).
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Local development
 
-```sh
-# create a new project
-npx sv create my-app
+The recommended command runs PostgreSQL, migrations, backend, and frontend together:
+
+```bash
+cd ../..
+just dev
 ```
 
-To recreate this project with the same configuration:
+If the backend and database are already running, this package can be started alone:
 
-```sh
-# recreate this project
-bun x sv@0.15.2 create --template minimal --types ts --add eslint prettier tailwindcss="plugins:typography,forms" --install bun frontend
+```bash
+bun install --frozen-lockfile
+bun run dev
 ```
 
-## Developing
+The UI is served at <http://localhost:5173>. `src/hooks.server.ts` proxies `/api` requests to the
+backend configured by `VITE_API_URL`, which defaults to <http://localhost:50030>.
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Source layout
 
-```sh
-npm run dev
+| Path                     | Responsibility                                                         |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `src/routes`             | SvelteKit pages and the global application layout                      |
+| `src/lib/api`            | Typed client, backend-derived types, cache keys, and query definitions |
+| `src/lib/data`           | Reactive Svelte query/mutation facades consumed by pages               |
+| `src/lib/stores`         | Authentication, sidebar, and simulated-market UI state                 |
+| `src/lib/components/app` | Reusable application components and trading sheets                     |
+| `src/lib/mock`           | Static UI fixtures retained for offline development                    |
+| `static`                 | Logos, favicon, and robots configuration                               |
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+## Validation
+
+Run from this package:
+
+```bash
+bun run lint
+bun run check
+bun run build
 ```
 
-## Building
+Or run `just lint`, `just check`, `just build`, and `just test` from the repository root to verify
+the complete application.
 
-To create a production version of your app:
+## Deployment
 
-```sh
-npm run build
+The package uses `@sveltejs/adapter-cloudflare`. `wrangler.jsonc` defines the frontend Worker and
+`VITE_API_URL` controls the backend origin used by server-side proxying. Build and preview with:
+
+```bash
+bun run build
+bun run cf:preview
 ```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate stock list, trending, detail, and price-history query inputs.
+ */
 import { z } from 'zod'
 
 export const priceHistoryQuerySchema = z.object({

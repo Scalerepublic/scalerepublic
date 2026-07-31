@@ -1,3 +1,6 @@
+/**
+ * Purpose: Persist, list, count, and mark notifications while enforcing per-user ownership.
+ */
 import { and, desc, eq, sql } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';

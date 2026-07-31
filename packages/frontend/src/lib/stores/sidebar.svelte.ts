@@ -1,3 +1,6 @@
+/**
+ * Purpose: Hold the reactive open state of the mobile navigation sidebar.
+ */
 class SidebarStore {
 	collapsed = $state(false);
 

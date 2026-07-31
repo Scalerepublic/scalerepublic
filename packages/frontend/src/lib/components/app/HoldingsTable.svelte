@@ -1,3 +1,6 @@
+<!--
+  Purpose: Render portfolio positions and initiate sell flows.
+-->
 <script lang="ts">
 	import NobleButton from './NobleButton.svelte';
 	import StockDetailSheet from './StockDetailSheet.svelte';

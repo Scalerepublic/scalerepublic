@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate and serve authenticated automatic-order list, create, and cancel endpoints.
+ */
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 

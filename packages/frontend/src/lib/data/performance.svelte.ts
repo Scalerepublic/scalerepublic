@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose portfolio-performance queries for a reactive selected time range.
+ */
 import { createQuery } from '@tanstack/svelte-query';
 
 import { performanceQuery } from '$lib/api/queries';

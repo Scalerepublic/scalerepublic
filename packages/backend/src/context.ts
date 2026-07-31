@@ -1,3 +1,6 @@
+/**
+ * Purpose: Wire the request-scoped database, authentication, market-data client, and domain services used by every backend feature.
+ */
 import type { Context, Hono } from 'hono'
 
 import { db as defaultDb, type DbConnection } from './db/index.ts'
@@ -57,6 +60,8 @@ export const createAppContext = (
     db: DbConnection = defaultDb,
     options: AppContextOptions = {},
 ): AppVars => {
+    // Services share one context and call one another, so the container is populated in two
+    // phases: establish the database first, then attach every adapter/service to that object.
     const ctx = { db } as AppVars
     ctx.auth = createAuth(db, options.auth)
     if (process.env.NODE_ENV === 'test' || isMarketDebugEnabled()) {

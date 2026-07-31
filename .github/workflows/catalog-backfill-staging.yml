@@ -1,3 +1,5 @@
+# Purpose: Incrementally enrich the staging ticker catalog within the university API rate limit.
+
 name: Catalog backfill (staging)
 
 on:

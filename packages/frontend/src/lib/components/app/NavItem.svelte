@@ -1,3 +1,6 @@
+<!--
+  Purpose: Render a reusable responsive navigation link.
+-->
 <script lang="ts">
 	import { page } from '$app/state';
 	import type { RouteId } from '$app/types';

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose the leaderboard query as Svelte-friendly reactive state.
+ */
 import { createQuery } from '@tanstack/svelte-query';
 
 import { leaderboardQuery } from '$lib/api/queries';

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Resolve the current session for protected routes and reject anonymous requests.
+ */
 import { HTTPException } from 'hono/http-exception';
 
 import { useCtx, type AppContext } from '../context.ts';

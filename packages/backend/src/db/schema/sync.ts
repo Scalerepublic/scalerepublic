@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define the sync tables, constraints, indexes, relations, and inferred row types.
+ */
 import { pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 export const syncJob = pgTable('sync_job', {

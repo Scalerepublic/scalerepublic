@@ -1,3 +1,6 @@
+/**
+ * Purpose: Seed deterministic demo stocks and price history while remaining safe to run repeatedly.
+ */
 import { eq, inArray } from 'drizzle-orm';
 import seedrandom from 'seedrandom';
 

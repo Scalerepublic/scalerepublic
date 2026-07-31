@@ -1,3 +1,6 @@
+<!--
+  Purpose: Standardize section titles and optional actions.
+-->
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';

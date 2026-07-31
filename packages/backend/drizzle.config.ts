@@ -1,3 +1,6 @@
+/**
+ * Purpose: Configure Drizzle Kit schema discovery and database connectivity.
+ */
 import type { Config } from 'drizzle-kit'
 
 import { resolveDatabaseUrl } from './src/lib/resolve-database-url.ts'

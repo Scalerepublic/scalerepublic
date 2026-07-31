@@ -1,3 +1,6 @@
+/**
+ * Purpose: Normalize Postgres URLs and require TLS parameters for hosted database connections.
+ */
 export const resolveDatabaseUrl = (url = process.env.DATABASE_URL): string => {
     if (url === undefined || url === '') {
         throw new Error('DATABASE_URL is not set')

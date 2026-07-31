@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose the backend HTTP handler, Cloudflare scheduled handler, and local Bun scheduler.
+ */
 import type { ExecutionContext } from "@cloudflare/workers-types";
 
 import { createApp, createWorkerContext, type WorkerBindings } from "./app.ts";

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Keep the UI's simulated market clock aligned with backend debug state.
+ */
 import { setDemoMarketDate } from '$lib/demo-market-date';
 
 type MarketClock = {

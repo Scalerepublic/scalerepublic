@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose reactive authentication state and sign-out behavior to the application shell.
+ */
 import { authClient } from '$lib/auth-client';
 
 type SessionAtomValue = ReturnType<ReturnType<typeof authClient.useSession>['get']>;

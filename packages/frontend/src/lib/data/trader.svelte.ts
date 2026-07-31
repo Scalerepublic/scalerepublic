@@ -1,3 +1,6 @@
+/**
+ * Purpose: Combine a public trader's profile, portfolio, and performance queries.
+ */
 import { createQuery } from '@tanstack/svelte-query';
 
 import { portfolioView } from '$lib/data/portfolio-view';

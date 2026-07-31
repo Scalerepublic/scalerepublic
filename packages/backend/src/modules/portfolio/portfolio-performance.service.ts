@@ -1,3 +1,6 @@
+/**
+ * Purpose: Reconstruct portfolio value over time from trades, cash movements, holdings, and historical prices.
+ */
 import { and, asc, eq } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';
@@ -77,6 +80,11 @@ type PriceTracker = {
 
 type ExecutedTrade = typeof trade.$inferSelect;
 
+/**
+ * Replays the trade ledger to value a portfolio at historical points. Cash and holdings are
+ * derived from executed trades; market value is then joined to the most recent price known at
+ * each point, preventing future prices from leaking into past performance.
+ */
 export class PortfolioPerformanceService {
     constructor(private readonly ctx: AppVars) {}
 
@@ -169,6 +177,10 @@ export class PortfolioPerformanceService {
         return [...stockIds];
     }
 
+    /**
+     * Intraday charts are event-driven: points are emitted at the session open, every trade,
+     * every quote, and the requested end time rather than inventing evenly spaced observations.
+     */
     private async getIntradayPerformance(
         startingCapital: number,
         trades: ExecutedTrade[],
@@ -279,6 +291,8 @@ export class PortfolioPerformanceService {
         const holdings = new Map<string, number>();
         const start = startOfUtcDay(portfolio.createdAt);
 
+        // Advancing the price trackers makes this O(days + trades + prices), rather than running
+        // a database query for every day in the chart window.
         for (let cursor = new Date(start); cursor <= calendarEnd; cursor = addUtcDays(cursor, 1)) {
             const dayIso = toUtcDateIso(cursor);
             const dayEnd = endOfUtcDay(dayIso);

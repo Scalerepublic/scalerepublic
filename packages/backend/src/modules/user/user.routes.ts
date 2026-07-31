@@ -1,3 +1,6 @@
+/**
+ * Purpose: Serve user search, public profile, performance, net-worth, and deletion endpoints.
+ */
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 

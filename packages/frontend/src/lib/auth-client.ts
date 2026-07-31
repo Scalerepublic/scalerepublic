@@ -1,3 +1,6 @@
+/**
+ * Purpose: Configure the better-auth browser client against the first-party SvelteKit auth proxy.
+ */
 import { createAuthClient } from 'better-auth/svelte';
 
 export const authClient = createAuthClient({

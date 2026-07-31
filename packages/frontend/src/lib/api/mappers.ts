@@ -1,3 +1,6 @@
+/**
+ * Purpose: Translate backend transport objects into the view models consumed by Svelte components.
+ */
 import type {
 	BackendLeaderboardEntry,
 	BackendPortfolioPayload,

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate portfolio identifiers, performance ranges, and buy/sell order bodies.
+ */
 import { z } from "zod";
 
 export const portfolioIdParamSchema = z.object({

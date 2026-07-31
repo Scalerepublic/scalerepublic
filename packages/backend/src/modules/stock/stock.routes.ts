@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate and serve stock catalog, sector, trending, history, and detail endpoints.
+ */
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 

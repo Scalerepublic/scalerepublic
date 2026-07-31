@@ -1,3 +1,6 @@
+/**
+ * Purpose: Expose portfolio and automatic-order queries and mutations as reactive Svelte state.
+ */
 import { createMutation, createQuery } from '@tanstack/svelte-query';
 
 import { portfolioView } from '$lib/data/portfolio-view';

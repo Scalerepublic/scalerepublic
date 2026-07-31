@@ -1,3 +1,6 @@
+/**
+ * Purpose: Describe fictional seed stocks and the price-behavior archetype assigned to each.
+ */
 export type Archetype = 'steady_growth' | 'explosive_growth' | 'slow_decline' | 'stagnation';
 
 export type StockDef = {

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Mount better-auth handlers and the application's password-validation endpoint.
+ */
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 

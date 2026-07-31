@@ -1,3 +1,6 @@
+/**
+ * Purpose: Provide static stocks fixtures for offline UI work and demonstrations.
+ */
 import type { Stock } from '$lib/types';
 
 type MockStock = Omit<Stock, 'id'>;

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Declare application-wide TypeScript types exposed by SvelteKit and Vite.
+ */
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {

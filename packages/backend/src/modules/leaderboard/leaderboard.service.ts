@@ -1,3 +1,6 @@
+/**
+ * Purpose: Rank eligible traders by portfolio performance with stable pagination and user-relative results.
+ */
 import { and, count, desc, eq, inArray, max } from 'drizzle-orm';
 
 import type { AppVars } from '../../context.ts';

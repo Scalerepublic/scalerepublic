@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate password strength and hash or verify credentials across Bun and Worker runtimes.
+ */
 // Password hashing for the Cloudflare Workers runtime.
 //
 // better-auth's default hasher is a pure-JS scrypt implementation, which is

@@ -1,3 +1,5 @@
+# Purpose: Build the SvelteKit frontend and package its Cloudflare production output.
+
 FROM oven/bun:1 AS build
 WORKDIR /workspace
 

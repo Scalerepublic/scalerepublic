@@ -1,3 +1,6 @@
+<!--
+  Purpose: Summarize cash, holdings, value, and gain/loss.
+-->
 <script lang="ts">
 	import { cn, formatCurrency } from '$lib/utils';
 

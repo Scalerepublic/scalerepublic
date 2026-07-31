@@ -1,3 +1,6 @@
+/**
+ * Purpose: Export Hono's type-safe client factory for frontend use.
+ */
 import { hc } from "hono/client";
 
 import type { ApiRoutesType } from "./index.ts";

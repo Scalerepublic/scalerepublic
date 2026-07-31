@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate leaderboard pagination inputs.
+ */
 import { z } from "zod";
 
 export const leaderboardQuerySchema = z.object({

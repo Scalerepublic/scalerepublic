@@ -1,3 +1,6 @@
+<!--
+  Purpose: Present portfolio totals, recent activity, and market highlights.
+-->
 <script lang="ts">
 	import { getPortfolio } from '$lib/data/portfolio.svelte';
 	import { getUserProfile } from '$lib/data/user.svelte';

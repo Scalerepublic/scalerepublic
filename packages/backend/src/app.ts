@@ -1,3 +1,6 @@
+/**
+ * Purpose: Compose the Hono application for Bun and Cloudflare, attach shared context, mount feature routers, and normalize API errors.
+ */
 import type { Fetcher } from "@cloudflare/workers-types";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";

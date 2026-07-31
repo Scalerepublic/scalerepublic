@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define curated market sectors and their ticker membership for browse filters and category cards.
+ */
 export type MarketSectorId =
     | 'technology'
     | 'media'

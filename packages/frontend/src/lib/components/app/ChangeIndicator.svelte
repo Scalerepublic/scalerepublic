@@ -1,3 +1,6 @@
+<!--
+  Purpose: Present signed performance with consistent visual semantics.
+-->
 <script lang="ts">
 	import { TrendingUp, TrendingDown, Minus } from '@lucide/svelte';
 	import { cn, formatCurrency, formatPercent } from '$lib/utils';

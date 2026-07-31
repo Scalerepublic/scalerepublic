@@ -1,3 +1,6 @@
+<!--
+  Purpose: Associate a label, input, hint, and validation error accessibly.
+-->
 <script lang="ts">
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import type { Snippet } from 'svelte';

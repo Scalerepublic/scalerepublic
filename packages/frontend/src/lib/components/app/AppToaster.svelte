@@ -1,3 +1,6 @@
+<!--
+  Purpose: Render global toast notifications.
+-->
 <script lang="ts">
 	import { Toaster, type ToastOptions } from 'svelte-sonner';
 

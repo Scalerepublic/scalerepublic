@@ -1,3 +1,6 @@
+/*
+ * Purpose: Define global design tokens, typography, responsive foundations, and shared utilities.
+ */
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import '@fontsource-variable/inter';

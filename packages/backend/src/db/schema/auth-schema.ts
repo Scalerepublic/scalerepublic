@@ -1,3 +1,6 @@
+/**
+ * Purpose: Define the auth schema tables, constraints, indexes, relations, and inferred row types.
+ */
 import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 

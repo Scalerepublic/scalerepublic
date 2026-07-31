@@ -1,3 +1,6 @@
+<!--
+  Purpose: Standardize page titles, subtitles, and actions.
+-->
 <script lang="ts">
 	let {
 		title,

@@ -1,3 +1,6 @@
+<!--
+  Purpose: Show performance, holdings, transactions, and order management.
+-->
 <script lang="ts">
 	import { getPortfolio } from '$lib/data/portfolio.svelte';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';

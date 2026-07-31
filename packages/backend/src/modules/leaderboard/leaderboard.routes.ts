@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate pagination and serve the authenticated leaderboard endpoint.
+ */
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 

@@ -1,3 +1,6 @@
+/**
+ * Purpose: Validate automatic-order identifiers, trigger direction, price, quantity, and expiry.
+ */
 import { z } from "zod";
 
 export const autoTradeIdParamSchema = z.object({

@@ -1,3 +1,6 @@
+<!--
+  Purpose: Show ranked traders with pagination and public-profile links.
+-->
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import PageHeader from '$lib/components/app/PageHeader.svelte';
